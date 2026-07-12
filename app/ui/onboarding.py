@@ -28,6 +28,7 @@ from version import APP_NAME
 _INK = "#0F1B2D"
 _MUTED = "#6B7280"
 _BLUE = "#3B4DF0"
+_CHEVRON = resource_path("assets/chevron.png").as_posix()
 
 _QSS = f"""
 QDialog {{ background: #ffffff; }}
@@ -45,12 +46,12 @@ QCheckBox {{ background: transparent; }}
 QLabel#field_label {{ color: {_MUTED}; font-size: 11px; font-weight: 700; letter-spacing: 0.4px; }}
 QLabel#hint {{ color: {_MUTED}; font-size: 12px; }}
 #page QLineEdit, #page QComboBox {{
-    background: #F4F6FB; border: 1px solid #E3E6EF; border-radius: 9px;
+    background: #F4F6FB; border: 1px solid #E3E6EF; border-radius: 8px;
     padding: 9px 12px; color: {_INK}; font-size: 13.5px; min-height: 20px;
 }}
 #page QLineEdit:focus, #page QComboBox:focus {{ border: 1px solid {_BLUE}; background: #ffffff; }}
-#page QComboBox::drop-down {{ border: none; width: 22px; }}
-#page QComboBox::down-arrow {{ image: none; width: 0; height: 0; }}
+#page QComboBox::drop-down {{ border: none; background: transparent; width: 26px; }}
+#page QComboBox::down-arrow {{ image: url("{_CHEVRON}"); width: 13px; height: 13px; }}
 #page QComboBox QAbstractItemView {{
     background: #ffffff; color: {_INK}; border: 1px solid #E3E6EF;
     selection-background-color: #E8ECFD; selection-color: {_INK}; outline: none;
@@ -152,6 +153,7 @@ class OnboardingWindow(QDialog):
         comp = QCompleter(PROVINCIAS_AR)
         comp.setCaseSensitivity(Qt.CaseInsensitive)
         comp.setFilterMode(Qt.MatchContains)
+        comp.setCompletionMode(QCompleter.PopupCompletion)
         combo.setCompleter(comp)
         return combo
 
