@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTabWidget, QFormLayout, QLineEdit,
-    QPushButton, QLabel, QTableWidget, QTableWidgetItem, QComboBox,
+    QPushButton, QLabel, QTableWidget, QTableWidgetItem,
     QHeaderView, QAbstractItemView, QDialog, QCheckBox, QMessageBox,
     QFileDialog, QFrame, QScrollArea,
 )
@@ -15,7 +15,7 @@ from utils.helpers import leer_tema, valor_valido, parse_float, set_moneda, COND
 
 
 class ConfiguracionWidget(QWidget):
-    def __init__(self, db, parent=None):
+    def __init__(self, db, parent=None, on_empresa_changed=None):
         super().__init__(parent)
         self.db = db
         layout = QVBoxLayout(self)
@@ -23,7 +23,7 @@ class ConfiguracionWidget(QWidget):
 
         self._tabs = QTabWidget()
         self._tabs.setDocumentMode(True)
-        self._empresa = EmpresaTab(db, parent=self)
+        self._empresa = EmpresaTab(db, parent=self, on_empresa_changed=on_empresa_changed)
         self._iva = IvaTab(db, parent=self)
         self._forma_pago = FormaPagoTab(db, parent=self)
         self._tabs.addTab(self._empresa, "Mi empresa")
@@ -43,9 +43,10 @@ class ConfiguracionWidget(QWidget):
 
 
 class EmpresaTab(QWidget):
-    def __init__(self, db, parent=None):
+    def __init__(self, db, parent=None, on_empresa_changed=None):
         super().__init__(parent)
         self.db = db
+        self._on_empresa_changed = on_empresa_changed
         self._pal = get_palette(leer_tema(db))
 
         # A zoom alto (o ventana chica) las 14 filas del formulario más el
@@ -215,6 +216,8 @@ class EmpresaTab(QWidget):
         # Actualizar la moneda global para que los importes se reformateen
         # (ej. cambiar de '$' a 'US$') sin reiniciar la app.
         set_moneda(self._moneda.text().strip() or "$")
+        if self._on_empresa_changed:
+            self._on_empresa_changed()  # refresca el nombre en la sidebar/estado
         QMessageBox.information(self, "Guardado", "Datos de la empresa actualizados.")
 
 

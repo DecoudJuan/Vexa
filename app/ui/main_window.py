@@ -85,7 +85,8 @@ class MainWindow(QMainWindow):
         self._add_page("conceptos", ConceptosWidget(self.db))
         self._add_page("documentos", DocumentosWidget(self.db))
         self._add_page("cobros", CobrosWidget(self.db))
-        self._add_page("configuracion", ConfiguracionWidget(self.db))
+        self._add_page("configuracion",
+                       ConfiguracionWidget(self.db, on_empresa_changed=self.actualizar_marca))
 
         self._build_statusbar()
 
@@ -255,9 +256,18 @@ class MainWindow(QMainWindow):
 
     def _build_statusbar(self) -> None:
         sb = self.statusBar()
-        lbl = QLabel(f"  {self._empresa_nombre()}")
-        lbl.setObjectName("status_rate")
-        sb.addWidget(lbl)
+        self._status_lbl = QLabel(f"  {self._empresa_nombre()}")
+        self._status_lbl.setObjectName("status_rate")
+        sb.addWidget(self._status_lbl)
+
+    def actualizar_marca(self) -> None:
+        """Refresca el nombre de la empresa en la sidebar y la barra de estado
+        (se llama al guardar los datos de empresa en Configuración)."""
+        nombre = self._empresa_nombre()
+        if hasattr(self, "_brand_sub"):
+            self._brand_sub.setText(nombre)
+        if hasattr(self, "_status_lbl"):
+            self._status_lbl.setText(f"  {nombre}")
 
     def _add_page(self, key: str, widget: QWidget) -> None:
         self.pages[key] = widget
