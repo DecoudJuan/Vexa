@@ -65,12 +65,22 @@ class DatabaseManager:
     # existentes (create_all no toca tablas que ya existen). Es DDL puntual de
     # compatibilidad, no consultas de datos.
     _COLUMNAS_NUEVAS = {
-        "clientes": [("bonificacion", "REAL DEFAULT 0")],
+        "clientes": [
+            ("bonificacion", "REAL DEFAULT 0"),
+            ("condicion_iva", "TEXT"),
+        ],
         "facturas": [
             ("bonificacion", "REAL DEFAULT 0"),
             ("aplica_bonificacion", "INTEGER DEFAULT 0"),
         ],
         "conceptos": [("codigo", "TEXT")],
+        "datos_empresa": [
+            ("condicion_iva", "TEXT"),
+            ("ingresos_brutos", "TEXT"),
+            ("inicio_actividades", "TEXT"),
+            ("punto_venta", "TEXT"),
+            ("afip_habilitado", "INTEGER DEFAULT 0"),
+        ],
     }
 
     def init_db(self) -> None:
@@ -146,6 +156,8 @@ class DatabaseManager:
             "telefono", "fax", "email", "web", "iva_defecto", "iva_texto",
             "moneda", "sufijo", "pie_pagina", "logo_path",
             "ccc1", "ccc2", "ccc3", "ccc4", "ccce1", "ccce2",
+            "condicion_iva", "ingresos_brutos", "inicio_actividades",
+            "punto_venta", "afip_habilitado",
         ]
         with self._session() as s:
             obj = s.get(DatosEmpresa, 1)
@@ -238,7 +250,7 @@ class DatabaseManager:
         "nombre", "nif", "direccion", "cp", "localidad", "provincia",
         "telefono1", "fax", "email", "persona_contacto", "comentarios",
         "forma_pago_id", "banco", "ccc1", "ccc2", "ccc3", "ccc4",
-        "retencion", "recargo_equiv", "bonificacion",
+        "retencion", "recargo_equiv", "bonificacion", "condicion_iva",
     ]
     _CLIENTE_DEFAULTS = {"retencion": 0, "recargo_equiv": 0, "bonificacion": 0}
 
