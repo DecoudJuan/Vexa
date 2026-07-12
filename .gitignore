@@ -1,0 +1,63 @@
+# ============================================================================
+#  Facturación — .gitignore
+# ============================================================================
+
+# --- Datos sensibles / privados (¡NUNCA subir a GitHub!) ---------------------
+# Sistema Access legacy con datos reales de clientes (fuente de migración).
+Modelo Actual - Access/
+# Paquete de distribución al usuario final (incluye la base con datos).
+Distribucion/
+
+# Bases de datos y formatos con datos
+*.mdb
+*.accdb
+*.mde
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+
+# Listas de precios y planillas reales (importación Excel)
+*.xls
+*.xlsx
+*.xlsm
+
+# PDFs generados (facturas/remesas reales)
+*.pdf
+documentosPDF/
+
+# --- Artefactos de build (PyInstaller) ---------------------------------------
+app/packaging/build/
+app/packaging/dist/
+build/
+dist/
+*.manifest
+
+# --- Python ------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Entornos virtuales
+.venv/
+venv/
+env/
+ENV/
+
+# --- Herramientas / IDE / editores -------------------------------------------
+.claude/
+.idea/
+.vscode/
+*.swp
+*~
+
+# --- Sistema operativo -------------------------------------------------------
+Thumbs.db
+desktop.ini
+.DS_Store
