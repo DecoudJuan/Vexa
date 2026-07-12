@@ -90,6 +90,31 @@ PROVINCIAS_AR = [
 ]
 
 
+# Condiciones frente al IVA (AR). Se usan en el alta de empresa y de cliente,
+# y definen la letra del comprobante.
+CONDICIONES_IVA = [
+    "Responsable Inscripto",
+    "Monotributo",
+    "Exento",
+    "Consumidor Final",
+]
+
+
+def letra_comprobante(emisor_cond: str | None, receptor_cond: str | None) -> str:
+    """Letra del comprobante según la condición frente al IVA del emisor y el
+    receptor (regla AR simplificada):
+      - Emisor Responsable Inscripto → 'A' a otro RI, 'B' al resto.
+      - Emisor Monotributo o Exento → 'C'.
+      - Sin condición de emisor definida → 'X' (comprobante no fiscal)."""
+    emisor = (emisor_cond or "").strip().lower()
+    receptor = (receptor_cond or "").strip().lower()
+    if emisor.startswith("responsable"):
+        return "A" if receptor.startswith("responsable") else "B"
+    if emisor.startswith("monotributo") or emisor.startswith("exento"):
+        return "C"
+    return "X"
+
+
 def valor_valido(valor: str | None) -> str | None:
     """Filtra los placeholders "sin dato" que dejó la migración de Access
     en campos que en la vida real siempre tienen números (CUIT/NIF, código

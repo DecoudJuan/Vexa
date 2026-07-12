@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTabWidget, QFormLayout, QLineEdit,
-    QPushButton, QLabel, QTableWidget, QTableWidgetItem,
+    QPushButton, QLabel, QTableWidget, QTableWidgetItem, QComboBox,
     QHeaderView, QAbstractItemView, QDialog, QCheckBox, QMessageBox,
     QFileDialog, QFrame, QScrollArea,
 )
@@ -10,8 +10,8 @@ from PySide6.QtGui import QDoubleValidator, QIntValidator
 from ui.icons import svg_icon
 from ui.styles import get_palette
 from ui.modal import BaseModal
-from ui.widgets import fila as _fila
-from utils.helpers import leer_tema, valor_valido, parse_float, set_moneda
+from ui.widgets import fila as _fila, NoScrollComboBox
+from utils.helpers import leer_tema, valor_valido, parse_float, set_moneda, CONDICIONES_IVA
 
 
 class ConfiguracionWidget(QWidget):
@@ -77,6 +77,9 @@ class EmpresaTab(QWidget):
 
         self._nombre = QLineEdit()
         self._nif = QLineEdit()
+        self._condicion_iva = NoScrollComboBox()
+        self._condicion_iva.addItem("")
+        self._condicion_iva.addItems(CONDICIONES_IVA)
         self._direccion = QLineEdit()
         self._cp = QLineEdit()
         self._localidad = QLineEdit()
@@ -87,9 +90,16 @@ class EmpresaTab(QWidget):
         self._moneda = QLineEdit()
         self._sufijo = QLineEdit()
         self._pie_pagina = QLineEdit()
+        # Datos fiscales / AFIP (opcionales; la integración real es Fase 4).
+        self._ingresos_brutos = QLineEdit()
+        self._inicio_actividades = QLineEdit()
+        self._punto_venta = QLineEdit()
+        self._punto_venta.setPlaceholderText("Ej. 0001")
+        self._afip = QCheckBox("Emitir comprobantes electrónicos vía AFIP (Fase 4)")
 
         f.addRow("Nombre / razón social", self._nombre)
-        f.addRow("NIF/CUIT", self._nif)
+        f.addRow("CUIT", self._nif)
+        f.addRow("Condición frente al IVA", self._condicion_iva)
         f.addRow("Dirección", self._direccion)
         f.addRow("C.P.", self._cp)
         f.addRow("Localidad", self._localidad)
@@ -98,6 +108,10 @@ class EmpresaTab(QWidget):
         f.addRow("Email", self._email)
         f.addRow("Web", self._web)
         f.addRow("Moneda", self._moneda)
+        f.addRow("Ingresos Brutos", self._ingresos_brutos)
+        f.addRow("Inicio de actividades", self._inicio_actividades)
+        f.addRow("Punto de venta", self._punto_venta)
+        f.addRow("Facturación electrónica", self._afip)
         f.addRow("Sufijo numeración", self._sufijo)
         f.addRow("Pie de página (PDF)", self._pie_pagina)
         layout.addLayout(f)
@@ -151,6 +165,11 @@ class EmpresaTab(QWidget):
         self._email.setText(e.get("email") or "")
         self._web.setText(e.get("web") or "")
         self._moneda.setText(e.get("moneda") or "$")
+        self._condicion_iva.setCurrentText(e.get("condicion_iva") or "")
+        self._ingresos_brutos.setText(e.get("ingresos_brutos") or "")
+        self._inicio_actividades.setText(e.get("inicio_actividades") or "")
+        self._punto_venta.setText(e.get("punto_venta") or "")
+        self._afip.setChecked(bool(e.get("afip_habilitado")))
         self._sufijo.setText(e.get("sufijo") or "")
         self._pie_pagina.setText(e.get("pie_pagina") or "")
         self._logo_path.setText(e.get("logo_path") or "")
@@ -187,6 +206,11 @@ class EmpresaTab(QWidget):
             "logo_path": self._logo_path.text().strip() or None,
             "ccc1": None, "ccc2": None, "ccc3": None, "ccc4": None,
             "ccce1": None, "ccce2": None,
+            "condicion_iva": self._condicion_iva.currentText().strip() or None,
+            "ingresos_brutos": self._ingresos_brutos.text().strip() or None,
+            "inicio_actividades": self._inicio_actividades.text().strip() or None,
+            "punto_venta": self._punto_venta.text().strip() or None,
+            "afip_habilitado": 1 if self._afip.isChecked() else 0,
         })
         # Actualizar la moneda global para que los importes se reformateen
         # (ej. cambiar de '$' a 'US$') sin reiniciar la app.

@@ -17,15 +17,17 @@ Llevar la app (hoy funcional para uso interno, **licencia de escritorio**) a un
       configurable vía `FACTURACION_DATA_DIR`.
 
 ## Fase 1 — White-label + onboarding + factura modelo AR
-- [ ] Quitar hardcodes: `(Hernan)` en `utils/pdf_generator.py`,
+- [x] Quitar hardcodes: `(Hernan)` en `utils/pdf_generator.py`,
       `AppPublisher=ADHER-NEO` en `packaging/installer.iss`, docstring de
       `utils/excel_import.py`.
-- [ ] **Wizard de primera ejecución** (si no hay empresa configurada): razón
+- [x] **Wizard de primera ejecución** (si no hay empresa configurada): razón
       social, CUIT, condición frente al IVA, Ingresos Brutos, inicio de
-      actividades, domicilio, logo, moneda, punto de venta.
-- [ ] **PDF con layout de factura argentina**: recuadro con letra (A/B/C/X),
-      emisor + condición IVA, receptor + CUIT, IVA discriminado, pie. Todo de config.
-- [ ] **Factura simple / no fiscal** (rotulada) coexistiendo con la fiscal.
+      actividades, domicilio, logo, moneda, punto de venta. (AFIP opcional vía
+      toggle; los campos fiscales se editan también en Configuración.)
+- [x] **PDF con layout de factura argentina**: recuadro con letra (A/B/C/X),
+      emisor + condición IVA, receptor + CUIT, IVA discriminado (letra A), pie.
+- [x] **Factura simple / no fiscal**: se emite con la leyenda "DOCUMENTO NO
+      VÁLIDO COMO FACTURA" hasta integrar AFIP (Fase 4), con el mismo layout.
 
 ## Fase 2 — Import flexible (mapeo de columnas)
 - [ ] Lector con mapeo configurable (`nombre`/`precio`/`codigo`/`talle`) +

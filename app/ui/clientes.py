@@ -14,7 +14,10 @@ from ui.styles import get_palette
 from ui.base_page import ListPage
 from ui.modal import BaseModal, modal_colors
 from ui.widgets import avatar, NoScrollComboBox
-from utils.helpers import leer_zoom, leer_tema, valor_valido, fmt_ar, parse_float, PROVINCIAS_AR
+from utils.helpers import (
+    leer_zoom, leer_tema, valor_valido, fmt_ar, parse_float, PROVINCIAS_AR,
+    CONDICIONES_IVA,
+)
 
 _SEARCH_MAXW, _ROW_H = 400, 44
 _HEADER_DEFAULT, _HEADER_MIN = 150, 80
@@ -305,6 +308,13 @@ class ClienteDialog(BaseModal):
         self._cuits = CuitListEditor(theme=self._theme_str)
         c.addLayout(self._labeled("CUIT / CUIL", self._cuits))
 
+        self._condicion_iva = NoScrollComboBox()
+        self._condicion_iva.setObjectName("field")
+        self._condicion_iva.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
+        self._condicion_iva.addItem("")
+        self._condicion_iva.addItems(CONDICIONES_IVA)
+        c.addLayout(self._labeled("CONDICIÓN IVA", self._condicion_iva))
+
         self._direccion = QLineEdit()
         self._direccion.setObjectName("field")
         c.addLayout(self._labeled("DIRECCIÓN", self._direccion))
@@ -393,6 +403,7 @@ class ClienteDialog(BaseModal):
         self._fax.setText(c.get("fax") or "")
         self._email.setText(c.get("email") or "")
         self._persona_contacto.setText(c.get("persona_contacto") or "")
+        self._condicion_iva.setCurrentText(c.get("condicion_iva") or "")
         idx = self._forma_pago.findData(c.get("forma_pago_id"))
         self._forma_pago.setCurrentIndex(max(idx, 0))
         self._banco.setText(c.get("banco") or "")
@@ -421,6 +432,7 @@ class ClienteDialog(BaseModal):
             "fax": self._fax.text().strip() or None,
             "email": self._email.text().strip() or None,
             "persona_contacto": self._persona_contacto.text().strip() or None,
+            "condicion_iva": self._condicion_iva.currentText().strip() or None,
             "forma_pago_id": self._forma_pago.currentData(),
             "banco": self._banco.text().strip() or None,
             "ccc1": None, "ccc2": None, "ccc3": None, "ccc4": None,

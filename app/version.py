@@ -1,1 +1,4 @@
-VERSION = "2.1.0"
+VERSION = "2.2.0"
+
+# Nombre de la aplicación / marca. Se cambia acá una sola vez (white-label).
+APP_NAME = "Vexa"

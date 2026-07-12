@@ -1,8 +1,9 @@
-"""Importador de listas de precios en Excel (formato AdherNeo: hoja con
-columnas 'ARTICULOS' / 'PRECIO', ej. 'LISTA DE PRECIOS 11 de JULIO 2022.xlsm').
+"""Importador de listas de precios en Excel: busca en cada hoja una tabla con
+columnas 'ARTICULOS' / 'PRECIO' (saltando filas de membrete).
 
 Soporta .xlsx / .xlsm (vía openpyxl). El formato binario legacy .xls no está
-soportado.
+soportado. (La Fase 2 del roadmap lo reemplaza por un importador con mapeo de
+columnas configurable.)
 """
 
 import openpyxl

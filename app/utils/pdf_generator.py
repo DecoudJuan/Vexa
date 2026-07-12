@@ -11,7 +11,10 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_RIGHT
 
 from database.db import DATA_DIR
-from utils.helpers import fmt_ar, fmt_fecha, nombre_sin_talle, valor_valido, etiqueta_concepto
+from utils.helpers import (
+    fmt_ar, fmt_fecha, nombre_sin_talle, valor_valido, etiqueta_concepto,
+    letra_comprobante,
+)
 from utils.resources import resource_path
 
 PDF_DIR_DEFECTO = DATA_DIR / "pdf"
@@ -54,26 +57,35 @@ def generar_pdf_documento(db, factura_id: int) -> str:
     titulo = _TITULOS.get(tipo, tipo)
     numero_doc = f"{tipo}-{doc.get('ejercicio')}-{doc.get('numero') or ''}"
 
+    # Letra del comprobante según condición IVA de emisor y receptor.
+    letra = letra_comprobante(empresa.get("condicion_iva"), cliente.get("condicion_iva"))
+    # Numeración modelo AR (Punto de venta - Nº) si hay punto de venta cargado.
+    pv = (empresa.get("punto_venta") or "").strip()
+    num = (doc.get("numero") or "").strip()
+    numero_fmt = f"{pv.zfill(4)}-{num.zfill(8)}" if pv else numero_doc
+    # Sin CAE de AFIP todavía (Fase 4) → todos los comprobantes son no fiscales.
+    no_valido = not doc.get("cae")
+
     carpeta = obtener_carpeta_pdf(db)
     carpeta.mkdir(parents=True, exist_ok=True)
     out_path = carpeta / f"{_slug(numero_doc)}.pdf"
 
     pdf_doc = SimpleDocTemplate(
         str(out_path), pagesize=A4,
-        topMargin=45 * mm, bottomMargin=20 * mm,
+        topMargin=56 * mm, bottomMargin=20 * mm,
         leftMargin=18 * mm, rightMargin=18 * mm,
     )
 
     def _on_page(canvas, _doc):
         canvas.saveState()
-        _dibujar_encabezado(canvas, empresa, cliente, titulo, numero_doc, doc)
+        _dibujar_encabezado(canvas, empresa, cliente, titulo, numero_fmt, letra, doc, no_valido)
         canvas.restoreState()
 
     story = []
     story.append(Spacer(1, 4 * mm))
     story.append(_tabla_lineas(lineas))
     story.append(Spacer(1, 6 * mm))
-    story.append(_tabla_totales(doc, lineas, suplidos, tipo))
+    story.append(_tabla_totales(doc, lineas, suplidos, tipo, empresa, letra))
 
     if doc.get("comentarios"):
         story.append(Spacer(1, 6 * mm))
@@ -83,49 +95,99 @@ def generar_pdf_documento(db, factura_id: int) -> str:
     return str(out_path)
 
 
-def _dibujar_encabezado(canvas, empresa, cliente, titulo, numero_doc, doc):
-    from reportlab.lib.pagesizes import A4
+def _dibujar_encabezado(canvas, empresa, cliente, titulo, numero_fmt, letra, doc, no_valido):
+    """Encabezado con el layout de comprobante argentino: marco con recuadro de
+    letra (A/B/C/X) al centro, emisor a la izquierda, datos del comprobante a la
+    derecha, y bloque del receptor. Si aún no es fiscal, leyenda 'no válido'."""
     width, height = A4
+    left = 18 * mm
+    right = width - 18 * mm
+    top = height - 14 * mm
+    mid_x = width / 2
+    box_bottom = height - 46 * mm
 
+    canvas.setStrokeColor(colors.HexColor("#333333"))
+    canvas.setLineWidth(0.8)
+    canvas.rect(left, box_bottom, right - left, top - box_bottom)
+    canvas.line(mid_x, height - 30 * mm, mid_x, top)  # divisor de la banda superior
+
+    # Recuadro de la letra (centrado, pisando el divisor)
+    lb = 14 * mm
+    canvas.setFillColor(colors.white)
+    canvas.rect(mid_x - lb / 2, top - lb, lb, lb, stroke=1, fill=1)
+    canvas.setFillColor(colors.black)
+    canvas.setFont("Helvetica-Bold", 22)
+    canvas.drawCentredString(mid_x, top - lb + 4 * mm, letra or "X")
+    canvas.setFont("Helvetica", 6)
+    canvas.drawCentredString(mid_x, top - lb + 0.5 * mm, "COMPROBANTE")
+
+    # --- Emisor (izquierda) ---
     logo_path = empresa.get("logo_path") or str(resource_path("assets/logo.png"))
     try:
         from reportlab.lib.utils import ImageReader
         img = ImageReader(logo_path)
-        canvas.drawImage(img, 18 * mm, height - 38 * mm, width=28 * mm, height=20 * mm,
+        canvas.drawImage(img, left + 2 * mm, top - 16 * mm, width=24 * mm, height=13 * mm,
                           preserveAspectRatio=True, mask="auto")
     except Exception:
         pass
-
-    canvas.setFont("Helvetica-Bold", 11)
-    canvas.drawString(50 * mm, height - 22 * mm, empresa.get("nombre") or "")
+    canvas.setFont("Helvetica-Bold", 12)
+    canvas.drawString(left + 2 * mm, top - 20 * mm, empresa.get("nombre") or "")
     canvas.setFont("Helvetica", 8)
-    lineas_empresa = [
+    y = top - 24 * mm
+    for linea in (
         empresa.get("direccion") or "",
-        f"{valor_valido(empresa.get('cp')) or ''} {empresa.get('localidad') or ''}".strip(),
-        f"Tel: {empresa.get('telefono')} (Hernan)" if empresa.get("telefono") else "",
-    ]
-    y = height - 27 * mm
-    for linea in lineas_empresa:
+        f"{valor_valido(empresa.get('cp')) or ''} {empresa.get('localidad') or ''} "
+        f"{empresa.get('provincia') or ''}".strip(),
+        f"Tel: {empresa.get('telefono')}" if empresa.get("telefono") else "",
+    ):
         if linea:
-            canvas.drawString(50 * mm, y, linea)
+            canvas.drawString(left + 2 * mm, y, linea)
             y -= 4 * mm
 
-    canvas.setFont("Helvetica-Bold", 18)
-    canvas.drawRightString(width - 18 * mm, height - 20 * mm, titulo)
-    canvas.setFont("Helvetica", 10)
-    canvas.drawRightString(width - 18 * mm, height - 27 * mm, numero_doc)
-    canvas.drawRightString(width - 18 * mm, height - 32 * mm, f"Fecha: {fmt_fecha(doc.get('fecha'))}")
-
-    canvas.setFont("Helvetica-Bold", 9)
-    canvas.drawString(18 * mm, height - 45 * mm, "Cliente:")
+    # --- Comprobante (derecha) ---
+    rx = mid_x + 10 * mm
+    canvas.setFont("Helvetica-Bold", 16)
+    canvas.drawString(rx, top - 8 * mm, titulo)
     canvas.setFont("Helvetica", 9)
-    canvas.drawString(35 * mm, height - 45 * mm, cliente.get("nombre") or "")
-    canvas.setFont("Helvetica", 8)
-    detalle_cliente = f"{valor_valido(cliente.get('nif')) or ''}  {cliente.get('direccion') or ''}  {cliente.get('localidad') or ''}".strip()
-    canvas.drawString(35 * mm, height - 49 * mm, detalle_cliente)
+    canvas.drawString(rx, top - 16 * mm, f"Comp. Nº: {numero_fmt}")
+    canvas.drawString(rx, top - 21 * mm, f"Fecha: {fmt_fecha(doc.get('fecha'))}")
+    canvas.drawString(rx, top - 26 * mm, f"CUIT: {valor_valido(empresa.get('nif')) or '—'}")
 
-    canvas.setStrokeColor(colors.HexColor("#888888"))
-    canvas.line(18 * mm, height - 52 * mm, width - 18 * mm, height - 52 * mm)
+    # --- Línea fiscal del emisor (banda inferior del marco) ---
+    fiscal = []
+    if empresa.get("condicion_iva"):
+        fiscal.append(f"IVA: {empresa['condicion_iva']}")
+    if empresa.get("ingresos_brutos"):
+        fiscal.append(f"IIBB: {empresa['ingresos_brutos']}")
+    if empresa.get("inicio_actividades"):
+        fiscal.append(f"Inicio: {empresa['inicio_actividades']}")
+    canvas.setFont("Helvetica", 8)
+    if fiscal:
+        canvas.drawString(left + 2 * mm, height - 34 * mm, "    ".join(fiscal))
+
+    # --- Receptor ---
+    canvas.setFont("Helvetica-Bold", 9)
+    canvas.drawString(left + 2 * mm, height - 40 * mm, "Cliente:")
+    canvas.setFont("Helvetica", 9)
+    canvas.drawString(left + 20 * mm, height - 40 * mm, cliente.get("nombre") or "")
+    rec = []
+    if valor_valido(cliente.get("nif")):
+        rec.append(f"CUIT: {cliente['nif']}")
+    if cliente.get("condicion_iva"):
+        rec.append(f"IVA: {cliente['condicion_iva']}")
+    if cliente.get("direccion"):
+        rec.append(cliente["direccion"])
+    if cliente.get("localidad"):
+        rec.append(cliente["localidad"])
+    canvas.setFont("Helvetica", 8)
+    canvas.drawString(left + 20 * mm, height - 44 * mm, "   ".join(rec))
+
+    # --- Leyenda no fiscal (hasta integrar AFIP/CAE en Fase 4) ---
+    if no_valido:
+        canvas.setFont("Helvetica-Bold", 8)
+        canvas.setFillColor(colors.HexColor("#b00000"))
+        canvas.drawCentredString(mid_x, height - 51 * mm, "DOCUMENTO NO VÁLIDO COMO FACTURA")
+        canvas.setFillColor(colors.black)
 
 
 def _tabla_lineas(lineas: list[dict]) -> Table:
@@ -161,7 +223,8 @@ def _tabla_lineas(lineas: list[dict]) -> Table:
     return table
 
 
-def _tabla_totales(doc: dict, lineas: list[dict], suplidos: list[dict], tipo: str) -> Table:
+def _tabla_totales(doc: dict, lineas: list[dict], suplidos: list[dict], tipo: str,
+                   empresa: dict | None = None, letra: str = "X") -> Table:
     subtotal = sum((ln.get("cantidad") or 0) * (ln.get("pvp") or 0) for ln in lineas)
     total_suplidos = sum(s.get("importe") or 0 for s in suplidos)
     aplica_bonif = bool(doc.get("aplica_bonificacion"))
@@ -174,6 +237,13 @@ def _tabla_totales(doc: dict, lineas: list[dict], suplidos: list[dict], tipo: st
     if total_suplidos:
         rows.append(["Suplidos", fmt_ar(total_suplidos)])
     total = subtotal - bonificacion + total_suplidos
+    # En comprobante 'A' se discrimina el IVA (precios tomados como IVA incluido).
+    if letra == "A":
+        iva_rate = float((empresa or {}).get("iva_defecto") or 21.0)
+        neto = total / (1 + iva_rate / 100.0)
+        iva_amt = total - neto
+        rows.append(["Neto gravado", fmt_ar(neto)])
+        rows.append([f"IVA {iva_rate:g}%", fmt_ar(iva_amt)])
     rows.append(["TOTAL", fmt_ar(total)])
 
     table = Table(rows, colWidths=[110 * mm, 40 * mm], hAlign="RIGHT")

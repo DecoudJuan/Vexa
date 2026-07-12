@@ -51,6 +51,14 @@ class DatosEmpresa(Base):
     ccc4: Mapped[str | None] = mapped_column(Text)
     ccce1: Mapped[str | None] = mapped_column(Text)
     ccce2: Mapped[str | None] = mapped_column(Text)
+    # Datos fiscales (Fase 1). condicion_iva define la letra del comprobante.
+    # Los demás y afip_habilitado sostienen la vinculación OPCIONAL con AFIP
+    # (la integración real es Fase 4).
+    condicion_iva: Mapped[str | None] = mapped_column(Text)
+    ingresos_brutos: Mapped[str | None] = mapped_column(Text)
+    inicio_actividades: Mapped[str | None] = mapped_column(Text)
+    punto_venta: Mapped[str | None] = mapped_column(Text)
+    afip_habilitado: Mapped[int | None] = mapped_column(Integer, server_default=text("0"))
     legacy_id: Mapped[int | None] = mapped_column(Integer, unique=True)
 
 
@@ -103,6 +111,7 @@ class Cliente(Base):
     retencion: Mapped[float | None] = mapped_column(Float, server_default=text("0"))
     recargo_equiv: Mapped[float | None] = mapped_column(Float, server_default=text("0"))
     bonificacion: Mapped[float | None] = mapped_column(Float, server_default=text("0"))
+    condicion_iva: Mapped[str | None] = mapped_column(Text)  # receptor: define la letra
     legacy_id: Mapped[int | None] = mapped_column(Integer, unique=True)
     created_at: Mapped[str | None] = mapped_column(Text, server_default=_NOW)
 
