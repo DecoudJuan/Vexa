@@ -17,7 +17,7 @@ ejecución la app **no depende de Access** ni de ningún driver ODBC.
 | Área            | Tecnología                                   |
 |-----------------|----------------------------------------------|
 | UI              | PySide6 (Qt 6) — CSS/QSS propio, tema claro/oscuro |
-| Base de datos   | SQLite (modo WAL), sin ORM — SQL directo     |
+| Base de datos   | SQLite (modo WAL) vía **SQLAlchemy 2.0** (ORM) |
 | Generación PDF  | ReportLab                                    |
 | Importación     | openpyxl (listas de precios `.xlsx`/`.xlsm`) |
 | Migración       | access_parser (lee `.mdb` sin Access/ODBC)   |
@@ -38,7 +38,8 @@ facturacion/
 │   ├── requirements-build.txt    # dependencias solo para buildear/migrar
 │   │
 │   ├── database/                 # capa de datos (sin dependencias de Qt)
-│   │   ├── db.py                 # DatabaseManager: esquema + todo el acceso SQL
+│   │   ├── models.py             # modelos SQLAlchemy 2.0 (el esquema)
+│   │   ├── db.py                 # DatabaseManager: acceso a datos vía ORM (Session)
 │   │   └── migration.py          # importador único desde Access legacy (.mdb)
 │   │
 │   ├── ui/                       # capa de presentación (todo lo que toca Qt)
@@ -75,10 +76,11 @@ facturacion/
 La app está organizada en **tres capas** con dependencias en una sola dirección
 (`ui → utils/database`, nunca al revés):
 
-- **`database/`** — Todo el SQL vive acá. `DatabaseManager` (`db.py`) expone
-  métodos por entidad (`get_all_clientes`, `create_factura`, …) y es la única
-  parte que conoce el esquema. No importa nada de Qt, así que es testeable en
-  aislamiento.
+- **`database/`** — El esquema se define con modelos **SQLAlchemy 2.0**
+  (`models.py`) y `DatabaseManager` (`db.py`) hace todo el acceso a datos con
+  `Session`/`select()`, exponiendo métodos por entidad (`get_all_clientes`,
+  `create_factura`, …) que devuelven `dict`. No importa nada de Qt, así que es
+  testeable en aislamiento.
 - **`ui/`** — Cada pantalla del menú lateral es un `QWidget` autónomo que recibe
   el `DatabaseManager` por constructor. La ventana principal (`main_window.py`)
   los apila en un `QStackedWidget` y coordina navegación, zoom y tema.
@@ -94,10 +96,12 @@ reaplica en caliente; los tamaños fijos en píxeles que Qt no recalcula solo
 ### Base de datos
 
 - Ubicación: **`~/Facturacion/data.db`** (fuera del repo — nunca se versiona).
-- Se crea/actualiza sola al arrancar: `DatabaseManager.init_db()` corre el
-  esquema (`CREATE TABLE IF NOT EXISTS …`) y aplica migraciones incrementales
-  de columnas nuevas sobre bases ya existentes.
-- Modo **WAL** para mejor concurrencia de lectura/escritura.
+  Se puede apuntar a otra carpeta con la variable de entorno
+  **`FACTURACION_DATA_DIR`** (útil para un entorno de pruebas aislado).
+- Se crea/actualiza sola al arrancar: `DatabaseManager.init_db()` hace
+  `create_all` de los modelos y aplica migraciones incrementales de columnas
+  nuevas sobre bases ya existentes (compatibilidad hacia atrás).
+- Modo **WAL** y `foreign_keys=ON` vía listener del engine.
 - Entidades principales: `clientes`, `conceptos` (productos), `facturas`
   (tabla polimórfica por `tipo`: FA/PR/AL/PE/AB), `lineas`, `forma_pago`, `iva`,
   `remesas`/`recibos` y `configuracion`.
