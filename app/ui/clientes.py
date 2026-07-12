@@ -11,6 +11,7 @@ from PySide6.QtGui import QDoubleValidator, QColor, QBrush
 
 from ui.icons import svg_icon, svg_pixmap
 from ui.styles import get_palette
+from ui.base_page import ListPage
 from ui.modal import BaseModal, modal_colors
 from ui.widgets import avatar, celda, NoScrollComboBox
 from utils.helpers import leer_zoom, leer_tema, valor_valido, fmt_ar, parse_float, PROVINCIAS_AR
@@ -131,124 +132,42 @@ class CuitListEditor(QWidget):
         return out
 
 
-class ClientesWidget(QWidget):
-    def __init__(self, db, parent=None):
-        super().__init__(parent)
-        self.db = db
-        self._zoom = leer_zoom(db)
-        self._pal = get_palette(leer_tema(db))
-        self._clientes: list[dict] = []
-        self._build_ui()
-        self.refresh()
+class ClientesWidget(ListPage):
+    TITULO = "Clientes"
+    SUBTITULO = "Alta, edición y datos fiscales de clientes"
+    SEARCH_PLACEHOLDER = "Buscar por nombre, NIF o email..."
+    SEARCH_MAXW = _SEARCH_MAXW
+    COLUMNS = ["Cliente", "CUIT", "Localidad", "Teléfono", "Bonif.", "Saldo"]
+    ROW_H = _ROW_H
 
-    def _build_ui(self) -> None:
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(28, 24, 28, 24)
-        layout.setSpacing(16)
+    def _header_buttons(self) -> list:
+        self._btn_nuevo = self._boton("  Nuevo cliente", "plus", "accent_text",
+                                      slot=self._on_nuevo, size=15)
+        return [self._btn_nuevo]
 
-        header = QHBoxLayout()
-        titles = QVBoxLayout()
-        titles.setSpacing(4)
-        h = QLabel("Clientes")
-        h.setProperty("role", "page-title")
-        s = QLabel("Alta, edición y datos fiscales de clientes")
-        s.setProperty("role", "page-subtitle")
-        titles.addWidget(h)
-        titles.addWidget(s)
-        header.addLayout(titles)
-        header.addStretch()
+    def _action_widgets(self) -> list:
+        self._btn_edit = self._boton("  Editar", "edit", "text", "btn_secondary",
+                                     self._on_editar, needs_selection=True)
+        self._btn_del = self._boton("  Eliminar", "trash", "danger", "btn_danger",
+                                    self._on_eliminar, needs_selection=True)
+        return [self._btn_edit, self._btn_del]
 
-        self._btn_nuevo = QPushButton("  Nuevo cliente")
-        self._btn_nuevo.setIcon(svg_icon("plus", 15, self._pal["accent_text"]))
-        self._btn_nuevo.setIconSize(QSize(15, 15))
-        self._btn_nuevo.setCursor(Qt.PointingHandCursor)
-        self._btn_nuevo.clicked.connect(self._on_nuevo)
-        header.addWidget(self._btn_nuevo)
-        layout.addLayout(header)
-
-        search_row = QHBoxLayout()
-        search_row.setSpacing(8)
-        self._search_icon_lbl = QLabel()
-        self._search_icon_lbl.setPixmap(svg_pixmap("search", 16, self._pal["muted2"]))
-        self._search_icon_lbl.setFixedSize(round(16 * self._zoom), round(16 * self._zoom))
-        self._search = QLineEdit()
-        self._search.setPlaceholderText("Buscar por nombre, NIF o email...")
-        self._search.setMaximumWidth(round(_SEARCH_MAXW * self._zoom))
-        self._search.textChanged.connect(lambda _: self.refresh())
-        search_row.addWidget(self._search_icon_lbl)
-        search_row.addWidget(self._search)
-        search_row.addStretch()
-        layout.addLayout(search_row)
-
-        self._table = QTableWidget()
-        self._table.setColumnCount(6)
-        self._table.setHorizontalHeaderLabels(
-            ["Cliente", "CUIT", "Localidad", "Teléfono", "Bonif.", "Saldo"]
-        )
-        self._table.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self._table.setSelectionMode(QAbstractItemView.SingleSelection)
-        self._table.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        self._table.setAlternatingRowColors(True)
-        self._table.setWordWrap(False)
-        self._table.verticalHeader().setVisible(False)
-        self._table.setShowGrid(False)
-        self._table.setFocusPolicy(Qt.ClickFocus)
-
-        hh = self._table.horizontalHeader()
+    def _configure_columns(self, hh) -> None:
         hh.setSectionResizeMode(0, QHeaderView.Stretch)
         for col in range(1, 6):
             hh.setSectionResizeMode(col, QHeaderView.Interactive)
+        self._resize_columns(hh)
+
+    def _resize_columns(self, hh) -> None:
         hh.setDefaultSectionSize(round(_HEADER_DEFAULT * self._zoom))
         hh.setMinimumSectionSize(round(_HEADER_MIN * self._zoom))
 
-        self._table.doubleClicked.connect(self._on_editar)
-        self._table.selectionModel().selectionChanged.connect(self._update_actions)
-        layout.addWidget(self._table)
+    def _query(self, search):
+        return self.db.get_all_clientes(search)
 
-        actions = QHBoxLayout()
-        actions.setSpacing(8)
-
-        self._btn_edit = QPushButton("  Editar")
-        self._btn_edit.setIcon(svg_icon("edit", 14, self._pal["text"]))
-        self._btn_edit.setIconSize(QSize(14, 14))
-        self._btn_edit.setObjectName("btn_secondary")
-        self._btn_edit.setCursor(Qt.PointingHandCursor)
-        self._btn_edit.clicked.connect(self._on_editar)
-
-        self._btn_del = QPushButton("  Eliminar")
-        self._btn_del.setIcon(svg_icon("trash", 14, self._pal["danger"]))
-        self._btn_del.setIconSize(QSize(14, 14))
-        self._btn_del.setObjectName("btn_danger")
-        self._btn_del.setCursor(Qt.PointingHandCursor)
-        self._btn_del.clicked.connect(self._on_eliminar)
-
-        for btn in (self._btn_edit, self._btn_del):
-            actions.addWidget(btn)
-        actions.addStretch()
-
-        self._count_lbl = QLabel()
-        self._count_lbl.setProperty("role", "page-subtitle")
-        actions.addWidget(self._count_lbl)
-        layout.addLayout(actions)
-
-        self._update_actions()
-
-    def refresh(self) -> None:
-        search = self._search.text().strip() if hasattr(self, "_search") else None
-        self._clientes = self.db.get_all_clientes(search or None)
-        saldos = self.db.get_saldos_clientes()
-        self._table.setRowCount(0)
-        self._table.setRowCount(len(self._clientes))
-        con_saldo = 0
-        for row, c in enumerate(self._clientes):
-            if self._set_row(row, c, saldos):
-                con_saldo += 1
-        if hasattr(self, "_count_lbl"):
-            total = len(self._clientes)
-            pl = "s" if total != 1 else ""
-            extra = f" · {con_saldo} con saldo" if con_saldo else ""
-            self._count_lbl.setText(f"{total} cliente{pl}{extra}")
-        self._update_actions()
+    def _pre_render(self, items) -> None:
+        self._saldos = self.db.get_saldos_clientes()
+        self._con_saldo = 0
 
     @staticmethod
     def _initials(nombre: str) -> str:
@@ -283,56 +202,29 @@ class ClientesWidget(QWidget):
         h.addStretch()
         return w
 
-    def _set_row(self, row: int, c: dict, saldos: dict) -> bool:
-        def cell(text: str, align=Qt.AlignLeft | Qt.AlignVCenter) -> QTableWidgetItem:
-            item = QTableWidgetItem(text)
-            item.setTextAlignment(align)
-            return item
-
+    def _fill_row(self, row: int, c: dict) -> None:
         self._table.setItem(row, 0, QTableWidgetItem(""))
         self._table.setCellWidget(row, 0, self._cliente_cell(c))
-        self._table.setItem(row, 1, cell(valor_valido(c.get("nif")) or "—"))
-        self._table.setItem(row, 2, cell(c.get("localidad") or "—"))
-        self._table.setItem(row, 3, cell(c.get("telefono1") or "—"))
+        self._table.setItem(row, 1, self._cell(valor_valido(c.get("nif")) or "—"))
+        self._table.setItem(row, 2, self._cell(c.get("localidad") or "—"))
+        self._table.setItem(row, 3, self._cell(c.get("telefono1") or "—"))
         bonificacion = c.get("bonificacion") or 0
-        self._table.setItem(row, 4, cell(
+        self._table.setItem(row, 4, self._cell(
             f"{bonificacion:.1f} %" if bonificacion else "—", Qt.AlignRight | Qt.AlignVCenter
         ))
-        saldo = saldos.get(c.get("id"), 0) or 0
+        saldo = self._saldos.get(c.get("id"), 0) or 0
         if saldo > 0.005:
-            item = cell(fmt_ar(saldo), Qt.AlignRight | Qt.AlignVCenter)
+            item = self._cell(fmt_ar(saldo), Qt.AlignRight | Qt.AlignVCenter)
             item.setForeground(QBrush(QColor(self._pal["warn"])))
             self._table.setItem(row, 5, item)
+            self._con_saldo += 1
         else:
-            self._table.setItem(row, 5, cell("—", Qt.AlignRight | Qt.AlignVCenter))
-        self._table.setRowHeight(row, round(_ROW_H * self._zoom))
-        return saldo > 0.005
+            self._table.setItem(row, 5, self._cell("—", Qt.AlignRight | Qt.AlignVCenter))
 
-    def _selected(self) -> dict | None:
-        row = self._table.currentRow()
-        if row < 0 or row >= len(self._clientes):
-            return None
-        return self._clientes[row]
-
-    def _update_actions(self) -> None:
-        has = self._selected() is not None
-        for btn in (self._btn_edit, self._btn_del):
-            btn.setEnabled(has)
-
-    def set_theme_zoom(self, theme: str, zoom: float) -> None:
-        """Reaplica tamaños fijos e íconos cuando cambia el tema o el zoom
-        después de que la página ya se construyó (ver MainWindow._propagate_appearance)."""
-        self._zoom = zoom
-        self._pal = get_palette(theme)
-        self._search_icon_lbl.setFixedSize(round(16 * zoom), round(16 * zoom))
-        self._search_icon_lbl.setPixmap(svg_pixmap("search", 16, self._pal["muted2"]))
-        self._search.setMaximumWidth(round(_SEARCH_MAXW * zoom))
-        hh = self._table.horizontalHeader()
-        hh.setDefaultSectionSize(round(_HEADER_DEFAULT * zoom))
-        hh.setMinimumSectionSize(round(_HEADER_MIN * zoom))
-        self._btn_nuevo.setIcon(svg_icon("plus", 15, self._pal["accent_text"]))
-        self._btn_edit.setIcon(svg_icon("edit", 14, self._pal["text"]))
-        self._btn_del.setIcon(svg_icon("trash", 14, self._pal["danger"]))
+    def _count_text(self, total: int) -> str:
+        pl = "s" if total != 1 else ""
+        extra = f" · {self._con_saldo} con saldo" if self._con_saldo else ""
+        return f"{total} cliente{pl}{extra}"
 
     def _on_nuevo(self) -> None:
         dlg = ClienteDialog(self.db, parent=self)
@@ -355,12 +247,9 @@ class ClientesWidget(QWidget):
         c = self._selected()
         if not c:
             return
-        resp = QMessageBox.question(
-            self, "Confirmar eliminación",
-            f"¿Eliminar al cliente <b>{c['nombre']}</b>?<br><br>Esta acción no se puede deshacer.",
-            QMessageBox.Yes | QMessageBox.No, QMessageBox.No,
-        )
-        if resp == QMessageBox.Yes:
+        if self._confirmar(
+            f"¿Eliminar al cliente <b>{c['nombre']}</b>?<br><br>Esta acción no se puede deshacer."
+        ):
             try:
                 self.db.delete_cliente(c["id"])
                 self.refresh()
