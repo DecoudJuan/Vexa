@@ -15,7 +15,6 @@ from utils.helpers import (
     fmt_ar, fmt_fecha, nombre_sin_talle, valor_valido, etiqueta_concepto,
     letra_comprobante,
 )
-from utils.resources import resource_path
 
 PDF_DIR_DEFECTO = DATA_DIR / "pdf"
 
@@ -121,19 +120,11 @@ def _dibujar_encabezado(canvas, empresa, cliente, titulo, numero_fmt, letra, doc
     canvas.setFont("Helvetica", 6)
     canvas.drawCentredString(mid_x, top - lb + 0.5 * mm, "COMPROBANTE")
 
-    # --- Emisor (izquierda) ---
-    logo_path = empresa.get("logo_path") or str(resource_path("assets/logo.png"))
-    try:
-        from reportlab.lib.utils import ImageReader
-        img = ImageReader(logo_path)
-        canvas.drawImage(img, left + 2 * mm, top - 16 * mm, width=24 * mm, height=13 * mm,
-                          preserveAspectRatio=True, mask="auto")
-    except Exception:
-        pass
-    canvas.setFont("Helvetica-Bold", 12)
-    canvas.drawString(left + 2 * mm, top - 20 * mm, empresa.get("nombre") or "")
+    # --- Emisor (izquierda) --- (los comprobantes NO llevan logo)
+    canvas.setFont("Helvetica-Bold", 13)
+    canvas.drawString(left + 2 * mm, top - 9 * mm, empresa.get("nombre") or "")
     canvas.setFont("Helvetica", 8)
-    y = top - 24 * mm
+    y = top - 15 * mm
     for linea in (
         empresa.get("direccion") or "",
         f"{valor_valido(empresa.get('cp')) or ''} {empresa.get('localidad') or ''} "
