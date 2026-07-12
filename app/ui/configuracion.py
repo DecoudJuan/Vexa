@@ -11,7 +11,7 @@ from ui.icons import svg_icon
 from ui.styles import get_palette
 from ui.modal import BaseModal
 from ui.widgets import fila as _fila, NoScrollComboBox
-from utils.helpers import leer_tema, valor_valido, parse_float, set_moneda, CONDICIONES_IVA
+from utils.helpers import leer_tema, valor_valido, parse_float, set_moneda, CONDICIONES_IVA, MONEDAS
 
 
 class ConfiguracionWidget(QWidget):
@@ -88,7 +88,9 @@ class EmpresaTab(QWidget):
         self._telefono = QLineEdit()
         self._email = QLineEdit()
         self._web = QLineEdit()
-        self._moneda = QLineEdit()
+        self._moneda = NoScrollComboBox()
+        for etiqueta, simbolo in MONEDAS:
+            self._moneda.addItem(etiqueta, simbolo)
         self._sufijo = QLineEdit()
         self._pie_pagina = QLineEdit()
         # Datos fiscales / AFIP (opcionales; la integración real es Fase 4).
@@ -165,7 +167,8 @@ class EmpresaTab(QWidget):
         self._telefono.setText(e.get("telefono") or "")
         self._email.setText(e.get("email") or "")
         self._web.setText(e.get("web") or "")
-        self._moneda.setText(e.get("moneda") or "$")
+        idx_mon = self._moneda.findData(e.get("moneda") or "$")
+        self._moneda.setCurrentIndex(idx_mon if idx_mon >= 0 else 0)
         self._condicion_iva.setCurrentText(e.get("condicion_iva") or "")
         self._ingresos_brutos.setText(e.get("ingresos_brutos") or "")
         self._inicio_actividades.setText(e.get("inicio_actividades") or "")
@@ -201,7 +204,7 @@ class EmpresaTab(QWidget):
             "web": self._web.text().strip() or None,
             "iva_defecto": 21.0,
             "iva_texto": "IVA",
-            "moneda": self._moneda.text().strip() or "$",
+            "moneda": self._moneda.currentData() or "$",
             "sufijo": self._sufijo.text().strip() or None,
             "pie_pagina": self._pie_pagina.text().strip() or None,
             "logo_path": self._logo_path.text().strip() or None,
@@ -215,7 +218,7 @@ class EmpresaTab(QWidget):
         })
         # Actualizar la moneda global para que los importes se reformateen
         # (ej. cambiar de '$' a 'US$') sin reiniciar la app.
-        set_moneda(self._moneda.text().strip() or "$")
+        set_moneda(self._moneda.currentData() or "$")
         if self._on_empresa_changed:
             self._on_empresa_changed()  # refresca el nombre en la sidebar/estado
         QMessageBox.information(self, "Guardado", "Datos de la empresa actualizados.")

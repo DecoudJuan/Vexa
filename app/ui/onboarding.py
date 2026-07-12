@@ -10,13 +10,17 @@ los datos (ver run_onboarding + main.py). La vinculación con AFIP es opcional
 from PySide6.QtWidgets import (
     QDialog, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QLineEdit,
     QCheckBox, QPushButton, QStackedWidget, QScrollArea, QMessageBox,
-    QSizePolicy, QApplication,
+    QSizePolicy, QApplication, QComboBox,
 )
+from PySide6.QtWidgets import QCompleter
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
 
 from ui.widgets import NoScrollComboBox
-from utils.helpers import CONDICIONES_IVA, set_moneda, leer_zoom
+from utils.helpers import (
+    CONDICIONES_IVA, MONEDAS, PROVINCIAS_AR, set_moneda, leer_zoom,
+    formatear_cuit, formatear_telefono,
+)
 from utils.resources import resource_path
 from version import APP_NAME
 
@@ -27,7 +31,11 @@ _BLUE = "#3B4DF0"
 
 _QSS = f"""
 QDialog {{ background: #ffffff; }}
+QScrollArea {{ background: #ffffff; border: none; }}
+QScrollArea > QWidget {{ background: #ffffff; }}
 #page {{ background: #ffffff; }}
+QLabel {{ background: transparent; }}
+QCheckBox {{ background: transparent; }}
 #welcome_title {{ color: {_INK}; font-size: 30px; font-weight: 800; }}
 #welcome_sub {{ color: {_MUTED}; font-size: 15px; }}
 #form_header {{ background: #ffffff; border-bottom: 1px solid #EDEFF5; }}
@@ -124,6 +132,29 @@ class OnboardingWindow(QDialog):
         v.addStretch()
         return page
 
+    # ------------------------------------------------------------ helpers
+    def _reformatear(self, line: QLineEdit, fmt) -> None:
+        """Aplica un formateador al texto mientras se escribe (textEdited no
+        se re-dispara con setText, así que no hay recursión)."""
+        line.setText(fmt(line.text()))
+        line.setCursorPosition(len(line.text()))
+
+    def _provincia_combo(self) -> NoScrollComboBox:
+        combo = NoScrollComboBox()
+        combo.setEditable(True)
+        combo.setInsertPolicy(QComboBox.NoInsert)
+        combo.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
+        combo.addItem("")
+        for prov in PROVINCIAS_AR:
+            combo.addItem(prov)
+        combo.setCurrentIndex(0)
+        combo.lineEdit().setPlaceholderText("Elegí o escribí la provincia…")
+        comp = QCompleter(PROVINCIAS_AR)
+        comp.setCaseSensitivity(Qt.CaseInsensitive)
+        comp.setFilterMode(Qt.MatchContains)
+        combo.setCompleter(comp)
+        return combo
+
     # ------------------------------------------------------------ formulario
     def _labeled(self, texto: str, widget: QWidget) -> QWidget:
         box = QWidget()
@@ -172,16 +203,22 @@ class OnboardingWindow(QDialog):
         self._nombre.setPlaceholderText("Razón social / nombre del negocio")
         self._cuit = QLineEdit()
         self._cuit.setPlaceholderText("20-12345678-9")
+        self._cuit.textEdited.connect(lambda: self._reformatear(self._cuit, formatear_cuit))
         self._condicion = NoScrollComboBox()
         self._condicion.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
         self._condicion.addItem("")
         self._condicion.addItems(CONDICIONES_IVA)
         self._direccion = QLineEdit()
         self._localidad = QLineEdit()
-        self._provincia = QLineEdit()
+        self._provincia = self._provincia_combo()
         self._telefono = QLineEdit()
+        self._telefono.setPlaceholderText("+54 9 11 5414-0942")
+        self._telefono.textEdited.connect(lambda: self._reformatear(self._telefono, formatear_telefono))
         self._email = QLineEdit()
-        self._moneda = QLineEdit("$")
+        self._moneda = NoScrollComboBox()
+        self._moneda.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
+        for etiqueta, simbolo in MONEDAS:
+            self._moneda.addItem(etiqueta, simbolo)
 
         grid.addWidget(self._labeled("NOMBRE / RAZÓN SOCIAL *", self._nombre), 0, 0, 1, 2)
         grid.addWidget(self._labeled("CUIT", self._cuit), 1, 0)
@@ -253,14 +290,14 @@ class OnboardingWindow(QDialog):
             "direccion": self._direccion.text().strip() or None,
             "cp": None,
             "localidad": self._localidad.text().strip() or None,
-            "provincia": self._provincia.text().strip() or None,
+            "provincia": self._provincia.currentText().strip() or None,
             "telefono": self._telefono.text().strip() or None,
             "fax": None,
             "email": self._email.text().strip() or None,
             "web": None,
             "iva_defecto": 21.0,
             "iva_texto": "IVA",
-            "moneda": self._moneda.text().strip() or "$",
+            "moneda": self._moneda.currentData() or "$",
             "sufijo": None,
             "pie_pagina": None,
             "logo_path": None,  # los comprobantes no llevan logo
@@ -272,7 +309,7 @@ class OnboardingWindow(QDialog):
             "punto_venta": self._punto_venta.text().strip() or None,
             "afip_habilitado": 1 if afip_on else 0,
         })
-        set_moneda(self._moneda.text().strip() or "$")
+        set_moneda(self._moneda.currentData() or "$")
         self.db.set_config("onboarding_done", "1")
         self._completed = True
         self.accept()
