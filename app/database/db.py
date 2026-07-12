@@ -1,214 +1,69 @@
-import sqlite3
+"""Capa de acceso a datos sobre SQLAlchemy 2.0 (SQLite).
+
+`DatabaseManager` expone la misma API que consumen las pantallas y el generador
+de PDF (get_all_clientes, create_factura, get_saldos_clientes, …) y sigue
+devolviendo `dict`, para que el resto de la app no dependa del ORM. El esquema
+vive en models.py; acá va la lógica de consultas y el arranque de la base.
+"""
+
+import os
 from contextlib import contextmanager
 from pathlib import Path
 
-DATA_DIR = Path.home() / "Facturacion"
+from sqlalchemy import (
+    create_engine, event, select, update, delete, func, cast, Integer, inspect, text,
+)
+from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+
+from database.models import (
+    Base, DatosEmpresa, Iva, FormaPago, Cliente, ClienteCuit, Concepto,
+    Factura, Linea, Suplido, Remesa, Recibo, Configuracion, TIPOS_DOCUMENTO,
+)
+
+# Carpeta de datos: por defecto ~/Facturacion, pero se puede apuntar a otra
+# (ej. un entorno de pruebas aislado) con la variable FACTURACION_DATA_DIR.
+DATA_DIR = Path(os.environ.get("FACTURACION_DATA_DIR") or (Path.home() / "Facturacion"))
 DEFAULT_DB = DATA_DIR / "data.db"
 
-# Tipos de documento soportados por la tabla polimórfica `facturas`.
-# FA=Factura, PR=Presupuesto, AL=Albarán, PE=Pedido, AB=Abono (nota de crédito)
-TIPOS_DOCUMENTO = ("FA", "PR", "AL", "PE", "AB")
+# Reexportado por compatibilidad (antes vivía acá como constante del esquema).
+__all__ = ["DatabaseManager", "DATA_DIR", "DEFAULT_DB", "TIPOS_DOCUMENTO"]
 
-_SCHEMA = """
-PRAGMA journal_mode = WAL;
 
-CREATE TABLE IF NOT EXISTS datos_empresa (
-    id            INTEGER PRIMARY KEY CHECK (id = 1),
-    nombre        TEXT NOT NULL DEFAULT '',
-    nif           TEXT,
-    direccion     TEXT,
-    cp            TEXT,
-    localidad     TEXT,
-    provincia     TEXT,
-    telefono      TEXT,
-    fax           TEXT,
-    email         TEXT,
-    web           TEXT,
-    iva_defecto   REAL DEFAULT 21.0,
-    iva_texto     TEXT DEFAULT 'IVA',
-    moneda        TEXT DEFAULT '$',
-    sufijo        TEXT,
-    pie_pagina    TEXT,
-    logo_path     TEXT,
-    ccc1 TEXT, ccc2 TEXT, ccc3 TEXT, ccc4 TEXT,
-    ccce1 TEXT, ccce2 TEXT,
-    legacy_id     INTEGER UNIQUE
-);
-INSERT OR IGNORE INTO datos_empresa (id, nombre) VALUES (1, '');
-
-CREATE TABLE IF NOT EXISTS iva (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    tipo        REAL NOT NULL,
-    recargo     REAL DEFAULT 0,
-    activo      INTEGER NOT NULL DEFAULT 1,
-    legacy_id   INTEGER UNIQUE
-);
-
-CREATE TABLE IF NOT EXISTS forma_pago (
-    id            INTEGER PRIMARY KEY AUTOINCREMENT,
-    tipo          TEXT NOT NULL,
-    genera_recibo INTEGER NOT NULL DEFAULT 0,
-    vto1          TEXT,
-    vto2          INTEGER,
-    vto3          INTEGER,
-    legacy_id     INTEGER UNIQUE
-);
-
-CREATE TABLE IF NOT EXISTS clientes (
-    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
-    nombre              TEXT NOT NULL,
-    nif                 TEXT,
-    direccion           TEXT,
-    cp                  TEXT,
-    localidad           TEXT,
-    provincia           TEXT,
-    telefono1           TEXT,
-    fax                 TEXT,
-    email               TEXT,
-    persona_contacto    TEXT,
-    comentarios         TEXT,
-    forma_pago_id       INTEGER REFERENCES forma_pago(id) ON DELETE SET NULL,
-    banco               TEXT,
-    ccc1 TEXT, ccc2 TEXT, ccc3 TEXT, ccc4 TEXT,
-    retencion           REAL DEFAULT 0,
-    recargo_equiv       REAL DEFAULT 0,
-    bonificacion        REAL DEFAULT 0,
-    legacy_id           INTEGER UNIQUE,
-    created_at          TEXT DEFAULT (datetime('now'))
-);
-CREATE INDEX IF NOT EXISTS idx_clientes_nombre ON clientes(nombre COLLATE NOCASE);
-
-CREATE TABLE IF NOT EXISTS cliente_cuit (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    cliente_id  INTEGER NOT NULL REFERENCES clientes(id) ON DELETE CASCADE,
-    cuit        TEXT NOT NULL,
-    orden       INTEGER NOT NULL DEFAULT 0
-);
-CREATE INDEX IF NOT EXISTS idx_cliente_cuit_cliente ON cliente_cuit(cliente_id);
-
-CREATE TABLE IF NOT EXISTS conceptos (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    nombre      TEXT NOT NULL,
-    codigo      TEXT,
-    pvp         REAL NOT NULL DEFAULT 0,
-    legacy_id   INTEGER UNIQUE
-);
-CREATE INDEX IF NOT EXISTS idx_conceptos_nombre ON conceptos(nombre COLLATE NOCASE);
-
-CREATE TABLE IF NOT EXISTS facturas (
-    id                    INTEGER PRIMARY KEY AUTOINCREMENT,
-    cliente_id            INTEGER NOT NULL REFERENCES clientes(id) ON DELETE RESTRICT,
-    tipo                  TEXT NOT NULL DEFAULT 'FA' CHECK (tipo IN ('FA','PR','AL','PE','AB')),
-    ejercicio             INTEGER NOT NULL,
-    numero                TEXT,
-    fecha                 TEXT NOT NULL,
-    fecha_vencimiento     TEXT,
-    total                 REAL NOT NULL DEFAULT 0,
-    pagado                REAL NOT NULL DEFAULT 0,
-    iva                   REAL DEFAULT 0,
-    recargo_equiv         REAL DEFAULT 0,
-    retencion             REAL DEFAULT 0,
-    forma_pago_id         INTEGER REFERENCES forma_pago(id) ON DELETE SET NULL,
-    recibo                INTEGER DEFAULT 0,
-    domicilio_cobro       INTEGER DEFAULT 0,
-    entrega_a_cuenta      REAL DEFAULT 0,
-    provision             REAL DEFAULT 0,
-    total_suplidos        REAL DEFAULT 0,
-    bonificacion          REAL DEFAULT 0,
-    aplica_bonificacion   INTEGER DEFAULT 0,
-    factura_asociada_id   INTEGER REFERENCES facturas(id) ON DELETE SET NULL,
-    origen_tipo           TEXT,
-    origen_numero         TEXT,
-    momento_generar       TEXT,
-    pedido_cliente        TEXT,
-    comentarios           TEXT,
-    vista                 INTEGER DEFAULT 1,
-    estado                TEXT NOT NULL DEFAULT 'abierto' CHECK (estado IN ('abierto','facturado','cobrado','anulado')),
-    ccc1 TEXT, ccc2 TEXT, ccc3 TEXT, ccc4 TEXT,
-    legacy_id             INTEGER UNIQUE,
-    created_at            TEXT DEFAULT (datetime('now'))
-);
-CREATE INDEX IF NOT EXISTS idx_facturas_cliente    ON facturas(cliente_id);
-CREATE INDEX IF NOT EXISTS idx_facturas_tipo_fecha ON facturas(tipo, fecha);
-CREATE INDEX IF NOT EXISTS idx_facturas_asociada   ON facturas(factura_asociada_id);
-
-CREATE TABLE IF NOT EXISTS lineas (
-    id                 INTEGER PRIMARY KEY AUTOINCREMENT,
-    factura_id         INTEGER NOT NULL REFERENCES facturas(id) ON DELETE CASCADE,
-    concepto_id        INTEGER REFERENCES conceptos(id) ON DELETE SET NULL,
-    concepto_libre     TEXT,
-    cantidad           REAL NOT NULL DEFAULT 1,
-    pvp                REAL NOT NULL DEFAULT 0,
-    orden              INTEGER NOT NULL DEFAULT 0,
-    legacy_id          INTEGER UNIQUE,
-    CHECK (concepto_id IS NOT NULL OR concepto_libre IS NOT NULL)
-);
-CREATE INDEX IF NOT EXISTS idx_lineas_factura ON lineas(factura_id);
-
-CREATE TABLE IF NOT EXISTS suplidos (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    factura_id  INTEGER NOT NULL REFERENCES facturas(id) ON DELETE CASCADE,
-    concepto    TEXT,
-    importe     REAL NOT NULL DEFAULT 0,
-    legacy_id   INTEGER UNIQUE
-);
-CREATE INDEX IF NOT EXISTS idx_suplidos_factura ON suplidos(factura_id);
-
-CREATE TABLE IF NOT EXISTS remesas (
-    id             INTEGER PRIMARY KEY AUTOINCREMENT,
-    descripcion    TEXT,
-    fecha          TEXT NOT NULL DEFAULT (date('now')),
-    fecha_cargo    TEXT,
-    fecha_vto      TEXT,
-    legacy_id      INTEGER UNIQUE,
-    created_at     TEXT DEFAULT (datetime('now'))
-);
-
-CREATE TABLE IF NOT EXISTS recibos (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    remesa_id   INTEGER REFERENCES remesas(id) ON DELETE SET NULL,
-    factura_id  INTEGER REFERENCES facturas(id) ON DELETE SET NULL,
-    importe     REAL NOT NULL DEFAULT 0,
-    estado      TEXT NOT NULL DEFAULT 'pendiente' CHECK (estado IN ('pendiente','cobrado','devuelto')),
-    legacy_id   INTEGER UNIQUE
-);
-CREATE INDEX IF NOT EXISTS idx_recibos_remesa ON recibos(remesa_id);
-
-CREATE TABLE IF NOT EXISTS configuracion (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-    clave      TEXT UNIQUE NOT NULL,
-    valor      TEXT NOT NULL,
-    updated_at TEXT DEFAULT (datetime('now'))
-);
-INSERT OR IGNORE INTO configuracion (clave, valor) VALUES
-    ('iva_defecto',    '21.0'),
-    ('retencion_defecto', '0'),
-    ('schema_version', '1');
-"""
+def _as_dict(obj) -> dict:
+    """Instancia de modelo -> dict de sus columnas (como devolvía sqlite3.Row)."""
+    return {c.name: getattr(obj, c.name) for c in obj.__table__.columns}
 
 
 class DatabaseManager:
     def __init__(self, db_path: str | None = None):
         DATA_DIR.mkdir(parents=True, exist_ok=True)
         self.db_path = db_path or str(DEFAULT_DB)
+        self.engine = create_engine(f"sqlite:///{self.db_path}", future=True)
+
+        @event.listens_for(self.engine, "connect")
+        def _set_pragmas(dbapi_conn, _rec):  # noqa: ANN001
+            cur = dbapi_conn.cursor()
+            cur.execute("PRAGMA journal_mode = WAL")
+            cur.execute("PRAGMA foreign_keys = ON")
+            cur.close()
 
     @contextmanager
-    def _conn(self):
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA foreign_keys = ON")
+    def _session(self):
+        session = Session(self.engine)
         try:
-            yield conn
-            conn.commit()
+            yield session
+            session.commit()
         except Exception:
-            conn.rollback()
+            session.rollback()
             raise
         finally:
-            conn.close()
+            session.close()
 
-    # Columnas agregadas después del primer release: init_db() las suma a
-    # bases ya existentes, ya que `CREATE TABLE IF NOT EXISTS` no las crea
-    # en tablas que ya existían antes de este cambio.
+    # Columnas agregadas después del primer release: se suman a bases ya
+    # existentes (create_all no toca tablas que ya existen). Es DDL puntual de
+    # compatibilidad, no consultas de datos.
     _COLUMNAS_NUEVAS = {
         "clientes": [("bonificacion", "REAL DEFAULT 0")],
         "facturas": [
@@ -219,72 +74,71 @@ class DatabaseManager:
     }
 
     def init_db(self) -> None:
-        with self._conn() as conn:
-            conn.executescript(_SCHEMA)
+        Base.metadata.create_all(self.engine)
+        insp = inspect(self.engine)
+        with self.engine.begin() as conn:
             for tabla, columnas in self._COLUMNAS_NUEVAS.items():
-                existentes = {row["name"] for row in conn.execute(f"PRAGMA table_info({tabla})")}
+                existentes = {c["name"] for c in insp.get_columns(tabla)}
                 for nombre, ddl in columnas:
                     if nombre not in existentes:
-                        conn.execute(f"ALTER TABLE {tabla} ADD COLUMN {nombre} {ddl}")
-            # El índice de código se crea acá (no en _SCHEMA) porque en bases
-            # ya existentes la columna 'codigo' recién se agrega en el ALTER de
-            # arriba; crearlo dentro del schema fallaría con "no such column".
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_conceptos_codigo ON conceptos(codigo COLLATE NOCASE)"
-            )
+                        conn.execute(text(f"ALTER TABLE {tabla} ADD COLUMN {nombre} {ddl}"))
+            # El índice de código se asegura acá porque en bases viejas la
+            # columna 'codigo' recién se agrega en el ALTER de arriba.
+            conn.execute(text(
+                "CREATE INDEX IF NOT EXISTS idx_conceptos_codigo "
+                "ON conceptos(codigo COLLATE NOCASE)"
+            ))
+        with self._session() as s:
+            s.execute(sqlite_insert(DatosEmpresa).values(id=1, nombre="")
+                      .on_conflict_do_nothing(index_elements=["id"]))
+            for clave, valor in (("iva_defecto", "21.0"),
+                                 ("retencion_defecto", "0"),
+                                 ("schema_version", "1")):
+                s.execute(sqlite_insert(Configuracion).values(clave=clave, valor=valor)
+                          .on_conflict_do_nothing(index_elements=["clave"]))
         self._backfill_codigos_concepto()
 
     def _backfill_codigos_concepto(self) -> None:
-        """Rellena el código de los productos ya cargados que todavía no lo
-        tienen (codigo NULL), extrayéndolo del propio nombre y limpiándolo.
-        Idempotente: una vez que un producto queda con código '' o con valor,
-        no se vuelve a tocar. Renombrar es seguro: las líneas de factura
-        referencian al producto por id, no por nombre."""
+        """Rellena el código de productos ya cargados sin código (codigo NULL),
+        extrayéndolo del nombre. Idempotente: una vez con '' o valor, no se
+        vuelve a tocar. Renombrar es seguro (las líneas referencian por id)."""
         from utils.helpers import separar_codigo
 
-        with self._conn() as conn:
-            filas = conn.execute(
-                "SELECT id, nombre FROM conceptos WHERE codigo IS NULL"
-            ).fetchall()
-            for f in filas:
-                limpio, codigo = separar_codigo(f["nombre"])
+        with self._session() as s:
+            filas = s.execute(select(Concepto).where(Concepto.codigo.is_(None))).scalars().all()
+            for c in filas:
+                limpio, codigo = separar_codigo(c.nombre)
                 if codigo:
-                    conn.execute(
-                        "UPDATE conceptos SET nombre = ?, codigo = ? WHERE id = ?",
-                        (limpio or f["nombre"], codigo, f["id"]),
-                    )
+                    c.nombre = limpio or c.nombre
+                    c.codigo = codigo
                 else:
-                    # Sin código detectable: marcar como '' para no reprocesar.
-                    conn.execute(
-                        "UPDATE conceptos SET codigo = '' WHERE id = ?", (f["id"],)
-                    )
+                    c.codigo = ""  # marcar para no reprocesar
 
     # ------------------------------------------------------------------ config
 
     def get_config(self, clave: str) -> str | None:
-        with self._conn() as conn:
-            row = conn.execute(
-                "SELECT valor FROM configuracion WHERE clave = ?", (clave,)
-            ).fetchone()
-            return row["valor"] if row else None
+        with self._session() as s:
+            return s.execute(
+                select(Configuracion.valor).where(Configuracion.clave == clave)
+            ).scalar_one_or_none()
 
     def set_config(self, clave: str, valor) -> None:
-        with self._conn() as conn:
-            conn.execute(
-                """INSERT INTO configuracion (clave, valor, updated_at)
-                   VALUES (?, ?, datetime('now'))
-                   ON CONFLICT(clave) DO UPDATE
-                   SET valor = excluded.valor,
-                       updated_at = excluded.updated_at""",
-                (clave, str(valor)),
+        with self._session() as s:
+            stmt = sqlite_insert(Configuracion).values(
+                clave=clave, valor=str(valor), updated_at=func.datetime("now")
             )
+            stmt = stmt.on_conflict_do_update(
+                index_elements=["clave"],
+                set_={"valor": stmt.excluded.valor, "updated_at": stmt.excluded.updated_at},
+            )
+            s.execute(stmt)
 
     # ------------------------------------------------------------- datos_empresa
 
     def get_datos_empresa(self) -> dict:
-        with self._conn() as conn:
-            row = conn.execute("SELECT * FROM datos_empresa WHERE id = 1").fetchone()
-            return dict(row) if row else {}
+        with self._session() as s:
+            obj = s.get(DatosEmpresa, 1)
+            return _as_dict(obj) if obj else {}
 
     def update_datos_empresa(self, data: dict) -> None:
         campos = [
@@ -293,106 +147,92 @@ class DatabaseManager:
             "moneda", "sufijo", "pie_pagina", "logo_path",
             "ccc1", "ccc2", "ccc3", "ccc4", "ccce1", "ccce2",
         ]
-        sets = ", ".join(f"{c} = :{c}" for c in campos)
-        payload = {c: data.get(c) for c in campos}
-        with self._conn() as conn:
-            conn.execute(f"UPDATE datos_empresa SET {sets} WHERE id = 1", payload)
+        with self._session() as s:
+            obj = s.get(DatosEmpresa, 1)
+            for c in campos:
+                setattr(obj, c, data.get(c))
 
     # ----------------------------------------------------------------------- iva
 
     def get_all_iva(self, solo_activos: bool = False) -> list[dict]:
-        with self._conn() as conn:
-            q = "SELECT * FROM iva"
+        with self._session() as s:
+            stmt = select(Iva)
             if solo_activos:
-                q += " WHERE activo = 1"
-            q += " ORDER BY tipo DESC"
-            return [dict(r) for r in conn.execute(q).fetchall()]
+                stmt = stmt.where(Iva.activo == 1)
+            stmt = stmt.order_by(Iva.tipo.desc())
+            return [_as_dict(o) for o in s.execute(stmt).scalars()]
 
     def create_iva(self, data: dict) -> int:
-        with self._conn() as conn:
-            cur = conn.execute(
-                "INSERT INTO iva (tipo, recargo, activo) VALUES (:tipo, :recargo, :activo)",
-                data,
-            )
-            return cur.lastrowid
+        with self._session() as s:
+            obj = Iva(tipo=data["tipo"], recargo=data["recargo"], activo=data["activo"])
+            s.add(obj)
+            s.flush()
+            return obj.id
 
     def update_iva(self, iva_id: int, data: dict) -> None:
-        with self._conn() as conn:
-            conn.execute(
-                "UPDATE iva SET tipo = :tipo, recargo = :recargo, activo = :activo WHERE id = :id",
-                {**data, "id": iva_id},
-            )
+        with self._session() as s:
+            s.execute(update(Iva).where(Iva.id == iva_id).values(
+                tipo=data["tipo"], recargo=data["recargo"], activo=data["activo"]))
 
     def delete_iva(self, iva_id: int) -> None:
-        with self._conn() as conn:
-            conn.execute("DELETE FROM iva WHERE id = ?", (iva_id,))
+        with self._session() as s:
+            s.execute(delete(Iva).where(Iva.id == iva_id))
 
     # ------------------------------------------------------------------ forma_pago
 
     def get_all_forma_pago(self) -> list[dict]:
-        with self._conn() as conn:
-            return [dict(r) for r in conn.execute(
-                "SELECT * FROM forma_pago ORDER BY tipo COLLATE NOCASE"
-            ).fetchall()]
+        with self._session() as s:
+            stmt = select(FormaPago).order_by(FormaPago.tipo.collate("NOCASE"))
+            return [_as_dict(o) for o in s.execute(stmt).scalars()]
 
     def create_forma_pago(self, data: dict) -> int:
-        with self._conn() as conn:
-            cur = conn.execute(
-                """INSERT INTO forma_pago (tipo, genera_recibo, vto1, vto2, vto3)
-                   VALUES (:tipo, :genera_recibo, :vto1, :vto2, :vto3)""",
-                data,
+        with self._session() as s:
+            obj = FormaPago(
+                tipo=data["tipo"], genera_recibo=data["genera_recibo"],
+                vto1=data["vto1"], vto2=data["vto2"], vto3=data["vto3"],
             )
-            return cur.lastrowid
+            s.add(obj)
+            s.flush()
+            return obj.id
 
     def update_forma_pago(self, forma_pago_id: int, data: dict) -> None:
-        with self._conn() as conn:
-            conn.execute(
-                """UPDATE forma_pago SET tipo = :tipo, genera_recibo = :genera_recibo,
-                   vto1 = :vto1, vto2 = :vto2, vto3 = :vto3 WHERE id = :id""",
-                {**data, "id": forma_pago_id},
-            )
+        with self._session() as s:
+            s.execute(update(FormaPago).where(FormaPago.id == forma_pago_id).values(
+                tipo=data["tipo"], genera_recibo=data["genera_recibo"],
+                vto1=data["vto1"], vto2=data["vto2"], vto3=data["vto3"]))
 
     def delete_forma_pago(self, forma_pago_id: int) -> None:
-        with self._conn() as conn:
-            conn.execute("DELETE FROM forma_pago WHERE id = ?", (forma_pago_id,))
+        with self._session() as s:
+            s.execute(delete(FormaPago).where(FormaPago.id == forma_pago_id))
 
     # --------------------------------------------------------------------- clientes
 
     def get_all_clientes(self, search: str | None = None) -> list[dict]:
-        with self._conn() as conn:
+        with self._session() as s:
+            stmt = select(Cliente)
             if search:
-                q = f"%{search}%"
-                rows = conn.execute(
-                    """SELECT * FROM clientes
-                       WHERE nombre LIKE ? OR nif LIKE ? OR email LIKE ?
-                       ORDER BY nombre COLLATE NOCASE""",
-                    (q, q, q),
-                ).fetchall()
-            else:
-                rows = conn.execute(
-                    "SELECT * FROM clientes ORDER BY nombre COLLATE NOCASE"
-                ).fetchall()
-            return [dict(r) for r in rows]
+                like = f"%{search}%"
+                stmt = stmt.where(
+                    Cliente.nombre.like(like) | Cliente.nif.like(like) | Cliente.email.like(like)
+                )
+            stmt = stmt.order_by(Cliente.nombre.collate("NOCASE"))
+            return [_as_dict(o) for o in s.execute(stmt).scalars()]
 
     def get_cliente(self, cliente_id: int) -> dict | None:
-        with self._conn() as conn:
-            row = conn.execute(
-                "SELECT * FROM clientes WHERE id = ?", (cliente_id,)
-            ).fetchone()
-            return dict(row) if row else None
+        with self._session() as s:
+            obj = s.get(Cliente, cliente_id)
+            return _as_dict(obj) if obj else None
 
     def get_saldos_clientes(self) -> dict:
         """Saldo pendiente por cliente = suma de (total - pagado) de sus
-        facturas (tipo FA) que todavía no están saldadas. Devuelve
-        {cliente_id: saldo}."""
-        with self._conn() as conn:
-            rows = conn.execute(
-                """SELECT cliente_id, SUM(total - pagado) AS saldo
-                   FROM facturas
-                   WHERE tipo = 'FA' AND (total - pagado) > 0.005
-                   GROUP BY cliente_id"""
-            ).fetchall()
-            return {r["cliente_id"]: (r["saldo"] or 0) for r in rows}
+        facturas (tipo FA) todavía no saldadas. Devuelve {cliente_id: saldo}."""
+        with self._session() as s:
+            stmt = (
+                select(Factura.cliente_id, func.sum(Factura.total - Factura.pagado).label("saldo"))
+                .where(Factura.tipo == "FA", (Factura.total - Factura.pagado) > 0.005)
+                .group_by(Factura.cliente_id)
+            )
+            return {cid: (saldo or 0) for cid, saldo in s.execute(stmt)}
 
     _CLIENTE_CAMPOS = [
         "nombre", "nif", "direccion", "cp", "localidad", "provincia",
@@ -402,130 +242,124 @@ class DatabaseManager:
     ]
     _CLIENTE_DEFAULTS = {"retencion": 0, "recargo_equiv": 0, "bonificacion": 0}
 
-    def create_cliente(self, data: dict) -> int:
-        payload = {
+    def _cliente_payload(self, data: dict) -> dict:
+        return {
             c: (data[c] if data.get(c) is not None else self._CLIENTE_DEFAULTS.get(c))
             for c in self._CLIENTE_CAMPOS
         }
-        cols = ", ".join(self._CLIENTE_CAMPOS)
-        placeholders = ", ".join(f":{c}" for c in self._CLIENTE_CAMPOS)
-        with self._conn() as conn:
-            cur = conn.execute(
-                f"INSERT INTO clientes ({cols}) VALUES ({placeholders})", payload
-            )
-            return cur.lastrowid
+
+    def create_cliente(self, data: dict) -> int:
+        with self._session() as s:
+            obj = Cliente(**self._cliente_payload(data))
+            s.add(obj)
+            s.flush()
+            return obj.id
 
     def update_cliente(self, cliente_id: int, data: dict) -> None:
-        payload = {
-            c: (data[c] if data.get(c) is not None else self._CLIENTE_DEFAULTS.get(c))
-            for c in self._CLIENTE_CAMPOS
-        }
-        sets = ", ".join(f"{c} = :{c}" for c in self._CLIENTE_CAMPOS)
-        with self._conn() as conn:
-            conn.execute(
-                f"UPDATE clientes SET {sets} WHERE id = :id",
-                {**payload, "id": cliente_id},
-            )
+        payload = self._cliente_payload(data)
+        with self._session() as s:
+            obj = s.get(Cliente, cliente_id)
+            for k, v in payload.items():
+                setattr(obj, k, v)
 
     def delete_cliente(self, cliente_id: int) -> None:
-        with self._conn() as conn:
-            conn.execute("DELETE FROM clientes WHERE id = ?", (cliente_id,))
+        with self._session() as s:
+            obj = s.get(Cliente, cliente_id)
+            if obj is None:
+                return
+            try:
+                s.delete(obj)
+                s.flush()
+            except IntegrityError as e:
+                # Preserva el contrato con la UI (captura sqlite3.IntegrityError).
+                raise e.orig if e.orig else e
 
     # ------------------------------------------------------------ cliente_cuit
 
     def get_cuits_cliente(self, cliente_id: int) -> list[str]:
-        with self._conn() as conn:
-            rows = conn.execute(
-                "SELECT cuit FROM cliente_cuit WHERE cliente_id = ? ORDER BY orden, id",
-                (cliente_id,),
-            ).fetchall()
-            return [r["cuit"] for r in rows]
+        with self._session() as s:
+            stmt = (select(ClienteCuit.cuit)
+                    .where(ClienteCuit.cliente_id == cliente_id)
+                    .order_by(ClienteCuit.orden, ClienteCuit.id))
+            return list(s.execute(stmt).scalars())
 
     def set_cuits_cliente(self, cliente_id: int, cuits: list[str]) -> None:
         """Reemplaza la lista completa de CUIT/CUIL de un cliente."""
-        with self._conn() as conn:
-            conn.execute("DELETE FROM cliente_cuit WHERE cliente_id = ?", (cliente_id,))
+        with self._session() as s:
+            s.execute(delete(ClienteCuit).where(ClienteCuit.cliente_id == cliente_id))
             for i, cuit in enumerate(c.strip() for c in cuits if c and c.strip()):
-                conn.execute(
-                    "INSERT INTO cliente_cuit (cliente_id, cuit, orden) VALUES (?, ?, ?)",
-                    (cliente_id, cuit, i),
-                )
+                s.add(ClienteCuit(cliente_id=cliente_id, cuit=cuit, orden=i))
 
     # -------------------------------------------------------------------- conceptos
 
     def get_all_conceptos(self, search: str | None = None, order: str = "nombre") -> list[dict]:
-        # Los productos se pueden ordenar por nombre o por código; un código
-        # vacío ('') se manda al final para que no encabece la lista.
+        # Los productos se ordenan por nombre o por código; un código vacío ('')
+        # va al final para que no encabece la lista.
         if order == "codigo":
-            order_sql = ("CASE WHEN codigo IS NULL OR codigo = '' THEN 1 ELSE 0 END, "
-                         "codigo COLLATE NOCASE, nombre COLLATE NOCASE")
+            order_by = [
+                text("CASE WHEN codigo IS NULL OR codigo = '' THEN 1 ELSE 0 END"),
+                Concepto.codigo.collate("NOCASE"),
+                Concepto.nombre.collate("NOCASE"),
+            ]
         else:
-            order_sql = "nombre COLLATE NOCASE"
-        with self._conn() as conn:
+            order_by = [Concepto.nombre.collate("NOCASE")]
+        with self._session() as s:
+            stmt = select(Concepto)
             if search:
-                q = f"%{search}%"
-                rows = conn.execute(
-                    f"""SELECT * FROM conceptos
-                        WHERE nombre LIKE ? OR codigo LIKE ?
-                        ORDER BY {order_sql}""",
-                    (q, q),
-                ).fetchall()
-            else:
-                rows = conn.execute(
-                    f"SELECT * FROM conceptos ORDER BY {order_sql}"
-                ).fetchall()
-            return [dict(r) for r in rows]
+                like = f"%{search}%"
+                stmt = stmt.where(Concepto.nombre.like(like) | Concepto.codigo.like(like))
+            stmt = stmt.order_by(*order_by)
+            return [_as_dict(o) for o in s.execute(stmt).scalars()]
 
     def create_concepto(self, data: dict) -> int:
-        payload = {"nombre": data.get("nombre"), "codigo": data.get("codigo") or "",
-                   "pvp": data.get("pvp") or 0}
-        with self._conn() as conn:
-            cur = conn.execute(
-                "INSERT INTO conceptos (nombre, codigo, pvp) VALUES (:nombre, :codigo, :pvp)",
-                payload,
-            )
-            return cur.lastrowid
+        with self._session() as s:
+            obj = Concepto(nombre=data.get("nombre"),
+                           codigo=data.get("codigo") or "",
+                           pvp=data.get("pvp") or 0)
+            s.add(obj)
+            s.flush()
+            return obj.id
 
     def update_concepto(self, concepto_id: int, data: dict) -> None:
-        payload = {"nombre": data.get("nombre"), "codigo": data.get("codigo") or "",
-                   "pvp": data.get("pvp") or 0, "id": concepto_id}
-        with self._conn() as conn:
-            conn.execute(
-                "UPDATE conceptos SET nombre = :nombre, codigo = :codigo, pvp = :pvp WHERE id = :id",
-                payload,
-            )
+        with self._session() as s:
+            obj = s.get(Concepto, concepto_id)
+            obj.nombre = data.get("nombre")
+            obj.codigo = data.get("codigo") or ""
+            obj.pvp = data.get("pvp") or 0
 
     def delete_concepto(self, concepto_id: int) -> None:
-        with self._conn() as conn:
-            conn.execute("DELETE FROM conceptos WHERE id = ?", (concepto_id,))
+        with self._session() as s:
+            obj = s.get(Concepto, concepto_id)
+            if obj is None:
+                return
+            try:
+                s.delete(obj)
+                s.flush()
+            except IntegrityError as e:
+                raise e.orig if e.orig else e
 
     def upsert_conceptos(self, items: list[dict]) -> dict:
-        """Alta/actualización masiva de conceptos por nombre (usado por la
-        importación de listas de precios). Devuelve {'creados', 'actualizados'}."""
+        """Alta/actualización masiva de conceptos por nombre (importación de
+        listas de precios). Devuelve {'creados', 'actualizados'}."""
         creados = actualizados = 0
-        with self._conn() as conn:
+        with self._session() as s:
             for item in items:
                 nombre = (item.get("nombre") or "").strip()
                 if not nombre:
                     continue
                 pvp = float(item.get("pvp") or 0)
                 codigo = (item.get("codigo") or "").strip()
-                row = conn.execute(
-                    "SELECT id FROM conceptos WHERE nombre = ? COLLATE NOCASE", (nombre,)
-                ).fetchone()
-                if row:
-                    # El código de la lista siempre pisa; si la fila viene sin
-                    # código, se conserva el que ya tuviera (COALESCE).
-                    conn.execute(
-                        "UPDATE conceptos SET pvp = ?, codigo = COALESCE(NULLIF(?, ''), codigo) WHERE id = ?",
-                        (pvp, codigo, row["id"]),
-                    )
+                obj = s.execute(
+                    select(Concepto).where(Concepto.nombre.collate("NOCASE") == nombre)
+                ).scalars().first()
+                if obj:
+                    # El código de la lista pisa; si viene vacío, se conserva.
+                    obj.pvp = pvp
+                    if codigo:
+                        obj.codigo = codigo
                     actualizados += 1
                 else:
-                    conn.execute(
-                        "INSERT INTO conceptos (nombre, codigo, pvp) VALUES (?, ?, ?)",
-                        (nombre, codigo, pvp),
-                    )
+                    s.add(Concepto(nombre=nombre, codigo=codigo, pvp=pvp))
                     creados += 1
         return {"creados": creados, "actualizados": actualizados}
 
@@ -539,71 +373,60 @@ class DatabaseManager:
         estado: str | None = None,
         search: str | None = None,
     ) -> list[dict]:
-        wheres, params = [], []
-        if tipo:
-            wheres.append("f.tipo = ?")
-            params.append(tipo)
-        if cliente_id is not None:
-            wheres.append("f.cliente_id = ?")
-            params.append(cliente_id)
-        if ejercicio is not None:
-            wheres.append("f.ejercicio = ?")
-            params.append(ejercicio)
-        if estado:
-            wheres.append("f.estado = ?")
-            params.append(estado)
-        if search:
-            wheres.append("(f.numero LIKE ? OR c.nombre LIKE ?)")
-            params.extend([f"%{search}%", f"%{search}%"])
-        where_sql = ("WHERE " + " AND ".join(wheres)) if wheres else ""
-        with self._conn() as conn:
-            rows = conn.execute(
-                f"""SELECT f.*, c.nombre AS cliente_nombre
-                    FROM facturas f JOIN clientes c ON f.cliente_id = c.id
-                    {where_sql}
-                    ORDER BY f.fecha DESC, f.id DESC""",
-                params,
-            ).fetchall()
-            return [dict(r) for r in rows]
+        with self._session() as s:
+            stmt = (select(Factura, Cliente.nombre.label("cliente_nombre"))
+                    .join(Cliente, Factura.cliente_id == Cliente.id))
+            if tipo:
+                stmt = stmt.where(Factura.tipo == tipo)
+            if cliente_id is not None:
+                stmt = stmt.where(Factura.cliente_id == cliente_id)
+            if ejercicio is not None:
+                stmt = stmt.where(Factura.ejercicio == ejercicio)
+            if estado:
+                stmt = stmt.where(Factura.estado == estado)
+            if search:
+                like = f"%{search}%"
+                stmt = stmt.where(Factura.numero.like(like) | Cliente.nombre.like(like))
+            stmt = stmt.order_by(Factura.fecha.desc(), Factura.id.desc())
+            return [{**_as_dict(f), "cliente_nombre": nombre}
+                    for f, nombre in s.execute(stmt)]
 
     def get_factura(self, factura_id: int) -> dict | None:
-        with self._conn() as conn:
-            row = conn.execute(
-                """SELECT f.*, c.nombre AS cliente_nombre
-                   FROM facturas f JOIN clientes c ON f.cliente_id = c.id
-                   WHERE f.id = ?""",
-                (factura_id,),
-            ).fetchone()
-            return dict(row) if row else None
+        with self._session() as s:
+            row = s.execute(
+                select(Factura, Cliente.nombre.label("cliente_nombre"))
+                .join(Cliente, Factura.cliente_id == Cliente.id)
+                .where(Factura.id == factura_id)
+            ).first()
+            if not row:
+                return None
+            f, nombre = row
+            return {**_as_dict(f), "cliente_nombre": nombre}
 
     def get_lineas(self, factura_id: int) -> list[dict]:
-        with self._conn() as conn:
-            rows = conn.execute(
-                """SELECT l.*, co.nombre AS concepto_nombre, co.codigo AS concepto_codigo
-                   FROM lineas l LEFT JOIN conceptos co ON l.concepto_id = co.id
-                   WHERE l.factura_id = ?
-                   ORDER BY l.orden, l.id""",
-                (factura_id,),
-            ).fetchall()
-            return [dict(r) for r in rows]
+        with self._session() as s:
+            stmt = (select(Linea,
+                           Concepto.nombre.label("concepto_nombre"),
+                           Concepto.codigo.label("concepto_codigo"))
+                    .outerjoin(Concepto, Linea.concepto_id == Concepto.id)
+                    .where(Linea.factura_id == factura_id)
+                    .order_by(Linea.orden, Linea.id))
+            return [{**_as_dict(ln), "concepto_nombre": cn, "concepto_codigo": cc}
+                    for ln, cn, cc in s.execute(stmt)]
 
     def get_suplidos(self, factura_id: int) -> list[dict]:
-        with self._conn() as conn:
-            rows = conn.execute(
-                "SELECT * FROM suplidos WHERE factura_id = ? ORDER BY id", (factura_id,)
-            ).fetchall()
-            return [dict(r) for r in rows]
+        with self._session() as s:
+            stmt = select(Suplido).where(Suplido.factura_id == factura_id).order_by(Suplido.id)
+            return [_as_dict(o) for o in s.execute(stmt).scalars()]
 
     def siguiente_numero(self, tipo: str, ejercicio: int) -> str:
-        """Próximo número secuencial para un tipo+ejercicio (ej. 4 dígitos: 0001)."""
-        with self._conn() as conn:
-            row = conn.execute(
-                """SELECT MAX(CAST(numero AS INTEGER)) AS mx FROM facturas
-                   WHERE tipo = ? AND ejercicio = ?""",
-                (tipo, ejercicio),
-            ).fetchone()
-            siguiente = (row["mx"] or 0) + 1
-            return f"{siguiente:04d}"
+        """Próximo número secuencial para un tipo+ejercicio (4 dígitos: 0001)."""
+        with self._session() as s:
+            mx = s.execute(
+                select(func.max(cast(Factura.numero, Integer)))
+                .where(Factura.tipo == tipo, Factura.ejercicio == ejercicio)
+            ).scalar()
+            return f"{(mx or 0) + 1:04d}"
 
     _FACTURA_DEFAULTS = {
         "tipo": "FA", "total": 0, "pagado": 0, "iva": 0, "recargo_equiv": 0,
@@ -620,135 +443,133 @@ class DatabaseManager:
         "pedido_cliente", "comentarios", "vista", "estado",
     ]
 
-    def create_factura(self, data: dict, lineas: list[dict], suplidos: list[dict] | None = None) -> int:
-        campos = self._FACTURA_CAMPOS
-        payload = {
+    def _factura_payload(self, data: dict) -> dict:
+        return {
             c: (data[c] if data.get(c) is not None else self._FACTURA_DEFAULTS.get(c))
-            for c in campos
+            for c in self._FACTURA_CAMPOS
         }
-        cols = ", ".join(campos)
-        placeholders = ", ".join(f":{c}" for c in campos)
-        with self._conn() as conn:
-            cur = conn.execute(f"INSERT INTO facturas ({cols}) VALUES ({placeholders})", payload)
-            factura_id = cur.lastrowid
-            for i, ln in enumerate(lineas):
-                conn.execute(
-                    """INSERT INTO lineas (factura_id, concepto_id, concepto_libre, cantidad, pvp, orden)
-                       VALUES (?, ?, ?, ?, ?, ?)""",
-                    (factura_id, ln.get("concepto_id"), ln.get("concepto_libre"),
-                     ln.get("cantidad", 1), ln.get("pvp", 0), i),
-                )
-            for sp in (suplidos or []):
-                conn.execute(
-                    "INSERT INTO suplidos (factura_id, concepto, importe) VALUES (?, ?, ?)",
-                    (factura_id, sp.get("concepto"), sp.get("importe", 0)),
-                )
-            return factura_id
 
-    def update_factura(self, factura_id: int, data: dict, lineas: list[dict], suplidos: list[dict] | None = None) -> None:
-        campos = self._FACTURA_CAMPOS
-        payload = {
-            c: (data[c] if data.get(c) is not None else self._FACTURA_DEFAULTS.get(c))
-            for c in campos
-        }
-        sets = ", ".join(f"{c} = :{c}" for c in campos)
-        with self._conn() as conn:
-            conn.execute(f"UPDATE facturas SET {sets} WHERE id = :id", {**payload, "id": factura_id})
-            conn.execute("DELETE FROM lineas WHERE factura_id = ?", (factura_id,))
-            for i, ln in enumerate(lineas):
-                conn.execute(
-                    """INSERT INTO lineas (factura_id, concepto_id, concepto_libre, cantidad, pvp, orden)
-                       VALUES (?, ?, ?, ?, ?, ?)""",
-                    (factura_id, ln.get("concepto_id"), ln.get("concepto_libre"),
-                     ln.get("cantidad", 1), ln.get("pvp", 0), i),
-                )
-            conn.execute("DELETE FROM suplidos WHERE factura_id = ?", (factura_id,))
-            for sp in (suplidos or []):
-                conn.execute(
-                    "INSERT INTO suplidos (factura_id, concepto, importe) VALUES (?, ?, ?)",
-                    (factura_id, sp.get("concepto"), sp.get("importe", 0)),
-                )
+    @staticmethod
+    def _nuevas_lineas(lineas: list[dict]) -> list[Linea]:
+        return [
+            Linea(concepto_id=ln.get("concepto_id"),
+                  concepto_libre=ln.get("concepto_libre"),
+                  cantidad=ln.get("cantidad", 1),
+                  pvp=ln.get("pvp", 0),
+                  orden=i)
+            for i, ln in enumerate(lineas)
+        ]
+
+    @staticmethod
+    def _nuevos_suplidos(suplidos: list[dict] | None) -> list[Suplido]:
+        return [
+            Suplido(concepto=sp.get("concepto"), importe=sp.get("importe", 0))
+            for sp in (suplidos or [])
+        ]
+
+    def create_factura(self, data: dict, lineas: list[dict], suplidos: list[dict] | None = None) -> int:
+        with self._session() as s:
+            factura = Factura(**self._factura_payload(data))
+            factura.lineas = self._nuevas_lineas(lineas)
+            factura.suplidos = self._nuevos_suplidos(suplidos)
+            s.add(factura)
+            s.flush()
+            return factura.id
+
+    def update_factura(self, factura_id: int, data: dict, lineas: list[dict],
+                       suplidos: list[dict] | None = None) -> None:
+        payload = self._factura_payload(data)
+        with self._session() as s:
+            factura = s.get(Factura, factura_id)
+            for k, v in payload.items():
+                setattr(factura, k, v)
+            # delete-orphan reemplaza líneas y suplidos por los nuevos.
+            factura.lineas = self._nuevas_lineas(lineas)
+            factura.suplidos = self._nuevos_suplidos(suplidos)
 
     def update_factura_estado(self, factura_id: int, estado: str) -> None:
-        with self._conn() as conn:
-            conn.execute("UPDATE facturas SET estado = ? WHERE id = ?", (estado, factura_id))
+        with self._session() as s:
+            s.execute(update(Factura).where(Factura.id == factura_id).values(estado=estado))
 
     def delete_factura(self, factura_id: int) -> None:
-        with self._conn() as conn:
-            conn.execute("DELETE FROM facturas WHERE id = ?", (factura_id,))
+        with self._session() as s:
+            obj = s.get(Factura, factura_id)
+            if obj is not None:
+                s.delete(obj)
 
     # --------------------------------------------------------------- remesas / recibos
 
     def get_all_remesas(self) -> list[dict]:
-        with self._conn() as conn:
-            rows = conn.execute(
-                """SELECT r.*,
-                          (SELECT COUNT(*) FROM recibos WHERE remesa_id = r.id) AS n_recibos,
-                          (SELECT COALESCE(SUM(importe), 0) FROM recibos WHERE remesa_id = r.id) AS total
-                   FROM remesas r ORDER BY r.fecha DESC, r.id DESC"""
-            ).fetchall()
-            return [dict(r) for r in rows]
+        with self._session() as s:
+            n_recibos = (select(func.count()).select_from(Recibo)
+                         .where(Recibo.remesa_id == Remesa.id).scalar_subquery())
+            total = (select(func.coalesce(func.sum(Recibo.importe), 0))
+                     .where(Recibo.remesa_id == Remesa.id).scalar_subquery())
+            stmt = (select(Remesa, n_recibos.label("n_recibos"), total.label("total"))
+                    .order_by(Remesa.fecha.desc(), Remesa.id.desc()))
+            return [{**_as_dict(r), "n_recibos": nr, "total": tot}
+                    for r, nr, tot in s.execute(stmt)]
 
     def get_recibos_pendientes(self) -> list[dict]:
-        with self._conn() as conn:
-            rows = conn.execute(
-                """SELECT re.*, f.numero AS factura_numero, f.tipo AS factura_tipo,
-                          c.nombre AS cliente_nombre
-                   FROM recibos re
-                   JOIN facturas f ON re.factura_id = f.id
-                   JOIN clientes c ON f.cliente_id = c.id
-                   WHERE re.estado = 'pendiente' AND re.remesa_id IS NULL
-                   ORDER BY c.nombre COLLATE NOCASE"""
-            ).fetchall()
-            return [dict(r) for r in rows]
+        with self._session() as s:
+            stmt = (select(Recibo,
+                           Factura.numero.label("factura_numero"),
+                           Factura.tipo.label("factura_tipo"),
+                           Cliente.nombre.label("cliente_nombre"))
+                    .join(Factura, Recibo.factura_id == Factura.id)
+                    .join(Cliente, Factura.cliente_id == Cliente.id)
+                    .where(Recibo.estado == "pendiente", Recibo.remesa_id.is_(None))
+                    .order_by(Cliente.nombre.collate("NOCASE")))
+            return [{**_as_dict(re), "factura_numero": fn, "factura_tipo": ft,
+                     "cliente_nombre": cn}
+                    for re, fn, ft, cn in s.execute(stmt)]
 
     def get_recibos_de_remesa(self, remesa_id: int) -> list[dict]:
-        with self._conn() as conn:
-            rows = conn.execute(
-                """SELECT re.*, f.numero AS factura_numero, f.tipo AS factura_tipo,
-                          c.nombre AS cliente_nombre, c.ccc1, c.ccc2, c.ccc3, c.ccc4
-                   FROM recibos re
-                   JOIN facturas f ON re.factura_id = f.id
-                   JOIN clientes c ON f.cliente_id = c.id
-                   WHERE re.remesa_id = ?
-                   ORDER BY c.nombre COLLATE NOCASE""",
-                (remesa_id,),
-            ).fetchall()
-            return [dict(r) for r in rows]
+        with self._session() as s:
+            stmt = (select(Recibo,
+                           Factura.numero.label("factura_numero"),
+                           Factura.tipo.label("factura_tipo"),
+                           Cliente.nombre.label("cliente_nombre"),
+                           Cliente.ccc1, Cliente.ccc2, Cliente.ccc3, Cliente.ccc4)
+                    .join(Factura, Recibo.factura_id == Factura.id)
+                    .join(Cliente, Factura.cliente_id == Cliente.id)
+                    .where(Recibo.remesa_id == remesa_id)
+                    .order_by(Cliente.nombre.collate("NOCASE")))
+            out = []
+            for re, fn, ft, cn, c1, c2, c3, c4 in s.execute(stmt):
+                out.append({**_as_dict(re), "factura_numero": fn, "factura_tipo": ft,
+                            "cliente_nombre": cn, "ccc1": c1, "ccc2": c2,
+                            "ccc3": c3, "ccc4": c4})
+            return out
 
     def create_recibo(self, factura_id: int, importe: float) -> int:
-        with self._conn() as conn:
-            cur = conn.execute(
-                "INSERT INTO recibos (factura_id, importe) VALUES (?, ?)",
-                (factura_id, importe),
-            )
-            return cur.lastrowid
+        with self._session() as s:
+            obj = Recibo(factura_id=factura_id, importe=importe)
+            s.add(obj)
+            s.flush()
+            return obj.id
 
     def create_remesa(self, recibo_ids: list[int], data: dict) -> int:
-        with self._conn() as conn:
-            cur = conn.execute(
-                """INSERT INTO remesas (descripcion, fecha, fecha_cargo, fecha_vto)
-                   VALUES (:descripcion, :fecha, :fecha_cargo, :fecha_vto)""",
-                data,
-            )
-            remesa_id = cur.lastrowid
-            conn.executemany(
-                "UPDATE recibos SET remesa_id = ? WHERE id = ?",
-                [(remesa_id, rid) for rid in recibo_ids],
-            )
-            return remesa_id
+        with self._session() as s:
+            remesa = Remesa(descripcion=data.get("descripcion"), fecha=data.get("fecha"),
+                            fecha_cargo=data.get("fecha_cargo"), fecha_vto=data.get("fecha_vto"))
+            s.add(remesa)
+            s.flush()
+            if recibo_ids:
+                s.execute(update(Recibo).where(Recibo.id.in_(recibo_ids))
+                          .values(remesa_id=remesa.id))
+            return remesa.id
 
     # ------------------------------------------------------------------ dashboard
 
     def get_resumen(self, ejercicio: int) -> dict:
-        with self._conn() as conn:
-            totales = conn.execute(
-                """SELECT tipo, COUNT(*) AS cantidad, COALESCE(SUM(total), 0) AS total
-                   FROM facturas WHERE ejercicio = ? GROUP BY tipo""",
-                (ejercicio,),
-            ).fetchall()
-            n_clientes = conn.execute("SELECT COUNT(*) FROM clientes").fetchone()[0]
-            return {
-                "por_tipo": [dict(r) for r in totales],
-                "n_clientes": n_clientes,
-            }
+        with self._session() as s:
+            totales = s.execute(
+                select(Factura.tipo,
+                       func.count().label("cantidad"),
+                       func.coalesce(func.sum(Factura.total), 0).label("total"))
+                .where(Factura.ejercicio == ejercicio)
+                .group_by(Factura.tipo)
+            ).mappings().all()
+            n_clientes = s.execute(select(func.count()).select_from(Cliente)).scalar()
+            return {"por_tipo": [dict(m) for m in totales], "n_clientes": n_clientes}
