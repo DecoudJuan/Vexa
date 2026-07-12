@@ -13,6 +13,8 @@ Uso:
             self.set_primary_action("Guardar", self._accept)
 """
 
+import re
+
 from PySide6.QtWidgets import (
     QDialog, QFrame, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QWidget,
     QGraphicsDropShadowEffect, QScrollArea, QApplication,
@@ -21,6 +23,16 @@ from PySide6.QtCore import Qt, QPoint, QRect
 from PySide6.QtGui import QColor
 
 from ui.icons import svg_icon, svg_pixmap
+
+_PX_RE = re.compile(r"(\d+)px")
+
+
+def _scale_px(css: str, zoom: float) -> str:
+    """Escala los valores en px del QSS por el zoom, para que padding, radios y
+    tipografías acompañen a los tamaños que el código fija con _S()."""
+    if abs(zoom - 1.0) <= 1e-6:
+        return css
+    return _PX_RE.sub(lambda m: f"{max(1, round(int(m.group(1)) * zoom))}px", css)
 
 # Paletas del modal por tema. La cabecera y el botón Guardar quedan azules
 # (identidad) en ambos temas; el resto acompaña al tema oscuro/claro de la app.
@@ -175,10 +187,12 @@ def build_modal_css(theme: str = "dark") -> str:
 
 class BaseModal(QDialog):
     def __init__(self, title, subtitle="", icon="file-invoice", width=520,
-                 scroll=False, zoom=1.0, height=None, theme="dark", parent=None):
+                 scroll=False, zoom=1.0, height=None, theme="dark",
+                 scale_css=False, parent=None):
         super().__init__(parent)
         self._zoom = zoom
         self._theme = theme
+        self._scale_css = scale_css
         self._drag_pos = None
         self._centered = False
         self._scroll = scroll
@@ -193,7 +207,8 @@ class BaseModal(QDialog):
             self.setFixedHeight(min(self._S(height or 720), avail.height() - self._S(40)))
 
         self._build_chrome(title, subtitle, icon)
-        self.setStyleSheet(build_modal_css(theme) + self.extra_css())
+        css = build_modal_css(theme) + self.extra_css()
+        self.setStyleSheet(_scale_px(css, self._zoom) if self._scale_css else css)
 
     # -------------------------------------------------------- helpers
     def _S(self, px) -> int:

@@ -1,13 +1,13 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem,
     QPushButton, QLabel, QTabWidget, QHeaderView, QAbstractItemView,
-    QMessageBox, QDialog, QFormLayout, QDateEdit, QLineEdit,
+    QMessageBox,
 )
 from PySide6.QtCore import Qt, QDate, QSize
 
 from ui.icons import svg_icon
 from ui.styles import get_palette
-from utils.helpers import fmt_money, leer_tema
+from utils.helpers import fmt_ar, leer_tema, abrir_archivo
 from utils.pdf_generator import generar_reporte_remesa
 
 
@@ -80,7 +80,7 @@ class RecibosWidget(QWidget):
         for row, r in enumerate(self._recibos):
             self._table.setItem(row, 0, QTableWidgetItem(r.get("cliente_nombre", "")))
             self._table.setItem(row, 1, QTableWidgetItem(f"{r.get('factura_tipo','')}-{r.get('factura_numero','')}"))
-            item = QTableWidgetItem(fmt_money(r.get("importe") or 0))
+            item = QTableWidgetItem(fmt_ar(r.get("importe") or 0))
             item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
             self._table.setItem(row, 2, item)
 
@@ -151,7 +151,7 @@ class RemesasWidget(QWidget):
             self._table.setItem(row, 0, QTableWidgetItem((r.get("fecha") or "")[:10]))
             self._table.setItem(row, 1, QTableWidgetItem(r.get("descripcion") or ""))
             self._table.setItem(row, 2, QTableWidgetItem(str(r.get("n_recibos") or 0)))
-            item = QTableWidgetItem(fmt_money(r.get("total") or 0))
+            item = QTableWidgetItem(fmt_ar(r.get("total") or 0))
             item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
             self._table.setItem(row, 3, item)
 
@@ -161,8 +161,7 @@ class RemesasWidget(QWidget):
             QMessageBox.information(self, "Seleccioná una remesa", "Elegí una remesa para ver su reporte.")
             return
         path = generar_reporte_remesa(self.db, self._remesas[row]["id"])
-        import os
-        os.startfile(path)
+        abrir_archivo(path)
 
     def set_theme_zoom(self, theme: str, zoom: float) -> None:
         self._pal = get_palette(theme)

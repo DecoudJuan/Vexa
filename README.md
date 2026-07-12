@@ -43,6 +43,7 @@ facturacion/
 │   │
 │   ├── ui/                       # capa de presentación (todo lo que toca Qt)
 │   │   ├── main_window.py        # ventana principal: sidebar, navegación, zoom/tema
+│   │   ├── base_page.py          # ListPage: base común de las pantallas de listado
 │   │   ├── clientes.py           # ABM de clientes (+ CUIT/CUIL, saldos)
 │   │   ├── conceptos.py          # ABM de productos + importación de listas de precios
 │   │   ├── documentos.py         # listado y alta/edición de documentos (facturas…)

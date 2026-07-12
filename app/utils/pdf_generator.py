@@ -8,10 +8,10 @@ from reportlab.platypus import (
     SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer,
 )
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.enums import TA_RIGHT, TA_LEFT
+from reportlab.lib.enums import TA_RIGHT
 
 from database.db import DATA_DIR
-from utils.helpers import fmt_money, fmt_fecha, nombre_sin_talle, valor_valido, etiqueta_concepto
+from utils.helpers import fmt_ar, fmt_fecha, nombre_sin_talle, valor_valido, etiqueta_concepto
 from utils.resources import resource_path
 
 PDF_DIR_DEFECTO = DATA_DIR / "pdf"
@@ -140,8 +140,8 @@ def _tabla_lineas(lineas: list[dict]) -> Table:
         rows.append([
             Paragraph(nombre, _style_small),
             f"{cantidad:g}",
-            fmt_money(pvp),
-            fmt_money(importe),
+            fmt_ar(pvp),
+            fmt_ar(importe),
         ])
 
     table = Table(rows, colWidths=[90 * mm, 25 * mm, 30 * mm, 30 * mm], repeatRows=1)
@@ -168,13 +168,13 @@ def _tabla_totales(doc: dict, lineas: list[dict], suplidos: list[dict], tipo: st
     bonificacion_pct = doc.get("bonificacion") or 0
     bonificacion = subtotal * bonificacion_pct / 100.0 if aplica_bonif else 0.0
 
-    rows = [["Subtotal", fmt_money(subtotal)]]
+    rows = [["Subtotal", fmt_ar(subtotal)]]
     if aplica_bonif and bonificacion_pct:
-        rows.append([f"Bonificación ({bonificacion_pct:g}%)", f"−{fmt_money(bonificacion)}"])
+        rows.append([f"Bonificación ({bonificacion_pct:g}%)", f"−{fmt_ar(bonificacion)}"])
     if total_suplidos:
-        rows.append(["Suplidos", fmt_money(total_suplidos)])
+        rows.append(["Suplidos", fmt_ar(total_suplidos)])
     total = subtotal - bonificacion + total_suplidos
-    rows.append(["TOTAL", fmt_money(total)])
+    rows.append(["TOTAL", fmt_ar(total)])
 
     table = Table(rows, colWidths=[110 * mm, 40 * mm], hAlign="RIGHT")
     style = [
@@ -210,8 +210,8 @@ def generar_reporte_remesa(db, remesa_id: int) -> str:
     rows = [["Cliente", "Documento", "Importe"]]
     for r in recibos:
         rows.append([r.get("cliente_nombre", ""), f"{r.get('factura_tipo','')}-{r.get('factura_numero','')}",
-                     fmt_money(r.get("importe") or 0)])
-    rows.append(["", "TOTAL", fmt_money(sum(r.get("importe") or 0 for r in recibos))])
+                     fmt_ar(r.get("importe") or 0)])
+    rows.append(["", "TOTAL", fmt_ar(sum(r.get("importe") or 0 for r in recibos))])
     table = Table(rows, colWidths=[80 * mm, 50 * mm, 30 * mm])
     table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2b2b2b")),

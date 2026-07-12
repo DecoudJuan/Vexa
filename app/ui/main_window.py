@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QPushButton,
-    QLabel, QStackedWidget, QFrame, QButtonGroup, QSizePolicy, QApplication,
+    QLabel, QStackedWidget, QFrame, QButtonGroup, QApplication,
 )
 from PySide6.QtCore import Qt, QSize, QTimer
 

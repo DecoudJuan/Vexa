@@ -1,142 +1,67 @@
 import sqlite3
 
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem,
-    QLineEdit, QPushButton, QLabel, QDialog, QMessageBox, QHeaderView,
-    QFrame, QAbstractItemView, QFileDialog,
+    QWidget, QHBoxLayout, QTableWidgetItem,
+    QLineEdit, QLabel, QDialog, QMessageBox, QHeaderView,
+    QFileDialog,
 )
-from PySide6.QtCore import Qt, QSize
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QDoubleValidator, QColor, QBrush
 
-from ui.icons import svg_icon, svg_pixmap
-from ui.styles import get_palette
+from ui.icons import svg_pixmap
+from ui.base_page import ListPage
 from ui.modal import BaseModal
 from utils.excel_import import leer_lista_precios
-from utils.helpers import leer_zoom, leer_tema, fmt_ar
+from utils.helpers import leer_tema, fmt_ar, parse_float
 
 _SEARCH_MAXW, _ROW_H = 400, 40
 _COD_W = 110
 
 
-class ConceptosWidget(QWidget):
-    def __init__(self, db, parent=None):
-        super().__init__(parent)
-        self.db = db
-        self._zoom = leer_zoom(db)
-        self._pal = get_palette(leer_tema(db))
-        self._conceptos: list[dict] = []
-        self._order = "nombre"   # 'nombre' | 'codigo' (clic en el encabezado)
-        self._build_ui()
-        self.refresh()
+class ConceptosWidget(ListPage):
+    TITULO = "Productos"
+    SUBTITULO = "Catálogo de productos y servicios"
+    SEARCH_PLACEHOLDER = "Buscar por código o nombre..."
+    SEARCH_MAXW = _SEARCH_MAXW
+    COLUMNS = ["Código", "Nombre", "Precio"]
+    ROW_H = _ROW_H
+    _order = "nombre"   # 'nombre' | 'codigo' (clic en el encabezado)
 
-    def _build_ui(self) -> None:
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(28, 24, 28, 24)
-        layout.setSpacing(16)
+    def _header_buttons(self) -> list:
+        self._btn_importar = self._boton("  Importar lista de precios", "file-plus",
+                                         "text", "btn_secondary", self._on_importar, size=15)
+        self._btn_nuevo = self._boton("  Nuevo producto", "plus", "accent_text",
+                                      slot=self._on_nuevo, size=15)
+        return [self._btn_importar, self._btn_nuevo]
 
-        header = QHBoxLayout()
-        titles = QVBoxLayout()
-        titles.setSpacing(4)
-        h = QLabel("Productos")
-        h.setProperty("role", "page-title")
-        s = QLabel("Catálogo de productos y servicios")
-        s.setProperty("role", "page-subtitle")
-        titles.addWidget(h)
-        titles.addWidget(s)
-        header.addLayout(titles)
-        header.addStretch()
+    def _action_widgets(self) -> list:
+        self._btn_edit = self._boton("  Editar", "edit", "text", "btn_secondary",
+                                     self._on_editar, needs_selection=True)
+        self._btn_del = self._boton("  Eliminar", "trash", "danger", "btn_danger",
+                                    self._on_eliminar, needs_selection=True)
+        return [self._btn_edit, self._btn_del]
 
-        self._btn_importar = QPushButton("  Importar lista de precios")
-        self._btn_importar.setIcon(svg_icon("file-plus", 15, self._pal["text"]))
-        self._btn_importar.setIconSize(QSize(15, 15))
-        self._btn_importar.setObjectName("btn_secondary")
-        self._btn_importar.setCursor(Qt.PointingHandCursor)
-        self._btn_importar.clicked.connect(self._on_importar)
-        header.addWidget(self._btn_importar)
-
-        self._btn_nuevo = QPushButton("  Nuevo producto")
-        self._btn_nuevo.setIcon(svg_icon("plus", 15, self._pal["accent_text"]))
-        self._btn_nuevo.setIconSize(QSize(15, 15))
-        self._btn_nuevo.setCursor(Qt.PointingHandCursor)
-        self._btn_nuevo.clicked.connect(self._on_nuevo)
-        header.addWidget(self._btn_nuevo)
-        layout.addLayout(header)
-
-        search_row = QHBoxLayout()
-        search_row.setSpacing(8)
-        self._search_icon_lbl = QLabel()
-        self._search_icon_lbl.setPixmap(svg_pixmap("search", 16, self._pal["muted2"]))
-        self._search_icon_lbl.setFixedSize(round(16 * self._zoom), round(16 * self._zoom))
-        self._search = QLineEdit()
-        self._search.setPlaceholderText("Buscar por código o nombre...")
-        self._search.setMaximumWidth(round(_SEARCH_MAXW * self._zoom))
-        self._search.textChanged.connect(lambda _: self.refresh())
-        search_row.addWidget(self._search_icon_lbl)
-        search_row.addWidget(self._search)
-        search_row.addStretch()
-        layout.addLayout(search_row)
-
-        self._table = QTableWidget()
-        self._table.setColumnCount(3)
-        self._table.setHorizontalHeaderLabels(["Código", "Nombre", "Precio"])
-        self._table.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self._table.setSelectionMode(QAbstractItemView.SingleSelection)
-        self._table.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        self._table.setAlternatingRowColors(True)
-        self._table.verticalHeader().setVisible(False)
-        self._table.setShowGrid(False)
-        self._table.setFocusPolicy(Qt.ClickFocus)
-        # Sin esto, al seleccionar una fila el borde-izquierdo de 3px roba
-        # ancho y el precio ("$ 7.173,93") se parte en dos renglones.
-        self._table.setWordWrap(False)
-
-        # Código = ancho fijo (clic para ordenar por código); Nombre = se
-        # estira; Precio = ancho fijo pegado al borde derecho.
-        hh = self._table.horizontalHeader()
+    def _configure_columns(self, hh) -> None:
+        # Código = ancho fijo (clic para ordenar); Nombre = se estira;
+        # Precio = ancho fijo pegado al borde derecho.
         hh.setSectionResizeMode(0, QHeaderView.Interactive)
         hh.setSectionResizeMode(1, QHeaderView.Stretch)
         hh.setSectionResizeMode(2, QHeaderView.Interactive)
-        self._table.setColumnWidth(0, round(_COD_W * self._zoom))
-        self._table.setColumnWidth(2, round(150 * self._zoom))
-        # Clic en el encabezado Código/Nombre → reordena (por eso re-consultamos
-        # a la base en vez de usar el sort nativo, que se pelea con los
-        # cell-widgets de las filas "sin precio").
+        self._resize_columns(hh)
+        # Clic en Código/Nombre reordena (re-consultamos la base en vez del sort
+        # nativo, que se pelea con los cell-widgets de las filas "sin precio").
         hh.setSectionsClickable(True)
         hh.sectionClicked.connect(self._on_header_clicked)
         precio_head = self._table.horizontalHeaderItem(2)
         if precio_head is not None:
             precio_head.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
 
-        self._table.doubleClicked.connect(self._on_editar)
-        self._table.selectionModel().selectionChanged.connect(self._update_actions)
-        layout.addWidget(self._table)
+    def _resize_columns(self, hh) -> None:
+        self._table.setColumnWidth(0, round(_COD_W * self._zoom))
+        self._table.setColumnWidth(2, round(150 * self._zoom))
 
-        actions = QHBoxLayout()
-        actions.setSpacing(8)
-
-        self._btn_edit = QPushButton("  Editar")
-        self._btn_edit.setIcon(svg_icon("edit", 14, self._pal["text"]))
-        self._btn_edit.setIconSize(QSize(14, 14))
-        self._btn_edit.setObjectName("btn_secondary")
-        self._btn_edit.setCursor(Qt.PointingHandCursor)
-        self._btn_edit.clicked.connect(self._on_editar)
-
-        self._btn_del = QPushButton("  Eliminar")
-        self._btn_del.setIcon(svg_icon("trash", 14, self._pal["danger"]))
-        self._btn_del.setIconSize(QSize(14, 14))
-        self._btn_del.setObjectName("btn_danger")
-        self._btn_del.setCursor(Qt.PointingHandCursor)
-        self._btn_del.clicked.connect(self._on_eliminar)
-
-        for btn in (self._btn_edit, self._btn_del):
-            actions.addWidget(btn)
-        actions.addStretch()
-
-        self._count_lbl = QLabel()
-        self._count_lbl.setProperty("role", "page-subtitle")
-        actions.addWidget(self._count_lbl)
-        layout.addLayout(actions)
-        self._update_actions()
+    def _query(self, search):
+        return self.db.get_all_conceptos(search, order=self._order)
 
     def _on_header_clicked(self, index: int) -> None:
         # Solo Código (0) y Nombre (1) reordenan; Precio (2) no.
@@ -147,39 +72,28 @@ class ConceptosWidget(QWidget):
             self._order = nuevo
             self.refresh()
 
-    def refresh(self) -> None:
-        search = self._search.text().strip() if hasattr(self, "_search") else None
-        self._conceptos = self.db.get_all_conceptos(search or None, order=self._order)
-        # setRowCount(0) primero limpia cell-widgets viejos (badges) que si no
-        # quedarían pegados al reordenarse/filtrarse las filas.
-        self._table.setRowCount(0)
-        self._table.setRowCount(len(self._conceptos))
-        sin_precio = 0
-        for row, c in enumerate(self._conceptos):
-            cod = QTableWidgetItem((c.get("codigo") or "").strip() or "—")
-            cod.setTextAlignment(Qt.AlignCenter)
-            self._table.setItem(row, 0, cod)
-            pvp = c["pvp"] or 0
-            if pvp <= 0:
-                sin_precio += 1
-                self._table.setItem(row, 1, QTableWidgetItem(""))
-                self._table.setCellWidget(row, 1, self._nombre_sin_precio(c["nombre"]))
-                price = QTableWidgetItem(fmt_ar(0))
-                price.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
-                price.setForeground(QBrush(QColor(self._pal["warn"])))
-                self._table.setItem(row, 2, price)
-            else:
-                self._table.setItem(row, 1, QTableWidgetItem(c["nombre"]))
-                price = QTableWidgetItem(fmt_ar(pvp))
-                price.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
-                self._table.setItem(row, 2, price)
-            self._table.setRowHeight(row, round(_ROW_H * self._zoom))
-        if hasattr(self, "_count_lbl"):
-            total = len(self._conceptos)
-            pl = "s" if total != 1 else ""
-            extra = f" · {sin_precio} sin precio" if sin_precio else ""
-            self._count_lbl.setText(f"{total} producto{pl}{extra}")
-        self._update_actions()
+    def _pre_render(self, items) -> None:
+        self._sin_precio = 0
+
+    def _fill_row(self, row: int, c: dict) -> None:
+        self._table.setItem(row, 0, self._cell(
+            (c.get("codigo") or "").strip() or "—", Qt.AlignCenter))
+        pvp = c["pvp"] or 0
+        if pvp <= 0:
+            self._sin_precio += 1
+            self._table.setItem(row, 1, QTableWidgetItem(""))
+            self._table.setCellWidget(row, 1, self._nombre_sin_precio(c["nombre"]))
+            price = self._cell(fmt_ar(0), Qt.AlignRight | Qt.AlignVCenter)
+            price.setForeground(QBrush(QColor(self._pal["warn"])))
+            self._table.setItem(row, 2, price)
+        else:
+            self._table.setItem(row, 1, QTableWidgetItem(c["nombre"]))
+            self._table.setItem(row, 2, self._cell(fmt_ar(pvp), Qt.AlignRight | Qt.AlignVCenter))
+
+    def _count_text(self, total: int) -> str:
+        pl = "s" if total != 1 else ""
+        extra = f" · {self._sin_precio} sin precio" if self._sin_precio else ""
+        return f"{total} producto{pl}{extra}"
 
     def _nombre_sin_precio(self, nombre: str) -> QWidget:
         """Celda de nombre para productos en $0: nombre + ícono SVG de alerta
@@ -205,30 +119,6 @@ class ConceptosWidget(QWidget):
         h.addStretch()
         return w
 
-    def _selected(self) -> dict | None:
-        row = self._table.currentRow()
-        if row < 0 or row >= len(self._conceptos):
-            return None
-        return self._conceptos[row]
-
-    def _update_actions(self) -> None:
-        has = self._selected() is not None
-        for btn in (self._btn_edit, self._btn_del):
-            btn.setEnabled(has)
-
-    def set_theme_zoom(self, theme: str, zoom: float) -> None:
-        self._zoom = zoom
-        self._pal = get_palette(theme)
-        self._search_icon_lbl.setFixedSize(round(16 * zoom), round(16 * zoom))
-        self._search_icon_lbl.setPixmap(svg_pixmap("search", 16, self._pal["muted2"]))
-        self._search.setMaximumWidth(round(_SEARCH_MAXW * zoom))
-        self._table.setColumnWidth(0, round(_COD_W * zoom))
-        self._table.setColumnWidth(2, round(150 * zoom))
-        self._btn_importar.setIcon(svg_icon("file-plus", 15, self._pal["text"]))
-        self._btn_nuevo.setIcon(svg_icon("plus", 15, self._pal["accent_text"]))
-        self._btn_edit.setIcon(svg_icon("edit", 14, self._pal["text"]))
-        self._btn_del.setIcon(svg_icon("trash", 14, self._pal["danger"]))
-
     def _on_nuevo(self) -> None:
         dlg = ConceptoDialog(zoom=self._zoom, theme=leer_tema(self.db), parent=self)
         if dlg.exec() == QDialog.Accepted:
@@ -248,12 +138,7 @@ class ConceptosWidget(QWidget):
         c = self._selected()
         if not c:
             return
-        resp = QMessageBox.question(
-            self, "Confirmar eliminación",
-            f"¿Eliminar el producto <b>{c['nombre']}</b>?",
-            QMessageBox.Yes | QMessageBox.No, QMessageBox.No,
-        )
-        if resp == QMessageBox.Yes:
+        if self._confirmar(f"¿Eliminar el producto <b>{c['nombre']}</b>?"):
             try:
                 self.db.delete_concepto(c["id"])
                 self.refresh()
@@ -337,10 +222,7 @@ class ConceptoDialog(BaseModal):
         if not nombre:
             QMessageBox.warning(self, "Campo requerido", "El nombre es obligatorio.")
             return
-        try:
-            pvp = float((self._pvp.text() or "0").replace(",", "."))
-        except ValueError:
-            pvp = 0.0
+        pvp = parse_float(self._pvp.text())
         if pvp <= 0:
             QMessageBox.warning(self, "Falta el precio",
                                 "El precio debe ser mayor que 0. Un producto no puede quedar sin precio.")
