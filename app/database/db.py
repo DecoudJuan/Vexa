@@ -6,6 +6,7 @@ devolviendo `dict`, para que el resto de la app no dependa del ORM. El esquema
 vive en models.py; acá va la lógica de consultas y el arranque de la base.
 """
 
+import os
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -21,7 +22,9 @@ from database.models import (
     Factura, Linea, Suplido, Remesa, Recibo, Configuracion, TIPOS_DOCUMENTO,
 )
 
-DATA_DIR = Path.home() / "Facturacion"
+# Carpeta de datos: por defecto ~/Facturacion, pero se puede apuntar a otra
+# (ej. un entorno de pruebas aislado) con la variable FACTURACION_DATA_DIR.
+DATA_DIR = Path(os.environ.get("FACTURACION_DATA_DIR") or (Path.home() / "Facturacion"))
 DEFAULT_DB = DATA_DIR / "data.db"
 
 # Reexportado por compatibilidad (antes vivía acá como constante del esquema).
