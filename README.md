@@ -174,6 +174,14 @@ git status --ignored
 
 ---
 
+## Roadmap
+
+El plan de evolución hacia un facturador vendible (white-label, import flexible,
+talles, facturación electrónica AFIP) vive en [`ROADMAP.md`](ROADMAP.md), con el
+estado de cada ítem (hecho / pendiente).
+
+---
+
 ## Licencia
 
 Software **propietario** — todos los derechos reservados. Ver [`LICENSE`](LICENSE).
