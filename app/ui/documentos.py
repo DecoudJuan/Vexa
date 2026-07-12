@@ -14,6 +14,7 @@ from PySide6.QtGui import QColor, QDoubleValidator
 
 from ui.icons import svg_icon, svg_pixmap
 from ui.styles import get_palette
+from ui.base_page import ListPage
 from ui.modal import build_modal_css, modal_colors
 from ui.widgets import fila as _fila, NoScrollComboBox
 from utils.helpers import fmt_ar, parse_float, leer_zoom, leer_tema, etiqueta_concepto
@@ -68,104 +69,49 @@ class DocumentosWidget(QWidget):
             widget.set_theme_zoom(theme, zoom)
 
 
-class DocumentListWidget(QWidget):
+class DocumentListWidget(ListPage):
+    SEARCH_PLACEHOLDER = "Buscar por número o cliente..."
+    SEARCH_MAXW = 360
+    COLUMNS = ["Número", "Fecha", "Cliente", "Total", "Origen"]
+    ROW_H = 42
+
     def __init__(self, db, tipo: str, parent=None):
-        super().__init__(parent)
-        self.db = db
         self.tipo = tipo
         self.cfg = DOCUMENT_TYPES[tipo]
-        self._docs: list[dict] = []
-        self._zoom = leer_zoom(db)
-        self._pal = get_palette(leer_tema(db))
-        self._build_ui()
+        self.TITULO = self.cfg["plural"]
+        super().__init__(db, parent)
 
-    def _build_ui(self) -> None:
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(28, 24, 28, 24)
-        layout.setSpacing(16)
+    def _header_buttons(self) -> list:
+        self._btn_nuevo = self._boton(f"  Nuevo/a {self.cfg['label'].lower()}", "plus",
+                                      "accent_text", slot=self._on_nuevo, size=15)
+        return [self._btn_nuevo]
 
-        header = QHBoxLayout()
-        titles = QVBoxLayout()
-        titles.setSpacing(4)
-        h = QLabel(self.cfg["plural"])
-        h.setProperty("role", "page-title")
-        titles.addWidget(h)
-        header.addLayout(titles)
-        header.addStretch()
+    def _build_below_header(self):
+        return self._build_summary()
 
-        self._btn_nuevo = QPushButton(f"  Nuevo/a {self.cfg['label'].lower()}")
-        self._btn_nuevo.setIcon(svg_icon("plus", 15, self._pal["accent_text"]))
-        self._btn_nuevo.setIconSize(QSize(15, 15))
-        self._btn_nuevo.setCursor(Qt.PointingHandCursor)
-        self._btn_nuevo.clicked.connect(self._on_nuevo)
-        header.addWidget(self._btn_nuevo)
-        layout.addLayout(header)
+    def _action_widgets(self) -> list:
+        self._btn_edit = self._boton("  Editar", "edit", "text", "btn_secondary",
+                                     self._on_editar, needs_selection=True)
+        self._btn_pdf = self._boton("  Ver PDF", "file-text", "text", "btn_secondary",
+                                    self._on_pdf, needs_selection=True)
+        self._btn_del = self._boton("  Eliminar", "trash", "danger", "btn_danger",
+                                    self._on_eliminar, needs_selection=True)
+        return [self._btn_edit, self._btn_pdf, self._btn_del]
 
-        layout.addWidget(self._build_summary())
-
-        search_row = QHBoxLayout()
-        search_row.setSpacing(8)
-        self._search_icon_lbl = QLabel()
-        self._search_icon_lbl.setPixmap(svg_pixmap("search", 16, self._pal["muted2"]))
-        self._search_icon_lbl.setFixedSize(round(16 * self._zoom), round(16 * self._zoom))
-        self._search = QLineEdit()
-        self._search.setPlaceholderText("Buscar por número o cliente...")
-        self._search.setMaximumWidth(round(360 * self._zoom))
-        self._search.textChanged.connect(lambda _: self.refresh())
-        search_row.addWidget(self._search_icon_lbl)
-        search_row.addWidget(self._search)
-        search_row.addStretch()
-        layout.addLayout(search_row)
-
-        self._table = QTableWidget()
-        self._table.setColumnCount(5)
-        self._table.setHorizontalHeaderLabels(
-            ["Número", "Fecha", "Cliente", "Total", "Origen"]
-        )
-        self._table.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self._table.setSelectionMode(QAbstractItemView.SingleSelection)
-        self._table.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        self._table.setAlternatingRowColors(True)
-        self._table.setWordWrap(False)
-        self._table.verticalHeader().setVisible(False)
-        self._table.setShowGrid(False)
-        self._table.setFocusPolicy(Qt.ClickFocus)
-
-        hh = self._table.horizontalHeader()
+    def _configure_columns(self, hh) -> None:
         hh.setSectionResizeMode(2, QHeaderView.Stretch)
         for col in (0, 1, 3, 4):
             hh.setSectionResizeMode(col, QHeaderView.Interactive)
+        self._resize_columns(hh)
+
+    def _resize_columns(self, hh) -> None:
         hh.setDefaultSectionSize(round(120 * self._zoom))
 
-        self._table.doubleClicked.connect(self._on_editar)
-        self._table.selectionModel().selectionChanged.connect(self._update_actions)
-        layout.addWidget(self._table)
+    def _query(self, search):
+        return self.db.get_facturas(tipo=self.tipo, search=search)
 
-        actions = QHBoxLayout()
-        actions.setSpacing(8)
-
-        self._btn_edit = self._action_btn("  Editar", "edit", self._pal["text"], "btn_secondary", self._on_editar)
-        self._btn_pdf = self._action_btn("  Ver PDF", "file-text", self._pal["text"], "btn_secondary", self._on_pdf)
-        self._btn_del = self._action_btn("  Eliminar", "trash", self._pal["danger"], "btn_danger", self._on_eliminar)
-
-        for btn in (self._btn_edit, self._btn_pdf, self._btn_del):
-            actions.addWidget(btn)
-        actions.addStretch()
-
-        self._count_lbl = QLabel()
-        self._count_lbl.setProperty("role", "page-subtitle")
-        actions.addWidget(self._count_lbl)
-        layout.addLayout(actions)
-        self._update_actions()
-
-    def _action_btn(self, text, icon, color, obj_name, slot) -> QPushButton:
-        btn = QPushButton(text)
-        btn.setIcon(svg_icon(icon, 14, color))
-        btn.setIconSize(QSize(14, 14))
-        btn.setObjectName(obj_name)
-        btn.setCursor(Qt.PointingHandCursor)
-        btn.clicked.connect(slot)
-        return btn
+    def _pre_render(self, items) -> None:
+        self._update_summary(items)
 
     # ---- resumen del período (KPIs) --------------------------------
     def _build_summary(self) -> QWidget:
@@ -222,60 +168,18 @@ class DocumentListWidget(QWidget):
             sub_lbl.setText(sub_txt)
             sub_lbl.setStyleSheet(st_sub)
 
-    def refresh(self) -> None:
-        search = self._search.text().strip() if hasattr(self, "_search") else None
-        self._docs = self.db.get_facturas(tipo=self.tipo, search=search or None)
-        if hasattr(self, "_kpi_fact"):
-            self._update_summary(self._docs)
-        self._table.setRowCount(0)
-        self._table.setRowCount(len(self._docs))
-        for row, d in enumerate(self._docs):
-            self._set_row(row, d)
-        if hasattr(self, "_count_lbl"):
-            total = len(self._docs)
-            pl = "s" if total != 1 else ""
-            self._count_lbl.setText(f"{total} documento{pl}")
-        self._update_actions()
-
-    def _set_row(self, row: int, d: dict) -> None:
-        def cell(text: str, align=Qt.AlignLeft | Qt.AlignVCenter) -> QTableWidgetItem:
-            item = QTableWidgetItem(text)
-            item.setTextAlignment(align)
-            return item
-
+    def _fill_row(self, row: int, d: dict) -> None:
         numero = f"{self.cfg['prefijo']}-{d.get('ejercicio')}-{d.get('numero') or ''}"
-        self._table.setItem(row, 0, cell(numero))
-        self._table.setItem(row, 1, cell((d.get("fecha") or "")[:10]))
-        self._table.setItem(row, 2, cell(d.get("cliente_nombre") or ""))
-        self._table.setItem(row, 3, cell(fmt_ar(d.get("total") or 0), Qt.AlignRight | Qt.AlignVCenter))
+        self._table.setItem(row, 0, self._cell(numero))
+        self._table.setItem(row, 1, self._cell((d.get("fecha") or "")[:10]))
+        self._table.setItem(row, 2, self._cell(d.get("cliente_nombre") or ""))
+        self._table.setItem(row, 3, self._cell(fmt_ar(d.get("total") or 0), Qt.AlignRight | Qt.AlignVCenter))
         origen = f"{d['origen_tipo']} {d.get('origen_numero') or ''}" if d.get("origen_tipo") else "—"
-        self._table.setItem(row, 4, cell(origen, Qt.AlignCenter))
-        self._table.setRowHeight(row, round(42 * self._zoom))
+        self._table.setItem(row, 4, self._cell(origen, Qt.AlignCenter))
 
-    def _selected(self) -> dict | None:
-        row = self._table.currentRow()
-        if row < 0 or row >= len(self._docs):
-            return None
-        return self._docs[row]
-
-    def _update_actions(self) -> None:
-        doc = self._selected()
-        has = doc is not None
-        for btn in (self._btn_edit, self._btn_pdf, self._btn_del):
-            btn.setEnabled(has)
-
-    def set_theme_zoom(self, theme: str, zoom: float) -> None:
-        self._zoom = zoom
-        self._pal = get_palette(theme)
-        self._search_icon_lbl.setFixedSize(round(16 * zoom), round(16 * zoom))
-        self._search_icon_lbl.setPixmap(svg_pixmap("search", 16, self._pal["muted2"]))
-        self._search.setMaximumWidth(round(360 * zoom))
-        hh = self._table.horizontalHeader()
-        hh.setDefaultSectionSize(round(120 * zoom))
-        self._btn_nuevo.setIcon(svg_icon("plus", 15, self._pal["accent_text"]))
-        self._btn_edit.setIcon(svg_icon("edit", 14, self._pal["text"]))
-        self._btn_pdf.setIcon(svg_icon("file-text", 14, self._pal["text"]))
-        self._btn_del.setIcon(svg_icon("trash", 14, self._pal["danger"]))
+    def _count_text(self, total: int) -> str:
+        pl = "s" if total != 1 else ""
+        return f"{total} documento{pl}"
 
     def _on_nuevo(self) -> None:
         dlg = DocumentoDialog(self.db, self.tipo, parent=self)
@@ -306,12 +210,9 @@ class DocumentListWidget(QWidget):
         d = self._selected()
         if not d:
             return
-        resp = QMessageBox.question(
-            self, "Confirmar eliminación",
-            f"¿Eliminar el documento <b>{self.cfg['prefijo']}-{d.get('numero')}</b>?",
-            QMessageBox.Yes | QMessageBox.No, QMessageBox.No,
-        )
-        if resp == QMessageBox.Yes:
+        if self._confirmar(
+            f"¿Eliminar el documento <b>{self.cfg['prefijo']}-{d.get('numero')}</b>?"
+        ):
             self.db.delete_factura(d["id"])
             self.refresh()
 
