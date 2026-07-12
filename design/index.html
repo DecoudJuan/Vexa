@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Facturación · Exploración de mejoras UI/UX</title>
+<style>
+  :root{
+    --bg:#0f1017; --panel:#181a24; --panel-2:#1f2230; --line:#2a2e3f;
+    --ink:#e7e9f3; --ink-2:#a6adc8; --muted:#6c7086;
+    --accent:#2f6df6; --accent-2:#89b4fa; --amber:#f9b34a; --green:#5fd0a0;
+    --font:"Segoe UI",system-ui,-apple-system,"Roboto",sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{font-family:var(--font);color:var(--ink);line-height:1.5;
+    background:
+      radial-gradient(1200px 700px at 12% -10%, #1a2138 0%, transparent 55%),
+      radial-gradient(900px 600px at 105% 5%, #171c30 0%, transparent 55%),
+      var(--bg);
+    padding:56px 24px 80px}
+  .wrap{max-width:1060px;margin:0 auto}
+  .kicker{font-size:12px;letter-spacing:.24em;text-transform:uppercase;color:var(--accent-2);font-weight:800}
+  h1{font-size:40px;line-height:1.05;margin:.2em 0 .15em;font-weight:800;letter-spacing:-.02em}
+  .lead{color:var(--ink-2);font-size:16px;max-width:74ch;margin:0}
+  .note-box{margin:22px 0 0;background:rgba(47,109,246,.1);border:1px solid rgba(47,109,246,.35);
+    border-radius:12px;padding:13px 16px;color:var(--ink-2);font-size:13.5px}
+  .note-box b{color:var(--ink)}
+
+  .cards{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin:34px 0 10px}
+  @media(max-width:760px){.cards{grid-template-columns:1fr}}
+  .dir{position:relative;display:block;border-radius:18px;overflow:hidden;border:1px solid var(--line);
+    background:var(--panel);text-decoration:none;color:inherit;transition:transform .15s,border-color .15s,box-shadow .15s}
+  .dir:hover{transform:translateY(-3px);border-color:var(--accent);box-shadow:0 24px 50px -26px rgba(47,109,246,.7)}
+  .dir .prev{height:150px;display:flex;align-items:center;justify-content:center;gap:8px}
+  .dir.a .prev{background:linear-gradient(135deg,#1e1e2e,#2a2a40)}
+  .dir.b .prev{background:linear-gradient(135deg,#e8edf7,#cdd8ef)}
+  .swatch{width:26px;height:44px;border-radius:8px;border:1px solid rgba(255,255,255,.15)}
+  .dir .body{padding:18px 20px 20px}
+  .dir .tagline{font-size:11px;letter-spacing:.18em;text-transform:uppercase;font-weight:800;color:var(--accent-2)}
+  .dir.b .tagline{color:var(--accent)}
+  .dir h3{margin:.3em 0 .2em;font-size:20px;font-weight:800}
+  .dir p{margin:0;color:var(--ink-2);font-size:13.5px}
+  .dir .go{margin-top:14px;display:inline-flex;align-items:center;gap:7px;color:var(--accent-2);font-weight:700;font-size:13.5px}
+  .dir.b .go{color:var(--accent)}
+
+  h2{font-size:15px;text-transform:uppercase;letter-spacing:.14em;color:var(--muted);margin:44px 0 16px;font-weight:800}
+  .imp{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:760px){.imp{grid-template-columns:1fr}}
+  .item{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px}
+  .item.hero{grid-column:1/-1;border-color:rgba(47,109,246,.5);background:linear-gradient(180deg,rgba(47,109,246,.08),transparent)}
+  .item .n{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;
+    background:var(--panel-2);color:var(--accent-2);font-weight:800;font-size:13px;margin-bottom:8px}
+  .item.hero .n{background:var(--accent);color:#fff}
+  .item h4{margin:0 0 4px;font-size:15.5px;font-weight:800}
+  .item p{margin:0;color:var(--ink-2);font-size:13.5px}
+  .item .before{display:inline-block;margin-top:8px;font-size:12px;color:var(--amber);
+    background:rgba(249,179,74,.12);border-radius:7px;padding:3px 9px}
+  .foot{margin-top:44px;color:var(--muted);font-size:12.5px;border-top:1px solid var(--line);padding-top:18px}
+  .foot code{background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:2px 7px;color:var(--ink-2)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="kicker">Facturación · ADHER-NEO</div>
+  <h1>Exploración de mejoras de UI/UX</h1>
+  <p class="lead">Trabajo de <b>investigación</b>: dos direcciones visuales para mejorar la interfaz
+     actual de la app <b>sin agregar pantallas nuevas</b>, priorizando el dolor principal —
+     al cargar una factura se ven muy pocos productos a la vez. Son mockups estáticos de referencia
+     para decidir el rumbo; todavía no se toca el código de la app.</p>
+
+  <div class="note-box">📌 <b>Punto de partida del pedido:</b> “cuando creo la factura se ve muy poco,
+     solo 2 productos a la vez; estaría mejor que el modal sea más grande para ver más productos”.
+     Ese es el cambio estrella en ambas direcciones.</div>
+
+  <div class="cards">
+    <a class="dir a" href="direccion-a.html">
+      <div class="prev">
+        <span class="swatch" style="background:#1e1e2e"></span>
+        <span class="swatch" style="background:#89b4fa"></span>
+        <span class="swatch" style="background:#313244"></span>
+        <span class="swatch" style="background:#a6e3a1"></span>
+      </div>
+      <div class="body">
+        <div class="tagline">Dirección A</div>
+        <h3>Refinar lo actual</h3>
+        <p>Mantiene el tema oscuro Catppuccin de hoy, pero más prolijo: pills de estado,
+           tablas densas, resumen del período y el modal de factura agrandado.</p>
+        <span class="go">Ver mockup →</span>
+      </div>
+    </a>
+    <a class="dir b" href="direccion-b.html">
+      <div class="prev">
+        <span class="swatch" style="background:#ffffff"></span>
+        <span class="swatch" style="background:#2f6df6"></span>
+        <span class="swatch" style="background:#e8f0fe"></span>
+        <span class="swatch" style="background:#0ea36b"></span>
+      </div>
+      <div class="body">
+        <div class="tagline">Dirección B</div>
+        <h3>Claro y nítido</h3>
+        <p>Lleva la estética del modal nuevo (tarjetas blancas, azul de acento, más aire)
+           a toda la app. Fondo claro por defecto y jerarquía más marcada.</p>
+        <span class="go">Ver mockup →</span>
+      </div>
+    </a>
+  </div>
+
+  <h2>Puntos de mejora detectados</h2>
+  <div class="imp">
+    <div class="item hero">
+      <span class="n">1</span>
+      <h4>Formulario de factura más grande</h4>
+      <p>El modal se agranda (de ~724px a ~940px de ancho) y la lista de productos pasa a mostrar
+         <b>8–10 líneas de una</b>, con encabezado de columnas y barra de Total fijos mientras
+         scrollea solo la lista. Se suma atajo: <b>Enter</b> agrega una línea.</p>
+      <span class="before">Hoy: se ven ~2 productos antes de scrollear</span>
+    </div>
+    <div class="item"><span class="n">2</span><h4>Estados con color</h4>
+      <p>“abierto / facturado” dejan de ser texto plano y pasan a <b>pills</b> de color legibles de un vistazo en la lista de documentos.</p></div>
+    <div class="item"><span class="n">3</span><h4>Resumen del período</h4>
+      <p>Tres indicadores arriba de la lista: facturado del mes, cantidad de documentos y pendiente de cobro. Sin pantalla nueva, dentro de Documentos.</p></div>
+    <div class="item"><span class="n">4</span><h4>Filtros rápidos</h4>
+      <p>Botones Todos / Abiertos / Facturados para filtrar sin abrir menús, junto al buscador.</p></div>
+    <div class="item"><span class="n">5</span><h4>Clientes con más contexto</h4>
+      <p>Iniciales como avatar, CUIT(s) en chips, bonificación y <b>saldo pendiente</b> a la vista en la tabla.</p></div>
+    <div class="item"><span class="n">6</span><h4>Productos más claros</h4>
+      <p>Precios en <b>formato argentino</b> ($&nbsp;1.234,56) y un aviso “⚠ sin precio” en los que quedaron en $0 (los que aparecieron tras importar la lista).</p></div>
+    <div class="item"><span class="n">7</span><h4>Acciones al pasar el mouse</h4>
+      <p>Editar / Ver PDF aparecen en la fila al hacer hover, sin ocupar una columna fija ni depender solo de los botones de abajo.</p></div>
+    <div class="item"><span class="n">8</span><h4>Consistencia general</h4>
+      <p>Misma escala tipográfica y de espaciado en todas las pantallas, estados vacíos con mensaje, y el estilo del modal nuevo replicado en los demás diálogos.</p></div>
+  </div>
+
+  <div class="foot">
+    Mockups estáticos (HTML) solo de referencia · no modifican la app.<br>
+    Ubicación de los archivos:<br>
+    <code>C:\Users\juand\projects\facturacion\design\index.html</code><br>
+    <code>C:\Users\juand\projects\facturacion\design\direccion-a.html</code><br>
+    <code>C:\Users\juand\projects\facturacion\design\direccion-b.html</code>
+  </div>
+</div>
+</body>
+</html>
