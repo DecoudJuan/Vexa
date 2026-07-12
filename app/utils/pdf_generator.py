@@ -8,7 +8,7 @@ from reportlab.platypus import (
     SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer,
 )
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.enums import TA_RIGHT, TA_LEFT
+from reportlab.lib.enums import TA_RIGHT
 
 from database.db import DATA_DIR
 from utils.helpers import fmt_ar, fmt_fecha, nombre_sin_talle, valor_valido, etiqueta_concepto

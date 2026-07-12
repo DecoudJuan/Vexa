@@ -3,17 +3,17 @@ import sqlite3
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem,
     QLineEdit, QPushButton, QLabel, QDialog, QComboBox, QTextEdit,
-    QMessageBox, QHeaderView, QFrame, QAbstractItemView,
-    QListWidget, QListWidgetItem, QSizePolicy, QCompleter,
+    QMessageBox, QHeaderView, QAbstractItemView,
+    QSizePolicy, QCompleter,
 )
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QDoubleValidator, QColor, QBrush
 
-from ui.icons import svg_icon, svg_pixmap
+from ui.icons import svg_icon
 from ui.styles import get_palette
 from ui.base_page import ListPage
 from ui.modal import BaseModal, modal_colors
-from ui.widgets import avatar, celda, NoScrollComboBox
+from ui.widgets import avatar, NoScrollComboBox
 from utils.helpers import leer_zoom, leer_tema, valor_valido, fmt_ar, parse_float, PROVINCIAS_AR
 
 _SEARCH_MAXW, _ROW_H = 400, 44

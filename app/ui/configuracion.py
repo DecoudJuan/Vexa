@@ -1,10 +1,10 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTabWidget, QFormLayout, QLineEdit,
-    QPushButton, QLabel, QDoubleSpinBox, QTableWidget, QTableWidgetItem,
-    QHeaderView, QAbstractItemView, QDialog, QCheckBox, QSpinBox, QMessageBox,
+    QPushButton, QLabel, QTableWidget, QTableWidgetItem,
+    QHeaderView, QAbstractItemView, QDialog, QCheckBox, QMessageBox,
     QFileDialog, QFrame, QScrollArea,
 )
-from PySide6.QtCore import Qt, QSize
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QDoubleValidator, QIntValidator
 
 from ui.icons import svg_icon

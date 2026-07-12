@@ -1,19 +1,18 @@
 import sqlite3
 
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem,
-    QLineEdit, QPushButton, QLabel, QDialog, QMessageBox, QHeaderView,
-    QFrame, QAbstractItemView, QFileDialog,
+    QWidget, QHBoxLayout, QTableWidgetItem,
+    QLineEdit, QLabel, QDialog, QMessageBox, QHeaderView,
+    QFileDialog,
 )
-from PySide6.QtCore import Qt, QSize
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QDoubleValidator, QColor, QBrush
 
-from ui.icons import svg_icon, svg_pixmap
-from ui.styles import get_palette
+from ui.icons import svg_pixmap
 from ui.base_page import ListPage
 from ui.modal import BaseModal
 from utils.excel_import import leer_lista_precios
-from utils.helpers import leer_zoom, leer_tema, fmt_ar, parse_float
+from utils.helpers import leer_tema, fmt_ar, parse_float
 
 _SEARCH_MAXW, _ROW_H = 400, 40
 _COD_W = 110
