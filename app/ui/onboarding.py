@@ -1,124 +1,249 @@
-"""Asistente de primera ejecución: si la app se abre sin empresa configurada,
-pide los datos base (razón social, CUIT, condición IVA, domicilio, logo, moneda)
-para poder facturar. La vinculación con AFIP es OPCIONAL: solo si se tilda, se
-piden los datos fiscales para la facturación electrónica (que se implementa en
-la Fase 4 del roadmap)."""
+"""Asistente de primera ejecución (a pantalla completa de la app).
+
+Página 1: bienvenida con el logo de Vexa y un botón "Comenzar".
+Página 2: datos base de la empresa (aparecen en los comprobantes).
+
+Es obligatorio: la app solo continúa a la pantalla principal si se completan
+los datos (ver run_onboarding + main.py). La vinculación con AFIP es opcional
+(la integración real es la Fase 4 del roadmap)."""
 
 from PySide6.QtWidgets import (
-    QLineEdit, QLabel, QCheckBox, QWidget, QVBoxLayout, QHBoxLayout,
-    QPushButton, QFileDialog, QMessageBox, QSizePolicy, QComboBox,
+    QDialog, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QLineEdit,
+    QCheckBox, QPushButton, QStackedWidget, QScrollArea, QMessageBox,
+    QSizePolicy, QApplication,
 )
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QPixmap
 
-from ui.modal import BaseModal
 from ui.widgets import NoScrollComboBox
-from utils.helpers import CONDICIONES_IVA, set_moneda, leer_zoom, leer_tema
+from utils.helpers import CONDICIONES_IVA, set_moneda, leer_zoom
+from utils.resources import resource_path
 from version import APP_NAME
 
+# Pantalla branded, independiente del tema oscuro/claro de la app.
+_INK = "#0F1B2D"
+_MUTED = "#6B7280"
+_BLUE = "#3B4DF0"
 
-class OnboardingDialog(BaseModal):
+_QSS = f"""
+QDialog {{ background: #ffffff; }}
+#page {{ background: #ffffff; }}
+#welcome_title {{ color: {_INK}; font-size: 30px; font-weight: 800; }}
+#welcome_sub {{ color: {_MUTED}; font-size: 15px; }}
+#form_header {{ background: #ffffff; border-bottom: 1px solid #EDEFF5; }}
+#form_title {{ color: {_INK}; font-size: 20px; font-weight: 700; }}
+#form_sub {{ color: {_MUTED}; font-size: 12.5px; }}
+#form_footer {{ background: #ffffff; border-top: 1px solid #EDEFF5; }}
+QLabel#field_label {{ color: {_MUTED}; font-size: 11px; font-weight: 700; letter-spacing: 0.4px; }}
+QLabel#hint {{ color: {_MUTED}; font-size: 12px; }}
+#page QLineEdit, #page QComboBox {{
+    background: #F4F6FB; border: 1px solid #E3E6EF; border-radius: 9px;
+    padding: 9px 12px; color: {_INK}; font-size: 13.5px; min-height: 20px;
+}}
+#page QLineEdit:focus, #page QComboBox:focus {{ border: 1px solid {_BLUE}; background: #ffffff; }}
+#page QComboBox::drop-down {{ border: none; width: 22px; }}
+#page QComboBox::down-arrow {{ image: none; width: 0; height: 0; }}
+#page QComboBox QAbstractItemView {{
+    background: #ffffff; color: {_INK}; border: 1px solid #E3E6EF;
+    selection-background-color: #E8ECFD; selection-color: {_INK}; outline: none;
+}}
+#page QCheckBox {{ color: {_INK}; font-size: 13.5px; spacing: 8px; }}
+#page QCheckBox::indicator {{ width: 18px; height: 18px; border: 1px solid #CFD4E0; border-radius: 5px; background: #fff; }}
+#page QCheckBox::indicator:checked {{ background: {_BLUE}; border-color: {_BLUE}; }}
+#btn_primary {{
+    background: {_BLUE}; color: #ffffff; border: none; border-radius: 10px;
+    padding: 12px 20px; font-size: 14px; font-weight: 700;
+}}
+#btn_primary:hover {{ background: #313fd0; }}
+QScrollBar:vertical {{ background: transparent; width: 10px; margin: 0; }}
+QScrollBar::handle:vertical {{ background: #DFE2EC; border-radius: 4px; min-height: 24px; }}
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}
+"""
+
+
+class OnboardingWindow(QDialog):
     def __init__(self, db, parent=None):
+        super().__init__(parent)
         self.db = db
-        super().__init__(
-            "Configuración inicial",
-            "Cargá los datos de tu empresa para empezar a facturar",
-            icon="settings", width=580, scroll=True, height=760,
-            zoom=leer_zoom(db), theme=leer_tema(db), parent=parent,
-        )
-        self._build_form()
-        self.set_primary_action("Guardar y empezar", self._accept)
+        self._zoom = leer_zoom(db)
+        self._completed = False
+        self.setWindowTitle(APP_NAME)
+        self.setModal(True)
+        avail = QApplication.primaryScreen().availableGeometry()
+        self.resize(min(self._S(1120), avail.width() - 40),
+                    min(self._S(720), avail.height() - 60))
+        self.setStyleSheet(_QSS)
 
-    # ------------------------------------------------------------ armado
-    def _campo(self, label: str, icon: str, widget: QWidget) -> None:
-        self.content.addWidget(self.section_label(label, icon))
-        self.content.addWidget(widget)
+        root = QVBoxLayout(self)
+        root.setContentsMargins(0, 0, 0, 0)
+        self._stack = QStackedWidget()
+        root.addWidget(self._stack)
+        self._stack.addWidget(self._welcome_page())
+        self._stack.addWidget(self._form_page())
 
-    def _build_form(self) -> None:
-        self._nombre = QLineEdit(); self._nombre.setObjectName("field")
+    def _S(self, px) -> int:
+        return max(1, round(px * self._zoom))
+
+    # ------------------------------------------------------------ bienvenida
+    def _welcome_page(self) -> QWidget:
+        page = QWidget()
+        page.setObjectName("page")
+        v = QVBoxLayout(page)
+        v.setContentsMargins(40, 40, 40, 40)
+        v.setSpacing(self._S(10))
+        v.addStretch()
+
+        logo = QLabel()
+        logo.setAlignment(Qt.AlignCenter)
+        pm = QPixmap(str(resource_path("assets/vexa_logo.png")))
+        if not pm.isNull():
+            logo.setPixmap(pm.scaledToWidth(self._S(320), Qt.SmoothTransformation))
+        v.addWidget(logo)
+
+        title = QLabel(f"¡Bienvenido a {APP_NAME}!")
+        title.setObjectName("welcome_title")
+        title.setAlignment(Qt.AlignCenter)
+        v.addWidget(title)
+
+        sub = QLabel("Configurá tu empresa para empezar a facturar.")
+        sub.setObjectName("welcome_sub")
+        sub.setAlignment(Qt.AlignCenter)
+        v.addWidget(sub)
+
+        v.addSpacing(self._S(26))
+        row = QHBoxLayout()
+        row.addStretch()
+        btn = QPushButton("Comenzar")
+        btn.setObjectName("btn_primary")
+        btn.setCursor(Qt.PointingHandCursor)
+        btn.setFixedWidth(self._S(240))
+        btn.clicked.connect(lambda: self._stack.setCurrentIndex(1))
+        row.addWidget(btn)
+        row.addStretch()
+        v.addLayout(row)
+        v.addStretch()
+        return page
+
+    # ------------------------------------------------------------ formulario
+    def _labeled(self, texto: str, widget: QWidget) -> QWidget:
+        box = QWidget()
+        box.setObjectName("page")
+        lay = QVBoxLayout(box)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(self._S(5))
+        lbl = QLabel(texto)
+        lbl.setObjectName("field_label")
+        lay.addWidget(lbl)
+        lay.addWidget(widget)
+        return box
+
+    def _form_page(self) -> QWidget:
+        page = QWidget()
+        page.setObjectName("page")
+        outer = QVBoxLayout(page)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
+
+        header = QWidget()
+        header.setObjectName("form_header")
+        hl = QVBoxLayout(header)
+        hl.setContentsMargins(self._S(56), self._S(28), self._S(56), self._S(18))
+        hl.setSpacing(self._S(4))
+        ht = QLabel("Datos de tu empresa")
+        ht.setObjectName("form_title")
+        hs = QLabel("Aparecen en tus comprobantes. Podés cambiarlos después en Configuración.")
+        hs.setObjectName("form_sub")
+        hl.addWidget(ht)
+        hl.addWidget(hs)
+        outer.addWidget(header)
+
+        scroll = QScrollArea()
+        scroll.setObjectName("page")
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QScrollArea.NoFrame)
+        content = QWidget()
+        content.setObjectName("page")
+        grid = QGridLayout(content)
+        grid.setContentsMargins(self._S(56), self._S(12), self._S(56), self._S(24))
+        grid.setHorizontalSpacing(self._S(24))
+        grid.setVerticalSpacing(self._S(16))
+
+        self._nombre = QLineEdit()
         self._nombre.setPlaceholderText("Razón social / nombre del negocio")
-        self._campo("NOMBRE / RAZÓN SOCIAL *", "user", self._nombre)
+        self._cuit = QLineEdit()
+        self._cuit.setPlaceholderText("20-12345678-9")
+        self._condicion = NoScrollComboBox()
+        self._condicion.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
+        self._condicion.addItem("")
+        self._condicion.addItems(CONDICIONES_IVA)
+        self._direccion = QLineEdit()
+        self._localidad = QLineEdit()
+        self._provincia = QLineEdit()
+        self._telefono = QLineEdit()
+        self._email = QLineEdit()
+        self._moneda = QLineEdit("$")
 
-        self._cuit = QLineEdit(); self._cuit.setObjectName("field")
-        self._cuit.setPlaceholderText("CUIT (ej. 20-12345678-9)")
-        self._campo("CUIT", "hash", self._cuit)
+        grid.addWidget(self._labeled("NOMBRE / RAZÓN SOCIAL *", self._nombre), 0, 0, 1, 2)
+        grid.addWidget(self._labeled("CUIT", self._cuit), 1, 0)
+        grid.addWidget(self._labeled("CONDICIÓN FRENTE AL IVA", self._condicion), 1, 1)
+        grid.addWidget(self._labeled("DOMICILIO", self._direccion), 2, 0, 1, 2)
+        grid.addWidget(self._labeled("LOCALIDAD", self._localidad), 3, 0)
+        grid.addWidget(self._labeled("PROVINCIA", self._provincia), 3, 1)
+        grid.addWidget(self._labeled("TELÉFONO", self._telefono), 4, 0)
+        grid.addWidget(self._labeled("EMAIL", self._email), 4, 1)
+        grid.addWidget(self._labeled("MONEDA", self._moneda), 5, 0)
 
-        self._condicion_iva = NoScrollComboBox()
-        self._condicion_iva.setObjectName("field")
-        self._condicion_iva.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
-        self._condicion_iva.addItem("")
-        self._condicion_iva.addItems(CONDICIONES_IVA)
-        self._campo("CONDICIÓN FRENTE AL IVA", "file-text", self._condicion_iva)
-
-        self._direccion = QLineEdit(); self._direccion.setObjectName("field")
-        self._campo("DOMICILIO", "file-text", self._direccion)
-
-        self._localidad = QLineEdit(); self._localidad.setObjectName("field")
-        self._provincia = QLineEdit(); self._provincia.setObjectName("field")
-        self._campo("LOCALIDAD", "file-text", self._localidad)
-        self._campo("PROVINCIA", "file-text", self._provincia)
-
-        self._telefono = QLineEdit(); self._telefono.setObjectName("field")
-        self._email = QLineEdit(); self._email.setObjectName("field")
-        self._campo("TELÉFONO", "credit-card", self._telefono)
-        self._campo("EMAIL", "credit-card", self._email)
-
-        self._moneda = QLineEdit("$"); self._moneda.setObjectName("field")
-        self._campo("MONEDA", "dollar-sign", self._moneda)
-
-        # Logo (opcional)
-        self._logo = QLineEdit(); self._logo.setObjectName("field")
-        self._logo.setPlaceholderText("Ruta al logo (opcional)")
-        btn_logo = QPushButton("Elegir…")
-        btn_logo.setObjectName("btn_secondary")
-        btn_logo.setCursor(Qt.PointingHandCursor)
-        btn_logo.clicked.connect(self._on_logo)
-        logo_row = QWidget()
-        lr = QHBoxLayout(logo_row)
-        lr.setContentsMargins(0, 0, 0, 0)
-        lr.setSpacing(self._S(8))
-        lr.addWidget(self._logo, 1)
-        lr.addWidget(btn_logo)
-        self._campo("LOGO", "user", logo_row)
-
-        # --- Facturación electrónica AFIP (opcional) ---
+        # --- AFIP (opcional) ---
         self._afip = QCheckBox("Quiero emitir comprobantes electrónicos (AFIP)")
-        self.content.addWidget(self._afip)
-        hint = QLabel("La conexión real con AFIP se activa más adelante; por ahora "
-                      "se guardan los datos fiscales.")
+        grid.addWidget(self._afip, 6, 0, 1, 2)
+        hint = QLabel("La conexión con AFIP se activa más adelante; por ahora solo se "
+                      "guardan los datos.")
         hint.setObjectName("hint")
         hint.setWordWrap(True)
-        self.content.addWidget(hint)
+        grid.addWidget(hint, 7, 0, 1, 2)
 
         self._afip_box = QWidget()
-        box = QVBoxLayout(self._afip_box)
-        box.setContentsMargins(0, self._S(6), 0, 0)
-        box.setSpacing(self._S(6))
-        self._punto_venta = QLineEdit(); self._punto_venta.setObjectName("field")
-        self._punto_venta.setPlaceholderText("Ej. 0001")
-        self._ingresos_brutos = QLineEdit(); self._ingresos_brutos.setObjectName("field")
-        self._inicio_actividades = QLineEdit(); self._inicio_actividades.setObjectName("field")
-        for lbl, w in (("PUNTO DE VENTA", self._punto_venta),
-                       ("INGRESOS BRUTOS", self._ingresos_brutos),
-                       ("INICIO DE ACTIVIDADES", self._inicio_actividades)):
-            box.addWidget(self.section_label(lbl, "file-text"))
-            box.addWidget(w)
+        self._afip_box.setObjectName("page")
+        abox = QGridLayout(self._afip_box)
+        abox.setContentsMargins(0, 0, 0, 0)
+        abox.setHorizontalSpacing(self._S(24))
+        abox.setVerticalSpacing(self._S(16))
+        self._punto_venta = QLineEdit()
+        self._punto_venta.setPlaceholderText("0001")
+        self._ingresos_brutos = QLineEdit()
+        self._inicio_actividades = QLineEdit()
+        abox.addWidget(self._labeled("PUNTO DE VENTA", self._punto_venta), 0, 0)
+        abox.addWidget(self._labeled("INGRESOS BRUTOS", self._ingresos_brutos), 0, 1)
+        abox.addWidget(self._labeled("INICIO DE ACTIVIDADES", self._inicio_actividades), 1, 0)
         self._afip_box.setVisible(False)
         self._afip.toggled.connect(self._afip_box.setVisible)
-        self.content.addWidget(self._afip_box)
-        self.content.addStretch()
+        grid.addWidget(self._afip_box, 8, 0, 1, 2)
 
-    # ------------------------------------------------------------ acciones
-    def _on_logo(self) -> None:
-        path, _ = QFileDialog.getOpenFileName(self, "Elegir logo", "",
-                                              "Imágenes (*.png *.jpg *.jpeg)")
-        if path:
-            self._logo.setText(path)
+        grid.setRowStretch(9, 1)
+        scroll.setWidget(content)
+        outer.addWidget(scroll, 1)
 
+        footer = QWidget()
+        footer.setObjectName("form_footer")
+        fl = QHBoxLayout(footer)
+        fl.setContentsMargins(self._S(56), self._S(16), self._S(56), self._S(16))
+        fl.addStretch()
+        save = QPushButton("Guardar y empezar")
+        save.setObjectName("btn_primary")
+        save.setCursor(Qt.PointingHandCursor)
+        save.setFixedWidth(self._S(240))
+        save.clicked.connect(self._accept)
+        fl.addWidget(save)
+        outer.addWidget(footer)
+        return page
+
+    # ------------------------------------------------------------ guardar
     def _accept(self) -> None:
         nombre = self._nombre.text().strip()
         if not nombre:
             QMessageBox.warning(self, "Falta el nombre",
                                 "Ingresá el nombre o razón social de la empresa.")
+            self._stack.setCurrentIndex(1)
             self._nombre.setFocus()
             return
         afip_on = self._afip.isChecked()
@@ -138,10 +263,10 @@ class OnboardingDialog(BaseModal):
             "moneda": self._moneda.text().strip() or "$",
             "sufijo": None,
             "pie_pagina": None,
-            "logo_path": self._logo.text().strip() or None,
+            "logo_path": None,  # los comprobantes no llevan logo
             "ccc1": None, "ccc2": None, "ccc3": None, "ccc4": None,
             "ccce1": None, "ccce2": None,
-            "condicion_iva": self._condicion_iva.currentText().strip() or None,
+            "condicion_iva": self._condicion.currentText().strip() or None,
             "ingresos_brutos": self._ingresos_brutos.text().strip() or None,
             "inicio_actividades": self._inicio_actividades.text().strip() or None,
             "punto_venta": self._punto_venta.text().strip() or None,
@@ -149,31 +274,13 @@ class OnboardingDialog(BaseModal):
         })
         set_moneda(self._moneda.text().strip() or "$")
         self.db.set_config("onboarding_done", "1")
+        self._completed = True
         self.accept()
 
 
-class WelcomeDialog(BaseModal):
-    """Pantalla simple de bienvenida en la primera ejecución, con un botón
-    'Comenzar' que lleva al asistente de configuración."""
-
-    def __init__(self, db, parent=None):
-        super().__init__(
-            f"¡Bienvenido a {APP_NAME}!",
-            "Configuremos tu empresa en un minuto para empezar a facturar.",
-            icon="file-invoice", width=460,
-            zoom=leer_zoom(db), theme=leer_tema(db), parent=parent,
-        )
-        msg = QLabel("Vas a cargar los datos de tu negocio (nombre, CUIT, logo…) "
-                     "para que aparezcan en tus comprobantes.")
-        msg.setObjectName("hint")
-        msg.setWordWrap(True)
-        self.content.addWidget(msg)
-        self.content.addStretch()
-        self.set_primary_action("Comenzar", self.accept)
-
-
-def run_onboarding(db, parent=None) -> None:
-    """Muestra la bienvenida y, si el usuario continúa, el asistente de
-    configuración inicial."""
-    if WelcomeDialog(db, parent).exec() == BaseModal.Accepted:
-        OnboardingDialog(db, parent).exec()
+def run_onboarding(db, parent=None) -> bool:
+    """Muestra el asistente. Devuelve True solo si el usuario completó los datos
+    (si cierra la ventana antes, devuelve False y la app no debe continuar)."""
+    dlg = OnboardingWindow(db, parent)
+    dlg.exec()
+    return dlg._completed

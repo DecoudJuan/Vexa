@@ -4,6 +4,7 @@ block_cipher = None
 datas = [
     ("../assets/logo.png", "assets"),
     ("../assets/icon.ico", "assets"),
+    ("../assets/vexa_logo.png", "assets"),
 ]
 
 a = Analysis(

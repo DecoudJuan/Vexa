@@ -29,7 +29,8 @@ def main() -> None:
     empresa = db.get_datos_empresa()
     if not (empresa.get("nombre") or "").strip() and not db.get_config("onboarding_done"):
         from ui.onboarding import run_onboarding
-        run_onboarding(db)
+        if not run_onboarding(db):
+            sys.exit(0)  # cerró sin completar: no se entra a la app
         set_moneda(db.get_datos_empresa().get("moneda"))
 
     window = MainWindow(db)
