@@ -1,3 +1,4 @@
+import os
 import re
 
 _TALLE_RE = re.compile(r"\s*\b\d{2,4}[A-Z]?/\d+\b|\s*\bT\d+\b")
@@ -157,6 +158,11 @@ def leer_tema(db) -> str:
     """Tema actual ('dark'/'light'), usado para elegir colores de ícono
     coherentes con el fondo (los íconos no se repintan solos con el CSS)."""
     return db.get_config("theme") or "dark"
+
+
+def abrir_archivo(path: str) -> None:
+    """Abre un archivo con la aplicación por defecto del sistema (Windows)."""
+    os.startfile(path)
 
 
 def leer_zoom(db) -> float:

@@ -1,13 +1,13 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem,
     QPushButton, QLabel, QTabWidget, QHeaderView, QAbstractItemView,
-    QMessageBox, QDialog, QFormLayout, QDateEdit, QLineEdit,
+    QMessageBox,
 )
 from PySide6.QtCore import Qt, QDate, QSize
 
 from ui.icons import svg_icon
 from ui.styles import get_palette
-from utils.helpers import fmt_ar, leer_tema
+from utils.helpers import fmt_ar, leer_tema, abrir_archivo
 from utils.pdf_generator import generar_reporte_remesa
 
 
@@ -161,8 +161,7 @@ class RemesasWidget(QWidget):
             QMessageBox.information(self, "Seleccioná una remesa", "Elegí una remesa para ver su reporte.")
             return
         path = generar_reporte_remesa(self.db, self._remesas[row]["id"])
-        import os
-        os.startfile(path)
+        abrir_archivo(path)
 
     def set_theme_zoom(self, theme: str, zoom: float) -> None:
         self._pal = get_palette(theme)

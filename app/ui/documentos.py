@@ -1,22 +1,18 @@
-import sqlite3
 from datetime import date
 
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem,
-    QLineEdit, QPushButton, QLabel, QDialog, QFormLayout, QDoubleSpinBox,
-    QComboBox, QTextEdit, QMessageBox, QDateEdit, QHeaderView, QFrame,
-    QAbstractItemView, QTabWidget, QSizePolicy, QCompleter,
-    QGraphicsDropShadowEffect, QScrollArea, QApplication,
+    QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton, QLabel, QDialog, QComboBox, QTextEdit, QMessageBox, QDateEdit, QHeaderView, QFrame,
+    QTabWidget, QSizePolicy, QCompleter,
+    QScrollArea, QApplication,
 )
-from PySide6.QtCore import Qt, QDate, QSize, QPoint, QRect
-from PySide6.QtGui import QColor, QDoubleValidator
+from PySide6.QtCore import Qt, QDate
+from PySide6.QtGui import QDoubleValidator
 
-from ui.icons import svg_icon, svg_pixmap
-from ui.styles import get_palette
+from ui.icons import svg_icon
 from ui.base_page import ListPage
 from ui.modal import BaseModal, modal_colors
-from ui.widgets import fila as _fila, NoScrollComboBox
-from utils.helpers import fmt_ar, parse_float, leer_zoom, leer_tema, etiqueta_concepto
+from ui.widgets import NoScrollComboBox
+from utils.helpers import fmt_ar, parse_float, leer_zoom, leer_tema, etiqueta_concepto, abrir_archivo
 from utils.pdf_generator import generar_pdf_documento
 
 # FA=Factura, PR=Presupuesto, AL=Albarán, PE=Pedido, AB=Abono (nota de crédito)
@@ -119,8 +115,8 @@ class DocumentListWidget(ListPage):
         h = QHBoxLayout(wrap)
         h.setContentsMargins(0, 0, 0, 0)
         h.setSpacing(12)
-        c1, self._kpi_fact, self._kpi_fact_sub = self._kpi_card()
-        c2, self._kpi_docs, self._kpi_docs_sub = self._kpi_card()
+        c1, self._kpi_fact_title, self._kpi_fact, self._kpi_fact_sub = self._kpi_card()
+        c2, self._kpi_docs_title, self._kpi_docs, self._kpi_docs_sub = self._kpi_card()
         for card in (c1, c2):
             h.addWidget(card)
         h.addStretch()
@@ -141,13 +137,11 @@ class DocumentListWidget(ListPage):
         v.addWidget(k)
         v.addWidget(val)
         v.addWidget(sub)
-        card._kpi_title = k  # guardamos para poner el título/estilos luego
-        return card, val, sub
+        return card, k, val, sub
 
     def _update_summary(self, docs: list[dict]) -> None:
         total = sum(d.get("total") or 0 for d in docs)
         n = len(docs)
-        pl = "s" if n != 1 else ""
 
         p = self._pal
         st_title = f"color:{p['muted1']}; font-size:11px; font-weight:700; letter-spacing:0.06em; background:transparent;"
@@ -155,11 +149,10 @@ class DocumentListWidget(ListPage):
         st_sub = f"color:{p['muted1']}; font-size:11px; background:transparent;"
 
         pairs = [
-            (self._kpi_fact, self._kpi_fact_sub, "TOTAL EMITIDO", fmt_ar(total), f"{n} {self.cfg['plural'].lower()}"),
-            (self._kpi_docs, self._kpi_docs_sub, self.cfg["plural"].upper(), str(n), "en total"),
+            (self._kpi_fact_title, self._kpi_fact, self._kpi_fact_sub, "TOTAL EMITIDO", fmt_ar(total), f"{n} {self.cfg['plural'].lower()}"),
+            (self._kpi_docs_title, self._kpi_docs, self._kpi_docs_sub, self.cfg["plural"].upper(), str(n), "en total"),
         ]
-        for val_lbl, sub_lbl, titulo, val_txt, sub_txt in pairs:
-            title_lbl = val_lbl.parentWidget()._kpi_title
+        for title_lbl, val_lbl, sub_lbl, titulo, val_txt, sub_txt in pairs:
             title_lbl.setText(titulo)
             title_lbl.setStyleSheet(st_title)
             val_lbl.setText(val_txt)
@@ -202,8 +195,7 @@ class DocumentListWidget(ListPage):
         except Exception as exc:
             QMessageBox.critical(self, "Error al generar PDF", str(exc))
             return
-        import os
-        os.startfile(path)
+        abrir_archivo(path)
 
     def _on_eliminar(self) -> None:
         d = self._selected()
