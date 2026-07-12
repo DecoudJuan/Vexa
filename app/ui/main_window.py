@@ -11,7 +11,7 @@ from ui.conceptos import ConceptosWidget
 from ui.documentos import DocumentosWidget
 from ui.cobros import CobrosWidget
 from ui.configuracion import ConfiguracionWidget
-from version import VERSION
+from version import VERSION, APP_NAME
 
 ZOOM_MIN, ZOOM_MAX, ZOOM_STEP = 0.8, 1.4, 0.05
 
@@ -62,7 +62,7 @@ class MainWindow(QMainWindow):
         self._save_timer.setSingleShot(True)
         self._save_timer.setInterval(400)
         self._save_timer.timeout.connect(self._persist_preferences)
-        self.setWindowTitle("Facturación")
+        self.setWindowTitle(APP_NAME)
         self.setMinimumSize(round(1150 * self._zoom), round(700 * self._zoom))
         self.resize(round(1320 * self._zoom), round(780 * self._zoom))
         self._build_ui()
@@ -103,7 +103,7 @@ class MainWindow(QMainWindow):
         bl = QVBoxLayout(brand)
         bl.setContentsMargins(8, 20, 8, 16)
         bl.setSpacing(2)
-        name_lbl = QLabel("Facturación")
+        name_lbl = QLabel(APP_NAME)
         name_lbl.setObjectName("brand_name")
         sub_lbl = QLabel(self._empresa_nombre())
         sub_lbl.setObjectName("brand_sub")

@@ -5,12 +5,12 @@ from database.db import DatabaseManager
 from ui.main_window import MainWindow
 from ui.styles import build_style, build_qpalette
 from utils.helpers import set_moneda
-from version import VERSION
+from version import VERSION, APP_NAME
 
 
 def main() -> None:
     app = QApplication(sys.argv)
-    app.setApplicationName("Facturación")
+    app.setApplicationName(APP_NAME)
     app.setOrganizationName("Facturacion")
     app.setApplicationVersion(VERSION)
 
@@ -28,8 +28,8 @@ def main() -> None:
     # Primera ejecución: si no hay empresa configurada, pedir los datos base.
     empresa = db.get_datos_empresa()
     if not (empresa.get("nombre") or "").strip() and not db.get_config("onboarding_done"):
-        from ui.onboarding import OnboardingDialog
-        OnboardingDialog(db).exec()
+        from ui.onboarding import run_onboarding
+        run_onboarding(db)
         set_moneda(db.get_datos_empresa().get("moneda"))
 
     window = MainWindow(db)

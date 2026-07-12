@@ -13,6 +13,7 @@ from PySide6.QtCore import Qt
 from ui.modal import BaseModal
 from ui.widgets import NoScrollComboBox
 from utils.helpers import CONDICIONES_IVA, set_moneda, leer_zoom, leer_tema
+from version import APP_NAME
 
 
 class OnboardingDialog(BaseModal):
@@ -149,3 +150,30 @@ class OnboardingDialog(BaseModal):
         set_moneda(self._moneda.text().strip() or "$")
         self.db.set_config("onboarding_done", "1")
         self.accept()
+
+
+class WelcomeDialog(BaseModal):
+    """Pantalla simple de bienvenida en la primera ejecución, con un botón
+    'Comenzar' que lleva al asistente de configuración."""
+
+    def __init__(self, db, parent=None):
+        super().__init__(
+            f"¡Bienvenido a {APP_NAME}!",
+            "Configuremos tu empresa en un minuto para empezar a facturar.",
+            icon="file-invoice", width=460,
+            zoom=leer_zoom(db), theme=leer_tema(db), parent=parent,
+        )
+        msg = QLabel("Vas a cargar los datos de tu negocio (nombre, CUIT, logo…) "
+                     "para que aparezcan en tus comprobantes.")
+        msg.setObjectName("hint")
+        msg.setWordWrap(True)
+        self.content.addWidget(msg)
+        self.content.addStretch()
+        self.set_primary_action("Comenzar", self.accept)
+
+
+def run_onboarding(db, parent=None) -> None:
+    """Muestra la bienvenida y, si el usuario continúa, el asistente de
+    configuración inicial."""
+    if WelcomeDialog(db, parent).exec() == BaseModal.Accepted:
+        OnboardingDialog(db, parent).exec()

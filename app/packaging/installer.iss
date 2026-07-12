@@ -1,9 +1,9 @@
 [Setup]
-AppName=Facturación
-AppVersion=2.1.0
-AppPublisher=Facturación
+AppName=Vexa
+AppVersion=2.2.0
+AppPublisher=Vexa
 DefaultDirName={autopf}\Facturacion
-DefaultGroupName=Facturación
+DefaultGroupName=Vexa
 OutputBaseFilename=FacturacionSetup
 OutputDir=dist_installer
 Compression=lzma2
@@ -18,8 +18,8 @@ Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"
 Source: "dist\Facturacion\*"; DestDir: "{app}"; Flags: recursesubdirs
 
 [Icons]
-Name: "{group}\Facturación"; Filename: "{app}\Facturacion.exe"
-Name: "{autodesktop}\Facturación"; Filename: "{app}\Facturacion.exe"
+Name: "{group}\Vexa"; Filename: "{app}\Facturacion.exe"
+Name: "{autodesktop}\Vexa"; Filename: "{app}\Facturacion.exe"
 
 [Run]
-Filename: "{app}\Facturacion.exe"; Description: "Iniciar Facturación"; Flags: postinstall nowait skipifsilent
+Filename: "{app}\Facturacion.exe"; Description: "Iniciar Vexa"; Flags: postinstall nowait skipifsilent
