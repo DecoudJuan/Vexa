@@ -56,7 +56,7 @@ class MainWindow(QMainWindow):
     def __init__(self, db):
         super().__init__()
         self.db = db
-        self._theme = db.get_config("theme") or "dark"
+        self._theme = db.get_config("theme") or "light"
         self._zoom = float(db.get_config("zoom") or 0.9)
         self._save_timer = QTimer(self)
         self._save_timer.setSingleShot(True)

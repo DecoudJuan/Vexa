@@ -182,7 +182,7 @@ def fmt_fecha(iso_date: str | None) -> str:
 def leer_tema(db) -> str:
     """Tema actual ('dark'/'light'), usado para elegir colores de ícono
     coherentes con el fondo (los íconos no se repintan solos con el CSS)."""
-    return db.get_config("theme") or "dark"
+    return db.get_config("theme") or "light"
 
 
 def abrir_archivo(path: str) -> None:

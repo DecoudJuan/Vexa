@@ -18,7 +18,7 @@ def main() -> None:
     db.init_db()
     set_moneda(db.get_datos_empresa().get("moneda"))
 
-    theme = db.get_config("theme") or "dark"
+    theme = db.get_config("theme") or "light"
     zoom = float(db.get_config("zoom") or 0.9)
     # La paleta va antes que el stylesheet: cubre lo que el CSS no puede
     # (texto de los popups de autocompletado y vistas de items).
