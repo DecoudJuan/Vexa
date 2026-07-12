@@ -1,4 +1,3 @@
-import re
 import sqlite3
 from datetime import date
 
@@ -15,7 +14,7 @@ from PySide6.QtGui import QColor, QDoubleValidator
 from ui.icons import svg_icon, svg_pixmap
 from ui.styles import get_palette
 from ui.base_page import ListPage
-from ui.modal import build_modal_css, modal_colors
+from ui.modal import BaseModal, modal_colors
 from ui.widgets import fila as _fila, NoScrollComboBox
 from utils.helpers import fmt_ar, parse_float, leer_zoom, leer_tema, etiqueta_concepto
 from utils.pdf_generator import generar_pdf_documento
@@ -226,28 +225,21 @@ class DocumentListWidget(ListPage):
 # Anchos (en px a zoom 1.0) de las columnas fijas de la tabla de líneas.
 _COL_W = {"cant": 68, "pvp": 104, "imp": 108, "del": 34}
 
-_PX_RE = re.compile(r"(\d+)px")
 
-
-class DocumentoDialog(QDialog):
+class DocumentoDialog(BaseModal):
     """Alta/edición de un documento (cabecera + líneas), y generación de un
     documento nuevo a partir de otro (origen) para 'convertir presupuesto en
-    factura', etc."""
+    factura', etc. Reutiliza el chrome (cabecera/pie/arrastre/centrado) de
+    BaseModal; acá vive solo el cuerpo propio (líneas + totales)."""
 
     def __init__(self, db, tipo: str, factura_id: int | None = None, origen: dict | None = None, parent=None):
-        super().__init__(parent)
         self.db = db
         self.tipo = tipo
         self.cfg = DOCUMENT_TYPES[tipo]
         self.factura_id = factura_id
         self.origen = origen
-        self._conceptos = self.db.get_all_conceptos()
+        self._conceptos = db.get_all_conceptos()
         self._lineas: list[dict] = []          # {row, combo, cant, pvp, importe}
-        self._zoom = leer_zoom(self.db)
-        self._theme = leer_tema(self.db)
-        self._drag_pos: QPoint | None = None
-        self._centered = False
-
         # Campos legacy que ya no se editan pero se preservan al guardar.
         self._legacy_iva = 0
         self._legacy_retencion = 0
@@ -255,20 +247,18 @@ class DocumentoDialog(QDialog):
         self._ultimo_total = 0.0
         self._ultimo_subtotal = 0.0
 
-        titulo = f"{'Editar' if factura_id else 'Nuevo/a'} {self.cfg['label'].lower()}"
-        self.setWindowTitle(titulo)
-        self.setModal(True)
-        self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
-        self.setAttribute(Qt.WA_TranslucentBackground)
-        # Modal grande: ancho fijo y alto generoso pero que siempre entre en
-        # la pantalla. La lista de productos (elástica) se lleva el alto
-        # sobrante, así se ven muchas líneas de una.
+        titulo, sub = self._titulos()
+        super().__init__(titulo, sub, icon="file-invoice", width=860,
+                         zoom=leer_zoom(db), theme=leer_tema(db),
+                         scale_css=True, parent=parent)
+        # Modal grande: ancho fijo y alto generoso pero que siempre entre en la
+        # pantalla. La lista de productos (elástica) se lleva el alto sobrante.
         avail = QApplication.primaryScreen().availableGeometry()
         self.setFixedWidth(min(self._S(860), avail.width() - self._S(40)))
         self.setFixedHeight(min(self._S(900), avail.height() - self._S(56)))
 
-        self._build_ui()
-        self.setStyleSheet(self._scoped_style())
+        self._build_body()
+        self.set_primary_action("Guardar", self._accept)
 
         if factura_id:
             self._cargar_existente(factura_id)
@@ -280,53 +270,7 @@ class DocumentoDialog(QDialog):
 
         self._recalcular()
 
-    # ----------------------------------------------------------- helpers
-
-    def _S(self, px: float) -> int:
-        return max(1, round(px * self._zoom))
-
-    # --------------------------------------------------------------- UI
-
-    def _build_ui(self) -> None:
-        outer = QVBoxLayout(self)
-        m = self._S(18)
-        outer.setContentsMargins(m, m, m, m)
-        outer.setSpacing(0)
-
-        root = QFrame()
-        root.setObjectName("modal_root")
-        shadow = QGraphicsDropShadowEffect(self)
-        shadow.setBlurRadius(self._S(46))
-        shadow.setOffset(0, self._S(10))
-        shadow.setColor(QColor(15, 23, 42, 90))
-        root.setGraphicsEffect(shadow)
-        outer.addWidget(root)
-
-        root_l = QVBoxLayout(root)
-        root_l.setContentsMargins(0, 0, 0, 0)
-        root_l.setSpacing(0)
-        root_l.addWidget(self._build_header())
-        # Cabecera fija arriba, pie fijo abajo (Guardar SIEMPRE visible) y el
-        # cuerpo en el medio; la parte elástica que absorbe el sobrante es la
-        # lista de líneas, que tiene su propio scroll interno (ver
-        # _build_lineas). Los mínimos son chicos para que el modal entre en
-        # monitores de baja resolución.
-        root_l.addWidget(self._build_body(), 1)
-        root_l.addWidget(self._build_footer())
-
-    def _build_header(self) -> QFrame:
-        header = QFrame()
-        header.setObjectName("modal_header")
-        h = QHBoxLayout(header)
-        h.setContentsMargins(self._S(18), self._S(10), self._S(12), self._S(10))
-        h.setSpacing(self._S(12))
-
-        icon = QLabel()
-        icon.setPixmap(svg_pixmap("file-invoice", self._S(22), "#ffffff"))
-        h.addWidget(icon, 0, Qt.AlignVCenter)
-
-        texts = QVBoxLayout()
-        texts.setSpacing(self._S(2))
+    def _titulos(self) -> tuple[str, str]:
         if self.origen and not self.factura_id:
             oc = DOCUMENT_TYPES[self.origen["tipo"]]
             titulo = f"Nuevo/a {self.cfg['label'].lower()}"
@@ -338,50 +282,17 @@ class DocumentoDialog(QDialog):
         else:
             titulo = f"Nueva {self.cfg['label']}" if self.tipo == "FA" else f"Nuevo/a {self.cfg['label'].lower()}"
             sub = "Completá los datos del comprobante"
-        t = QLabel(titulo)
-        t.setObjectName("modal_title")
-        s = QLabel(sub)
-        s.setObjectName("modal_subtitle")
-        s.setWordWrap(True)
-        texts.addWidget(t)
-        texts.addWidget(s)
-        h.addLayout(texts, 1)
+        return titulo, sub
 
-        close = QPushButton()
-        close.setObjectName("modal_close")
-        close.setIcon(svg_icon("x", self._S(18), "#ffffff"))
-        close.setFixedSize(self._S(30), self._S(30))
-        close.setCursor(Qt.PointingHandCursor)
-        close.clicked.connect(self.reject)
-        h.addWidget(close, 0, Qt.AlignTop)
+    # --------------------------------------------------------------- UI
 
-        self._header = header
-        return header
-
-    def _section_label(self, text: str, icon_name: str) -> QWidget:
-        w = QWidget()
-        w.setObjectName("section")
-        lay = QHBoxLayout(w)
-        lay.setContentsMargins(0, 0, 0, 0)
-        lay.setSpacing(self._S(6))
-        ic = QLabel()
-        ic.setPixmap(svg_pixmap(icon_name, self._S(14), "#8a90a2"))
-        lbl = QLabel(text)
-        lbl.setObjectName("section_label")
-        lay.addWidget(ic)
-        lay.addWidget(lbl)
-        lay.addStretch()
-        return w
-
-    def _build_body(self) -> QFrame:
-        body = QFrame()
-        body.setObjectName("modal_body")
-        v = QVBoxLayout(body)
+    def _build_body(self) -> None:
+        v = self.content
         v.setContentsMargins(self._S(22), self._S(12), self._S(22), self._S(12))
         v.setSpacing(self._S(8))
 
         # ---- CLIENTE
-        v.addWidget(self._section_label("CLIENTE *", "user"))
+        v.addWidget(self.section_label("CLIENTE *", "user"))
         self._cliente = NoScrollComboBox()
         self._cliente.setObjectName("field")
         self._cliente.setEditable(True)
@@ -402,8 +313,8 @@ class DocumentoDialog(QDialog):
         # ---- DOCUMENTO + FECHA (etiquetas en una fila, campos en la siguiente)
         labels = QHBoxLayout()
         labels.setContentsMargins(0, 0, 0, 0)
-        labels.addWidget(self._section_label("DOCUMENTO", "file-text"), 1)
-        labels.addWidget(self._section_label("FECHA", "calendar"), 0)
+        labels.addWidget(self.section_label("DOCUMENTO", "file-text"), 1)
+        labels.addWidget(self.section_label("FECHA", "calendar"), 0)
         v.addLayout(labels)
 
         fields = QHBoxLayout()
@@ -436,7 +347,7 @@ class DocumentoDialog(QDialog):
         v.addLayout(fields)
 
         # ---- FORMA DE PAGO
-        v.addWidget(self._section_label("FORMA DE PAGO", "credit-card"))
+        v.addWidget(self.section_label("FORMA DE PAGO", "credit-card"))
         self._forma_pago = NoScrollComboBox()
         self._forma_pago.setObjectName("field")
         self._forma_pago.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
@@ -446,7 +357,7 @@ class DocumentoDialog(QDialog):
         v.addWidget(self._forma_pago)
 
         # ---- LÍNEAS DE PRODUCTO (parte elástica: se lleva el alto sobrante)
-        v.addWidget(self._section_label("LÍNEAS DE PRODUCTO", "package"))
+        v.addWidget(self.section_label("LÍNEAS DE PRODUCTO", "package"))
         v.addWidget(self._build_lineas(), 1)
 
         add = QPushButton("  Agregar línea")
@@ -461,7 +372,7 @@ class DocumentoDialog(QDialog):
         bottom.setSpacing(self._S(16))
         left = QVBoxLayout()
         left.setSpacing(self._S(8))
-        left.addWidget(self._section_label("COMENTARIOS", "message-square"))
+        left.addWidget(self.section_label("COMENTARIOS", "message-square"))
         self._comentarios = QTextEdit()
         self._comentarios.setObjectName("comments")
         self._comentarios.setPlaceholderText("Notas adicionales o aclaraciones...")
@@ -471,8 +382,6 @@ class DocumentoDialog(QDialog):
         bottom.addLayout(left, 1)
         bottom.addWidget(self._build_totales(), 0, Qt.AlignTop)
         v.addLayout(bottom)
-
-        return body
 
     def _build_lineas(self) -> QFrame:
         box = QFrame()
@@ -583,26 +492,6 @@ class DocumentoDialog(QDialog):
         row.addWidget(val)
         parent_layout.addLayout(row)
         return val
-
-    def _build_footer(self) -> QFrame:
-        footer = QFrame()
-        footer.setObjectName("modal_footer")
-        f = QHBoxLayout(footer)
-        f.setContentsMargins(self._S(24), self._S(14), self._S(24), self._S(16))
-        f.setSpacing(self._S(10))
-        f.addStretch()
-        cancel = QPushButton("Cancelar")
-        cancel.setObjectName("btn_cancel")
-        cancel.setCursor(Qt.PointingHandCursor)
-        cancel.clicked.connect(self.reject)
-        save = QPushButton("  Guardar")
-        save.setObjectName("btn_save")
-        save.setIcon(svg_icon("check", self._S(15), "#ffffff"))
-        save.setCursor(Qt.PointingHandCursor)
-        save.clicked.connect(self._accept)
-        f.addWidget(cancel)
-        f.addWidget(save)
-        return footer
 
     # ------------------------------------------------------------- filas
 
@@ -859,51 +748,12 @@ class DocumentoDialog(QDialog):
 
         self.accept()
 
-    # ------------------------------------------------ arrastre / centrado
-
-    def _header_rect(self) -> QRect:
-        top_left = self._header.mapTo(self, QPoint(0, 0))
-        return QRect(top_left, self._header.size())
-
-    def mousePressEvent(self, event) -> None:
-        if event.button() == Qt.LeftButton and self._header_rect().contains(event.position().toPoint()):
-            self._drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
-            event.accept()
-            return
-        super().mousePressEvent(event)
-
-    def mouseMoveEvent(self, event) -> None:
-        if self._drag_pos is not None and event.buttons() & Qt.LeftButton:
-            self.move(event.globalPosition().toPoint() - self._drag_pos)
-            event.accept()
-            return
-        super().mouseMoveEvent(event)
-
-    def mouseReleaseEvent(self, event) -> None:
-        self._drag_pos = None
-        super().mouseReleaseEvent(event)
-
-    def showEvent(self, event) -> None:
-        super().showEvent(event)
-        if not self._centered:
-            self._centered = True
-            screen = self.screen() or QApplication.primaryScreen()
-            avail = screen.availableGeometry()
-            parent = self.parentWidget()
-            center = parent.window().frameGeometry().center() if parent is not None else avail.center()
-            geo = self.frameGeometry()
-            geo.moveCenter(center)
-            # No dejar que el borde superior quede fuera de la pantalla.
-            if geo.top() < avail.top():
-                geo.moveTop(avail.top())
-            self.move(geo.topLeft())
-
     # ------------------------------------------------------------- estilo
 
-    def _scoped_style(self) -> str:
-        # Chrome + campos comunes vienen del módulo compartido (temables);
-        # acá sólo agregamos lo propio del modal de factura (tabla de líneas
-        # y tarjeta de totales), también con los colores del tema.
+    def extra_css(self) -> str:
+        # Chrome + campos comunes vienen de BaseModal; acá sólo lo propio del
+        # modal de factura (tabla de líneas y tarjeta de totales), con los
+        # colores del tema. El escalado de px por zoom lo aplica BaseModal.
         extra = """
         #lines_box { background: %BODY%; border: 1px solid %BORDER%; border-radius: 10px; }
         #lines_head { background: %HEAD_BG%; border-top-left-radius: 9px; border-top-right-radius: 9px; }
@@ -946,7 +796,4 @@ class DocumentoDialog(QDialog):
         """
         for key, value in modal_colors(self._theme).items():
             extra = extra.replace("%" + key.upper() + "%", value)
-        css = build_modal_css(self._theme) + extra
-        if abs(self._zoom - 1.0) > 1e-6:
-            css = _PX_RE.sub(lambda m: f"{max(1, round(int(m.group(1)) * self._zoom))}px", css)
-        return css
+        return extra
