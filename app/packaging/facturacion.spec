@@ -11,7 +11,7 @@ a = Analysis(
     pathex=["../"],
     binaries=[],
     datas=datas,
-    hiddenimports=[],
+    hiddenimports=["sqlalchemy.dialects.sqlite"],
     excludes=["matplotlib", "tkinter"],
     noarchive=False,
 )
