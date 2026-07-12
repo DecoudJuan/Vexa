@@ -1,7 +1,7 @@
 [Setup]
 AppName=Facturación
 AppVersion=2.1.0
-AppPublisher=ADHER-NEO
+AppPublisher=Facturación
 DefaultDirName={autopf}\Facturacion
 DefaultGroupName=Facturación
 OutputBaseFilename=FacturacionSetup

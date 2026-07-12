@@ -102,7 +102,7 @@ def _dibujar_encabezado(canvas, empresa, cliente, titulo, numero_doc, doc):
     lineas_empresa = [
         empresa.get("direccion") or "",
         f"{valor_valido(empresa.get('cp')) or ''} {empresa.get('localidad') or ''}".strip(),
-        f"Tel: {empresa.get('telefono')} (Hernan)" if empresa.get("telefono") else "",
+        f"Tel: {empresa.get('telefono')}" if empresa.get("telefono") else "",
     ]
     y = height - 27 * mm
     for linea in lineas_empresa:
