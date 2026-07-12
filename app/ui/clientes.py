@@ -13,7 +13,7 @@ from ui.icons import svg_icon, svg_pixmap
 from ui.styles import get_palette
 from ui.modal import BaseModal, modal_colors
 from ui.widgets import avatar, celda, NoScrollComboBox
-from utils.helpers import leer_zoom, leer_tema, valor_valido, fmt_ar, PROVINCIAS_AR
+from utils.helpers import leer_zoom, leer_tema, valor_valido, fmt_ar, parse_float, PROVINCIAS_AR
 
 _SEARCH_MAXW, _ROW_H = 400, 44
 _HEADER_DEFAULT, _HEADER_MIN = 150, 80
@@ -540,16 +540,10 @@ class ClienteDialog(BaseModal):
             # tenía valores históricos cargados.
             "retencion": self._cliente.get("retencion") if self._cliente else None,
             "recargo_equiv": self._cliente.get("recargo_equiv") if self._cliente else None,
-            "bonificacion": self._parse_bonif(),
+            "bonificacion": parse_float(self._bonificacion.text()),
             "comentarios": self._comentarios.toPlainText().strip() or None,
         }
         self.accept()
-
-    def _parse_bonif(self) -> float:
-        try:
-            return float((self._bonificacion.text() or "0").replace(",", "."))
-        except ValueError:
-            return 0.0
 
     def get_data(self) -> dict:
         return self._data or {}

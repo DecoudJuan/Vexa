@@ -16,7 +16,7 @@ from ui.icons import svg_icon, svg_pixmap
 from ui.styles import get_palette
 from ui.modal import build_modal_css, modal_colors
 from ui.widgets import fila as _fila, NoScrollComboBox
-from utils.helpers import fmt_money, fmt_ar, leer_zoom, leer_tema, etiqueta_concepto
+from utils.helpers import fmt_ar, parse_float, leer_zoom, leer_tema, etiqueta_concepto
 from utils.pdf_generator import generar_pdf_documento
 
 # FA=Factura, PR=Presupuesto, AL=Albarán, PE=Pedido, AB=Abono (nota de crédito)
@@ -659,7 +659,7 @@ class DocumentoDialog(QDialog):
         tl.setContentsMargins(self._S(14), self._S(11), self._S(14), self._S(11))
         tw = QLabel("Total")
         tw.setObjectName("total_bar_label")
-        self._lbl_total = QLabel(fmt_money(0))
+        self._lbl_total = QLabel(fmt_ar(0))
         self._lbl_total.setObjectName("total_bar_value")
         self._lbl_total.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         tl.addWidget(tw)
@@ -755,7 +755,7 @@ class DocumentoDialog(QDialog):
         pvp_w.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         pvp_w.setValidator(QDoubleValidator(0.0, 1e12, 2))
 
-        importe = QLabel(fmt_money(0))
+        importe = QLabel(fmt_ar(0))
         importe.setObjectName("cell_importe")
         importe.setFixedWidth(self._S(_COL_W["imp"]))
         importe.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
@@ -799,13 +799,6 @@ class DocumentoDialog(QDialog):
 
     # ------------------------------------------------------------ totales
 
-    @staticmethod
-    def _parse(text: str) -> float:
-        try:
-            return float((text or "0").replace(",", "."))
-        except ValueError:
-            return 0.0
-
     def _leer_lineas(self) -> list[dict]:
         out = []
         for e in self._lineas:
@@ -816,26 +809,26 @@ class DocumentoDialog(QDialog):
             out.append({
                 "concepto_id": concepto_id,
                 "concepto_libre": None if concepto_id else (texto or None),
-                "cantidad": self._parse(e["cant"].text()),
-                "pvp": self._parse(e["pvp"].text()),
+                "cantidad": parse_float(e["cant"].text()),
+                "pvp": parse_float(e["pvp"].text()),
             })
         return out
 
     def _recalcular(self, *_args) -> None:
         subtotal = 0.0
         for e in self._lineas:
-            importe = self._parse(e["cant"].text()) * self._parse(e["pvp"].text())
+            importe = parse_float(e["cant"].text()) * parse_float(e["pvp"].text())
             subtotal += importe
-            e["importe"].setText(fmt_money(importe))
+            e["importe"].setText(fmt_ar(importe))
 
-        pct = self._parse(self._bonif_input.text())
+        pct = parse_float(self._bonif_input.text())
         aplica = pct > 0
         bonificacion = subtotal * (pct / 100.0) if aplica else 0.0
         total = subtotal - bonificacion
 
-        self._lbl_subtotal.setText(fmt_money(subtotal))
-        self._lbl_bonif_val.setText(f"−{fmt_money(bonificacion)}" if aplica else "—")
-        self._lbl_total.setText(fmt_money(total))
+        self._lbl_subtotal.setText(fmt_ar(subtotal))
+        self._lbl_bonif_val.setText(f"−{fmt_ar(bonificacion)}" if aplica else "—")
+        self._lbl_total.setText(fmt_ar(total))
         self._ultimo_total = total
         self._ultimo_subtotal = subtotal
 
@@ -939,7 +932,7 @@ class DocumentoDialog(QDialog):
         except ValueError:
             ejercicio = date.today().year
 
-        pct = self._parse(self._bonif_input.text())
+        pct = parse_float(self._bonif_input.text())
         data = {
             "cliente_id": cliente_id,
             "tipo": self.tipo,

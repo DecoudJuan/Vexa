@@ -12,7 +12,7 @@ from ui.icons import svg_icon, svg_pixmap
 from ui.styles import get_palette
 from ui.modal import BaseModal
 from utils.excel_import import leer_lista_precios
-from utils.helpers import leer_zoom, leer_tema, fmt_ar
+from utils.helpers import leer_zoom, leer_tema, fmt_ar, parse_float
 
 _SEARCH_MAXW, _ROW_H = 400, 40
 _COD_W = 110
@@ -337,10 +337,7 @@ class ConceptoDialog(BaseModal):
         if not nombre:
             QMessageBox.warning(self, "Campo requerido", "El nombre es obligatorio.")
             return
-        try:
-            pvp = float((self._pvp.text() or "0").replace(",", "."))
-        except ValueError:
-            pvp = 0.0
+        pvp = parse_float(self._pvp.text())
         if pvp <= 0:
             QMessageBox.warning(self, "Falta el precio",
                                 "El precio debe ser mayor que 0. Un producto no puede quedar sin precio.")

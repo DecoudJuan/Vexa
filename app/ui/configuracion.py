@@ -11,7 +11,7 @@ from ui.icons import svg_icon
 from ui.styles import get_palette
 from ui.modal import BaseModal
 from ui.widgets import fila as _fila
-from utils.helpers import leer_tema, valor_valido
+from utils.helpers import leer_tema, valor_valido, parse_float, set_moneda
 
 
 class ConfiguracionWidget(QWidget):
@@ -188,6 +188,9 @@ class EmpresaTab(QWidget):
             "ccc1": None, "ccc2": None, "ccc3": None, "ccc4": None,
             "ccce1": None, "ccce2": None,
         })
+        # Actualizar la moneda global para que los importes se reformateen
+        # (ej. cambiar de '$' a 'US$') sin reiniciar la app.
+        set_moneda(self._moneda.text().strip() or "$")
         QMessageBox.information(self, "Guardado", "Datos de la empresa actualizados.")
 
 
@@ -289,15 +292,9 @@ class IvaDialog(BaseModal):
         r.addWidget(u)
         return r
 
-    @staticmethod
-    def _f(widget) -> float:
-        try:
-            return float((widget.text() or "0").replace(",", "."))
-        except ValueError:
-            return 0.0
-
     def _accept(self):
-        self._data = {"tipo": self._f(self._tipo), "recargo": self._f(self._recargo), "activo": 1}
+        self._data = {"tipo": parse_float(self._tipo.text()),
+                      "recargo": parse_float(self._recargo.text()), "activo": 1}
         self.accept()
 
     def get_data(self):
