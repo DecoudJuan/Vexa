@@ -100,22 +100,47 @@ def valor_valido(valor: str | None) -> str | None:
     return None
 
 
-def fmt_money(value, moneda: str = "$") -> str:
-    try:
-        v = float(value or 0)
-    except (TypeError, ValueError):
-        v = 0.0
-    return f"{moneda} {v:,.2f}"
+# Símbolo de moneda actual (configurable desde Configuración > Mi empresa).
+# Por defecto pesos argentinos ('$'); se puede cambiar a dólares ('US$', 'USD',
+# etc.). Lo fija set_moneda() al arrancar y al guardar la configuración, así
+# fmt_ar() lo toma solo, sin que cada llamador tenga que pasar el símbolo.
+_MONEDA = "$"
 
 
-def fmt_ar(value, moneda: str = "$") -> str:
-    """Formato argentino: separador de miles '.' y decimales ',' → '$ 1.234,56'."""
+def set_moneda(simbolo: str | None) -> None:
+    """Fija el símbolo de moneda global que usa fmt_ar() por defecto."""
+    global _MONEDA
+    _MONEDA = (simbolo or "").strip() or "$"
+
+
+def fmt_ar(value, moneda: str | None = None) -> str:
+    """Importe en formato argentino: miles con '.' y decimales con ',' →
+    '$ 1.234,56'. Usa el símbolo de moneda configurado (ver set_moneda) salvo
+    que se pase uno explícito."""
     try:
         v = float(value or 0)
     except (TypeError, ValueError):
         v = 0.0
     s = f"{v:,.2f}".replace(",", "\x00").replace(".", ",").replace("\x00", ".")
-    return f"{moneda} {s}"
+    return f"{moneda or _MONEDA} {s}"
+
+
+def parse_float(text, default: float = 0.0) -> float:
+    """Convierte texto a float aceptando la coma decimal es-AR: '1234,56',
+    '1.234,56' y '1234.56' se leen todos correctamente. Devuelve `default`
+    (0.0) si el texto está vacío o no es un número."""
+    if text is None:
+        return default
+    s = str(text).strip()
+    if not s:
+        return default
+    if "," in s:
+        # Coma decimal: los puntos son separadores de miles.
+        s = s.replace(".", "").replace(",", ".")
+    try:
+        return float(s)
+    except ValueError:
+        return default
 
 
 def fmt_fecha(iso_date: str | None) -> str:
