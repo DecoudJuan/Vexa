@@ -105,6 +105,9 @@ class ListPage(QWidget):
 
     def _build_table(self) -> QTableWidget:
         table = QTableWidget()
+        # Asignado ya acá (además de en _build_ui) para que _configure_columns
+        # pueda tocar self._table (ej. alinear un header) durante el armado.
+        self._table = table
         table.setColumnCount(len(self.COLUMNS))
         table.setHorizontalHeaderLabels(self.COLUMNS)
         table.setSelectionBehavior(QAbstractItemView.SelectRows)
