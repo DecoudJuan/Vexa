@@ -11,6 +11,16 @@ from version import VERSION, APP_NAME
 
 
 def main() -> None:
+    # En Windows, sin un AppUserModelID propio la barra de tareas no toma el
+    # ícono de la ventana (queda el genérico). Debe setearse antes de crear la
+    # ventana.
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("com.vexa.facturacion")
+        except Exception:
+            pass
+
     app = QApplication(sys.argv)
     app.setApplicationName(APP_NAME)
     app.setOrganizationName("Facturacion")
