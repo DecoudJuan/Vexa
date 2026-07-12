@@ -7,6 +7,7 @@ datas = [
     ("../assets/vexa_logo.png", "assets"),
     ("../assets/vexa_icon.png", "assets"),
     ("../assets/vexa_icon.ico", "assets"),
+    ("../assets/chevron.png", "assets"),
 ]
 
 a = Analysis(

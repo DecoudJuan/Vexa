@@ -1,5 +1,7 @@
 import re
 
+from utils.resources import resource_path
+
 _TEMPLATE = """
 /* =====================================================================
    BASE
@@ -67,7 +69,7 @@ QLabel#brand_name {{
 
 QLabel#brand_sub {{
     font-size: 10px;
-    color: {muted2};
+    color: {subtext};
     letter-spacing: 2px;
     background: transparent;
 }}
@@ -185,7 +187,7 @@ QLabel[role="page-title"] {{
 
 QLabel[role="page-subtitle"] {{
     font-size: 12px;
-    color: {muted1};
+    color: {subtext};
     background: transparent;
 }}
 
@@ -502,9 +504,9 @@ QComboBox::drop-down {{
 }}
 
 QComboBox::down-arrow {{
-    image: none;
-    width: 0px;
-    height: 0px;
+    image: url({chevron});
+    width: 13px;
+    height: 13px;
 }}
 
 QComboBox QAbstractItemView {{
@@ -543,9 +545,9 @@ QDateEdit::drop-down {{
 }}
 
 QDateEdit::down-arrow {{
-    image: none;
-    width: 0px;
-    height: 0px;
+    image: url({chevron});
+    width: 13px;
+    height: 13px;
 }}
 
 /* =====================================================================
@@ -750,10 +752,10 @@ _PALETTES = {
         "crust": "#dce0e8",
         "surface": "#ffffff",
         "line": "#ccd0da",
-        "muted2": "#acb0be",
-        "muted1": "#8c8fa1",
-        "subtext": "#6c6f85",
-        "text": "#4c4f69",
+        "muted2": "#9ca0b0",
+        "muted1": "#6c6f85",
+        "subtext": "#5c5f77",
+        "text": "#3c3f58",
         "accent": "#1e66f5",
         "accent_hover": "#4885f7",
         "accent_pressed": "#1755c9",
@@ -799,7 +801,8 @@ def build_style(theme: str = "dark", zoom: float = 1.0) -> str:
     también las dimensiones de los controles (alto mínimo, padding, radios),
     para que el texto más grande siga entrando bien en botones/campos."""
     palette = _PALETTES.get(theme, _PALETTES["dark"])
-    css = _TEMPLATE.format(**palette)
+    chevron = resource_path("assets/chevron.png").as_posix()
+    css = _TEMPLATE.format(**palette, chevron=chevron)
     if zoom and abs(zoom - 1.0) > 1e-6:
         css = _PROP_RE.sub(
             lambda m: m.group(1) + m.group(2) + _scale_px_numbers(m.group(3), zoom) + m.group(4),
