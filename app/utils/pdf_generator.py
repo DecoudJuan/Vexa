@@ -9,6 +9,9 @@ from reportlab.platypus import (
 )
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_RIGHT
+from reportlab.graphics.barcode.qr import QrCodeWidget
+from reportlab.graphics.shapes import Drawing
+from reportlab.graphics import renderPDF
 
 from database.db import DATA_DIR
 from utils.helpers import (
@@ -78,6 +81,8 @@ def generar_pdf_documento(db, factura_id: int) -> str:
     def _on_page(canvas, _doc):
         canvas.saveState()
         _dibujar_encabezado(canvas, empresa, cliente, titulo, numero_fmt, letra, doc, no_valido)
+        if not no_valido:
+            _dibujar_pie_fiscal(canvas, doc)
         canvas.restoreState()
 
     story = []
@@ -179,6 +184,34 @@ def _dibujar_encabezado(canvas, empresa, cliente, titulo, numero_fmt, letra, doc
         canvas.setFillColor(colors.HexColor("#b00000"))
         canvas.drawCentredString(mid_x, height - 51 * mm, "DOCUMENTO NO VÁLIDO COMO FACTURA")
         canvas.setFillColor(colors.black)
+
+
+def _draw_qr(canvas, url: str, x: float, y: float, size: float) -> None:
+    """Dibuja el QR de la URL AFIP en (x, y) escalado a `size` x `size`."""
+    qr = QrCodeWidget(url)
+    b = qr.getBounds()
+    w, h = (b[2] - b[0]) or 1, (b[3] - b[1]) or 1
+    dibujo = Drawing(size, size, transform=[size / w, 0, 0, size / h, 0, 0])
+    dibujo.add(qr)
+    renderPDF.draw(dibujo, canvas, x, y)
+
+
+def _dibujar_pie_fiscal(canvas, doc: dict) -> None:
+    """Pie del comprobante autorizado: QR de AFIP (abajo-izquierda) + CAE y su
+    vencimiento. Solo se dibuja cuando el documento tiene CAE (es fiscal)."""
+    left = 18 * mm
+    y = 4 * mm
+    size = 24 * mm
+    qr_url = doc.get("afip_qr")
+    if qr_url:
+        _draw_qr(canvas, qr_url, left, y, size)
+    tx = left + size + 4 * mm if qr_url else left
+    canvas.setFillColor(colors.black)
+    canvas.setFont("Helvetica-Bold", 9)
+    canvas.drawString(tx, y + size - 4 * mm, "Comprobante autorizado por AFIP")
+    canvas.setFont("Helvetica", 8)
+    canvas.drawString(tx, y + size - 10 * mm, f"CAE N.º: {doc.get('cae')}")
+    canvas.drawString(tx, y + size - 14 * mm, f"Vto. CAE: {fmt_fecha(doc.get('cae_vto'))}")
 
 
 def _tabla_lineas(lineas: list[dict]) -> Table:

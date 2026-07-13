@@ -89,7 +89,7 @@ class ConfiguracionWidget(QWidget):
         self._btn_guardar = QPushButton("  Guardar")
         self._btn_guardar.setIcon(svg_icon("check", 14, self._pal["accent_text"]))
         self._btn_guardar.setCursor(Qt.PointingHandCursor)
-        self._btn_guardar.clicked.connect(self._on_guardar)
+        self._btn_guardar.clicked.connect(lambda: self._on_guardar())
         bar.addWidget(self._btn_guardar)
         outer.addLayout(bar)
 
@@ -150,7 +150,9 @@ class ConfiguracionWidget(QWidget):
     def _tab_afip(self) -> QWidget:
         scroll, f = self._scroll_form()
         nota = QLabel("Opcional. Completá estos datos solo si vas a emitir "
-                      "comprobantes electrónicos con AFIP (Fase 4).")
+                      "comprobantes electrónicos con AFIP. Necesitás el "
+                      "certificado y la clave privada (.crt/.key) del "
+                      "contribuyente y el punto de venta habilitado por WS.")
         nota.setProperty("role", "page-subtitle")
         nota.setWordWrap(True)
         f.addRow(nota)
@@ -160,9 +162,34 @@ class ConfiguracionWidget(QWidget):
         self._punto_venta.setPlaceholderText("Ej. 0001")
         self._ingresos_brutos = QLineEdit()
         self._inicio_actividades = QLineEdit()
-        f.addRow("Punto de venta", self._punto_venta)
+        f.addRow("Punto de venta", self._half(self._punto_venta))
         f.addRow("Ingresos Brutos", self._ingresos_brutos)
         f.addRow("Inicio de actividades", self._inicio_actividades)
+
+        self._afip_entorno = self._combo(
+            [("Homologación (pruebas)", "homologacion"),
+             ("Producción (real)", "produccion")], con_data=True)
+        f.addRow("Entorno", self._half(self._afip_entorno))
+
+        self._afip_cert = QLineEdit()
+        self._afip_cert.setPlaceholderText("Ruta al certificado (.crt / .pem)")
+        btn_cert = QPushButton("Elegir…")
+        btn_cert.setObjectName("btn_secondary")
+        btn_cert.clicked.connect(self._on_elegir_cert)
+        f.addRow("Certificado", _fila(self._afip_cert, btn_cert))
+
+        self._afip_key = QLineEdit()
+        self._afip_key.setPlaceholderText("Ruta a la clave privada (.key / .pem)")
+        btn_key = QPushButton("Elegir…")
+        btn_key.setObjectName("btn_secondary")
+        btn_key.clicked.connect(self._on_elegir_key)
+        f.addRow("Clave privada", _fila(self._afip_key, btn_key))
+
+        self._btn_probar = QPushButton("Probar conexión")
+        self._btn_probar.setObjectName("btn_secondary")
+        self._btn_probar.setCursor(Qt.PointingHandCursor)
+        self._btn_probar.clicked.connect(self._on_probar_conexion)
+        f.addRow("", self._btn_probar)
         return scroll
 
     # ------------------------------------------------------------ helpers
@@ -209,6 +236,10 @@ class ConfiguracionWidget(QWidget):
         self._punto_venta.setText(e.get("punto_venta") or "")
         self._ingresos_brutos.setText(e.get("ingresos_brutos") or "")
         self._inicio_actividades.setText(e.get("inicio_actividades") or "")
+        idx_ent = self._afip_entorno.findData(self.db.get_config("afip_entorno") or "homologacion")
+        self._afip_entorno.setCurrentIndex(idx_ent if idx_ent >= 0 else 0)
+        self._afip_cert.setText(self.db.get_config("afip_cert_path") or "")
+        self._afip_key.setText(self.db.get_config("afip_key_path") or "")
 
     def set_theme_zoom(self, theme: str, zoom: float) -> None:
         self._pal = get_palette(theme)
@@ -225,8 +256,43 @@ class ConfiguracionWidget(QWidget):
         if path:
             self._pdf_dir.setText(path)
 
-    def _on_guardar(self) -> None:
+    def _on_elegir_cert(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Elegir certificado", "", "Certificados (*.crt *.pem *.cer);;Todos (*.*)")
+        if path:
+            self._afip_cert.setText(path)
+
+    def _on_elegir_key(self) -> None:
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Elegir clave privada", "", "Claves (*.key *.pem);;Todos (*.*)")
+        if path:
+            self._afip_key.setText(path)
+
+    def _on_probar_conexion(self) -> None:
+        """Guarda lo cargado y prueba autenticar contra AFIP (WSAA). Sin
+        certificado válido o sin red, muestra el motivo sin romper."""
+        self._on_guardar(silencioso=True)
+        from fiscal import get_provider
+        try:
+            provider = get_provider(self.db)
+            if not provider.disponible():
+                QMessageBox.warning(
+                    self, "AFIP",
+                    "Faltan datos para conectar: habilitá AFIP y cargá CUIT, "
+                    "punto de venta, certificado y clave privada.")
+                return
+            provider.autenticar()
+        except Exception as exc:  # noqa: BLE001 — reportar cualquier fallo al usuario
+            QMessageBox.critical(self, "AFIP — error de conexión", str(exc))
+            return
+        QMessageBox.information(
+            self, "AFIP", "Conexión exitosa: autenticación con AFIP correcta.")
+
+    def _on_guardar(self, silencioso: bool = False) -> None:
         self.db.set_config("pdf_dir", self._pdf_dir.text().strip())
+        self.db.set_config("afip_entorno", self._afip_entorno.currentData() or "homologacion")
+        self.db.set_config("afip_cert_path", self._afip_cert.text().strip())
+        self.db.set_config("afip_key_path", self._afip_key.text().strip())
         self.db.update_datos_empresa({
             "nombre": self._nombre.text().strip(),
             "nif": self._nif.text().strip() or None,
@@ -255,4 +321,5 @@ class ConfiguracionWidget(QWidget):
         set_moneda(self._moneda.currentData() or "$")
         if self._on_empresa_changed:
             self._on_empresa_changed()
-        QMessageBox.information(self, "Guardado", "Datos guardados correctamente.")
+        if not silencioso:
+            QMessageBox.information(self, "Guardado", "Datos guardados correctamente.")

@@ -92,9 +92,18 @@ class DocumentListWidget(ListPage):
                                      self._on_editar, needs_selection=True)
         self._btn_pdf = self._boton("  Ver PDF", "file-text", "text", "btn_secondary",
                                     self._on_pdf, needs_selection=True)
+        widgets = [self._btn_edit, self._btn_pdf]
+        # Autorización electrónica solo para comprobantes fiscales (factura y
+        # nota de crédito/abono).
+        if self.tipo in ("FA", "AB"):
+            self._btn_afip = self._boton("  Autorizar en AFIP", "check", "text",
+                                         "btn_secondary", self._on_autorizar,
+                                         needs_selection=True)
+            widgets.append(self._btn_afip)
         self._btn_del = self._boton("  Eliminar", "trash", "danger", "btn_danger",
                                     self._on_eliminar, needs_selection=True)
-        return [self._btn_edit, self._btn_pdf, self._btn_del]
+        widgets.append(self._btn_del)
+        return widgets
 
     def _configure_columns(self, hh) -> None:
         hh.setSectionResizeMode(2, QHeaderView.Stretch)
@@ -199,6 +208,51 @@ class DocumentListWidget(ListPage):
             QMessageBox.critical(self, "Error al generar PDF", str(exc))
             return
         abrir_archivo(path)
+
+    def _on_autorizar(self) -> None:
+        d = self._selected()
+        if not d:
+            return
+        if d.get("cae"):
+            QMessageBox.information(
+                self, "AFIP",
+                f"Este comprobante ya está autorizado (CAE {d['cae']}).")
+            return
+        from fiscal import get_provider
+        provider = get_provider(self.db)
+        if not provider.disponible():
+            QMessageBox.warning(
+                self, "AFIP",
+                "La facturación electrónica no está configurada. Andá a "
+                "Configuración → AFIP para habilitarla y cargar el certificado.")
+            return
+        if QMessageBox.question(
+                self, "Autorizar en AFIP",
+                "¿Solicitar el CAE de este comprobante a AFIP? La operación es "
+                "definitiva y le asigna número fiscal.") != QMessageBox.Yes:
+            return
+        try:
+            factura = self.db.get_factura(d["id"])
+            cliente = self.db.get_cliente(factura["cliente_id"]) or {}
+            empresa = self.db.get_datos_empresa()
+            lineas = self.db.get_lineas(d["id"])
+            res = provider.autorizar(factura=factura, empresa=empresa,
+                                     cliente=cliente, lineas=lineas)
+        except Exception as exc:  # noqa: BLE001 — mostrar el motivo al usuario
+            QMessageBox.critical(self, "AFIP — error", str(exc))
+            return
+        if not res.ok:
+            QMessageBox.critical(self, "AFIP rechazó el comprobante",
+                                 res.mensaje or "\n".join(res.observaciones))
+            return
+        self.db.guardar_cae(d["id"], res.cae, res.cae_vto, res.qr_url,
+                            res.resultado, res.numero)
+        self.refresh()
+        QMessageBox.information(self, "AFIP", res.mensaje)
+        try:
+            abrir_archivo(generar_pdf_documento(self.db, d["id"]))
+        except Exception:  # noqa: BLE001 — el CAE ya quedó guardado igual
+            pass
 
     def _on_eliminar(self) -> None:
         d = self._selected()
