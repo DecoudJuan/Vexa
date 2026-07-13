@@ -196,6 +196,12 @@ class Factura(Base):
     ccc4: Mapped[str | None] = mapped_column(Text)
     legacy_id: Mapped[int | None] = mapped_column(Integer, unique=True)
     created_at: Mapped[str | None] = mapped_column(Text, server_default=_NOW)
+    # Facturación electrónica AFIP (Fase 4). Vacíos hasta autorizar el
+    # comprobante; con cae presente el PDF sale como comprobante fiscal.
+    cae: Mapped[str | None] = mapped_column(Text)
+    cae_vto: Mapped[str | None] = mapped_column(Text)
+    afip_resultado: Mapped[str | None] = mapped_column(Text)
+    afip_qr: Mapped[str | None] = mapped_column(Text)
 
     lineas: Mapped[list["Linea"]] = relationship(
         cascade="all, delete-orphan", passive_deletes=True

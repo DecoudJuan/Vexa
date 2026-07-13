@@ -76,6 +76,10 @@ class DatabaseManager:
         "facturas": [
             ("bonificacion", "REAL DEFAULT 0"),
             ("aplica_bonificacion", "INTEGER DEFAULT 0"),
+            ("cae", "TEXT"),
+            ("cae_vto", "TEXT"),
+            ("afip_resultado", "TEXT"),
+            ("afip_qr", "TEXT"),
         ],
         "conceptos": [("codigo", "TEXT"), ("talle", "TEXT")],
         "datos_empresa": [
@@ -570,6 +574,21 @@ class DatabaseManager:
                 return None
             f, nombre = row
             return {**_as_dict(f), "cliente_nombre": nombre}
+
+    def guardar_cae(self, factura_id: int, cae: str, cae_vto: str | None,
+                    qr_url: str | None, resultado: str | None = "A",
+                    numero: int | None = None) -> None:
+        """Persiste el CAE y datos de AFIP tras autorizar el comprobante. Si AFIP
+        asignó un número (numero), lo guarda también para que coincida con el
+        último autorizado del punto de venta."""
+        valores = {
+            "cae": cae, "cae_vto": cae_vto, "afip_qr": qr_url,
+            "afip_resultado": resultado,
+        }
+        if numero is not None:
+            valores["numero"] = str(numero)
+        with self._session() as s:
+            s.execute(update(Factura).where(Factura.id == factura_id).values(**valores))
 
     def get_lineas(self, factura_id: int) -> list[dict]:
         with self._session() as s:
