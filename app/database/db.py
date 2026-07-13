@@ -6,6 +6,7 @@ devolviendo `dict`, para que el resto de la app no dependa del ORM. El esquema
 vive en models.py; acá va la lógica de consultas y el arranque de la base.
 """
 
+import json
 import os
 from contextlib import contextmanager
 from pathlib import Path
@@ -29,6 +30,9 @@ DEFAULT_DB = DATA_DIR / "data.db"
 
 # Reexportado por compatibilidad (antes vivía acá como constante del esquema).
 __all__ = ["DatabaseManager", "DATA_DIR", "DEFAULT_DB", "TIPOS_DOCUMENTO"]
+
+# Clave de Configuracion donde se guardan los perfiles de importación (JSON).
+_PERFILES_IMPORT_KEY = "import_perfiles"
 
 
 def _as_dict(obj) -> dict:
@@ -142,6 +146,33 @@ class DatabaseManager:
                 set_={"valor": stmt.excluded.valor, "updated_at": stmt.excluded.updated_at},
             )
             s.execute(stmt)
+
+    # ---------------------------------------------------- perfiles de importación
+
+    def get_perfiles_import(self) -> dict:
+        """Perfiles de importación guardados, por proveedor:
+        {nombre: {'hoja': str|None, 'columnas': {campo: nombre_columna}}}."""
+        raw = self.get_config(_PERFILES_IMPORT_KEY)
+        if not raw:
+            return {}
+        try:
+            data = json.loads(raw)
+        except (ValueError, TypeError):
+            return {}
+        return data if isinstance(data, dict) else {}
+
+    def save_perfil_import(self, nombre: str, perfil: dict) -> None:
+        nombre = (nombre or "").strip()
+        if not nombre:
+            return
+        perfiles = self.get_perfiles_import()
+        perfiles[nombre] = perfil
+        self.set_config(_PERFILES_IMPORT_KEY, json.dumps(perfiles, ensure_ascii=False))
+
+    def delete_perfil_import(self, nombre: str) -> None:
+        perfiles = self.get_perfiles_import()
+        if perfiles.pop(nombre, None) is not None:
+            self.set_config(_PERFILES_IMPORT_KEY, json.dumps(perfiles, ensure_ascii=False))
 
     # ------------------------------------------------------------- datos_empresa
 
