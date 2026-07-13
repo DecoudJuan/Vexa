@@ -70,12 +70,29 @@ Llevar la app (hoy funcional para uso interno, **licencia de escritorio**) a un
 - Descartado por ahora: tabla de variantes separada (opción B) — implicaría
       reapuntar las líneas de factura históricas; no aporta lo suficiente hoy.
 
-## Fase 4 — Facturación electrónica AFIP/ARCA (comprobante con CAE)
-- [ ] Módulo fiscal enchufable: **WSAA** + **WSFE** reusando librería existente
-      (`pyafipws` / `afip` / SDK), no SOAP a mano.
-- [ ] CAE, tipos A/B/C, punto de venta, alícuotas de IVA; **QR AFIP** en el PDF.
-- [ ] Prerequisitos externos: certificado del contribuyente + punto de venta WS +
-      homologación antes de producción.
+## Fase 4 — Facturación electrónica AFIP/ARCA (comprobante con CAE)  ← ANDAMIAJE HECHO (rama `fase4-afip`)
+- [x] **Módulo fiscal enchufable** (`app/fiscal/`): interfaz `FiscalProvider` +
+      `NoFiscalProvider` (offline, comportamiento actual) + `get_provider(db)` como
+      único punto de acoplamiento. Decisión: **wrapper propio** con `zeep` (SOAP) +
+      `cryptography` (firma CMS del ticket), sin dependencias GPL, offline. No pyafipws.
+- [x] **WSAA**: `LoginTicketRequest` firmado en CMS/PKCS#7, `loginCms`, cacheo del
+      TA (~12 h) en `DATA_DIR/afip/`.
+- [x] **WSFEv1**: `FECompUltimoAutorizado` + `FECAESolicitar`; tipos A/B/C (factura y
+      nota de crédito), DocTipo/DocNro del receptor, ImpNeto/ImpIVA/alícuota, CAE + vto.
+- [x] **QR AFIP** en el PDF (spec RG 4291) con el generador nativo de reportlab (sin
+      dep nueva); CAE + vencimiento en el pie. La leyenda "no válido" desaparece sola
+      cuando hay CAE.
+- [x] Esquema: columnas `cae`, `cae_vto`, `afip_resultado`, `afip_qr` en `facturas`
+      (ALTER idempotente) + `db.guardar_cae`.
+- [x] Config (Configuración → AFIP): entorno (homologación/producción), certificado y
+      clave privada (.crt/.key), botón **Probar conexión**. Acción **Autorizar en AFIP**
+      en el listado de facturas/abonos.
+- [x] Verificado sin cert: QR (unit), firma CMS (cert autofirmado), migración, PDF con
+      CAE simulado, alta/guardado de config.
+- [ ] **Pendiente (gated por AFIP)**: test en vivo contra homologación/producción.
+      Prerequisitos externos: **certificado del contribuyente + punto de venta WS +
+      homologación** antes de producción.
+- [ ] Futuro: certificados `.pfx`, percepciones/otros tributos, monedas ≠ ARS.
 
 ## Transversal
 - [ ] Licenciamiento / activación de escritorio + empaquetado por marca

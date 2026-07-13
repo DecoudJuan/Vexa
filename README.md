@@ -20,6 +20,7 @@ ejecución la app **no depende de Access** ni de ningún driver ODBC.
 | Base de datos   | SQLite (modo WAL) vía **SQLAlchemy 2.0** (ORM) |
 | Generación PDF  | ReportLab                                    |
 | Importación     | openpyxl + csv (listas de precios `.xlsx`/`.xlsm`/CSV, mapeo flexible con perfiles) |
+| Facturación electrónica | zeep (SOAP WSAA/WSFEv1) + cryptography (firma CMS) — AFIP/ARCA, QR con reportlab |
 | Migración       | access_parser (lee `.mdb` sin Access/ODBC)   |
 | Empaquetado     | PyInstaller + Inno Setup (instalador Windows)|
 
@@ -61,6 +62,11 @@ facturacion/
 │   │   ├── pdf_generator.py      # armado de PDF de documentos y remesas (ReportLab)
 │   │   ├── excel_import.py       # lectura de listas de precios en Excel
 │   │   └── resources.py          # resolución de rutas de assets (dev y PyInstaller)
+│   │
+│   ├── fiscal/                   # facturación electrónica AFIP (sin Qt), enchufable
+│   │   ├── provider.py           # interfaz FiscalProvider + NoFiscalProvider + get_provider
+│   │   ├── afip.py               # WSAA (firma CMS) + WSFEv1 (CAE) vía zeep
+│   │   └── qr.py                 # URL del QR AFIP (RG 4291) — función pura
 │   │
 │   ├── assets/                   # ícono e imagen de la app (icon.ico, logo.png)
 │   └── packaging/                # config de empaquetado (.spec, installer.iss)

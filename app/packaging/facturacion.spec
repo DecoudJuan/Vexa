@@ -1,4 +1,6 @@
 # -*- mode: python -*-
+from PyInstaller.utils.hooks import collect_data_files, copy_metadata
+
 block_cipher = None
 
 datas = [
@@ -9,13 +11,20 @@ datas = [
     ("../assets/vexa_icon.ico", "assets"),
     ("../assets/chevron.png", "assets"),
 ]
+# zeep (SOAP AFIP, Fase 4): sus WSDL/plantillas y su metadata de versión, que
+# PyInstaller no descubre solo (los carga por importlib en runtime).
+datas += collect_data_files("zeep")
+datas += copy_metadata("zeep")
 
 a = Analysis(
     ["../main.py"],
     pathex=["../"],
     binaries=[],
     datas=datas,
-    hiddenimports=["sqlalchemy.dialects.sqlite"],
+    hiddenimports=[
+        "sqlalchemy.dialects.sqlite",
+        "fiscal.afip", "fiscal.qr", "fiscal.provider",
+    ],
     excludes=["matplotlib", "tkinter"],
     noarchive=False,
 )
