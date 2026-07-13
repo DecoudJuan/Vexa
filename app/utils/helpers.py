@@ -100,6 +100,45 @@ CONDICIONES_IVA = [
 ]
 
 
+# Monedas ofrecidas (etiqueta, símbolo). El símbolo es lo que guarda/usa fmt_ar.
+MONEDAS = [
+    ("Peso argentino ($)", "$"),
+    ("Dólar estadounidense (US$)", "US$"),
+    ("Euro (€)", "€"),
+    ("Real brasileño (R$)", "R$"),
+]
+
+
+def formatear_cuit(texto: str | None) -> str:
+    """Formatea un CUIT/CUIL a 'XX-XXXXXXXX-X' a medida que se tipea (solo
+    dígitos, máximo 11)."""
+    d = "".join(c for c in (texto or "") if c.isdigit())[:11]
+    if len(d) <= 2:
+        return d
+    if len(d) <= 10:
+        return f"{d[:2]}-{d[2:]}"
+    return f"{d[:2]}-{d[2:10]}-{d[10:]}"
+
+
+def formatear_telefono(texto: str | None) -> str:
+    """Formatea un teléfono argentino a '+54 9 AA NNNN-NNNN' (best-effort: toma
+    los 10 dígitos de área+abonado, ignorando prefijos 54/9 que se hayan tipeado)."""
+    d = "".join(c for c in (texto or "") if c.isdigit())
+    if d.startswith("54"):
+        d = d[2:]
+    if d.startswith("9"):
+        d = d[1:]
+    d = d[:10]
+    if not d:
+        return ""
+    if len(d) <= 2:
+        return f"+54 9 {d}"
+    area, resto = d[:2], d[2:]
+    if len(resto) <= 4:
+        return f"+54 9 {area} {resto}"
+    return f"+54 9 {area} {resto[:4]}-{resto[4:]}"
+
+
 def letra_comprobante(emisor_cond: str | None, receptor_cond: str | None) -> str:
     """Letra del comprobante según la condición frente al IVA del emisor y el
     receptor (regla AR simplificada):
@@ -182,7 +221,7 @@ def fmt_fecha(iso_date: str | None) -> str:
 def leer_tema(db) -> str:
     """Tema actual ('dark'/'light'), usado para elegir colores de ícono
     coherentes con el fondo (los íconos no se repintan solos con el CSS)."""
-    return db.get_config("theme") or "dark"
+    return db.get_config("theme") or "light"
 
 
 def abrir_archivo(path: str) -> None:

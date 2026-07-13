@@ -4,6 +4,10 @@ block_cipher = None
 datas = [
     ("../assets/logo.png", "assets"),
     ("../assets/icon.ico", "assets"),
+    ("../assets/vexa_logo.png", "assets"),
+    ("../assets/vexa_icon.png", "assets"),
+    ("../assets/vexa_icon.ico", "assets"),
+    ("../assets/chevron.png", "assets"),
 ]
 
 a = Analysis(
@@ -21,7 +25,7 @@ exe = EXE(
     pyz, a.scripts, [],
     exclude_binaries=True,
     name="Facturacion",
-    icon="../assets/icon.ico",
+    icon="../assets/vexa_icon.ico",
     console=False,
     disable_windowed_traceback=False,
 )

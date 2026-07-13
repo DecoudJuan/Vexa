@@ -1,24 +1,37 @@
 import sys
 
 from PySide6.QtWidgets import QApplication
+from PySide6.QtGui import QIcon
 from database.db import DatabaseManager
 from ui.main_window import MainWindow
 from ui.styles import build_style, build_qpalette
 from utils.helpers import set_moneda
+from utils.resources import resource_path
 from version import VERSION, APP_NAME
 
 
 def main() -> None:
+    # En Windows, sin un AppUserModelID propio la barra de tareas no toma el
+    # ícono de la ventana (queda el genérico). Debe setearse antes de crear la
+    # ventana.
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("com.vexa.facturacion")
+        except Exception:
+            pass
+
     app = QApplication(sys.argv)
     app.setApplicationName(APP_NAME)
     app.setOrganizationName("Facturacion")
     app.setApplicationVersion(VERSION)
+    app.setWindowIcon(QIcon(str(resource_path("assets/vexa_icon.ico"))))
 
     db = DatabaseManager()
     db.init_db()
     set_moneda(db.get_datos_empresa().get("moneda"))
 
-    theme = db.get_config("theme") or "dark"
+    theme = db.get_config("theme") or "light"
     zoom = float(db.get_config("zoom") or 0.9)
     # La paleta va antes que el stylesheet: cubre lo que el CSS no puede
     # (texto de los popups de autocompletado y vistas de items).
@@ -29,7 +42,8 @@ def main() -> None:
     empresa = db.get_datos_empresa()
     if not (empresa.get("nombre") or "").strip() and not db.get_config("onboarding_done"):
         from ui.onboarding import run_onboarding
-        run_onboarding(db)
+        if not run_onboarding(db):
+            sys.exit(0)  # cerró sin completar: no se entra a la app
         set_moneda(db.get_datos_empresa().get("moneda"))
 
     window = MainWindow(db)
