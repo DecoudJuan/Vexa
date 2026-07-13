@@ -14,7 +14,7 @@ from PySide6.QtCore import Qt
 from ui.modal import BaseModal
 from ui.widgets import NoScrollComboBox
 from ui.icons import svg_icon
-from utils.helpers import fmt_ar, fmt_talle, leer_zoom, leer_tema
+from utils.helpers import fmt_ar, fmt_talle, ordenar_talles, leer_zoom, leer_tema
 from utils import excel_import
 
 _CAMPOS_UI = [
@@ -119,7 +119,7 @@ class ImportDialog(BaseModal):
         c.addWidget(self._count)
         self._preview = QTableWidget()
         self._preview.setColumnCount(4)
-        self._preview.setHorizontalHeaderLabels(["Código", "Talle", "Nombre", "Precio"])
+        self._preview.setHorizontalHeaderLabels(["Código", "Talles", "Nombre", "Precio"])
         self._preview.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self._preview.setSelectionMode(QAbstractItemView.NoSelection)
         self._preview.verticalHeader().setVisible(False)
@@ -227,20 +227,42 @@ class ImportDialog(BaseModal):
         self.db.delete_perfil_import(nombre)
         self._recargar_perfiles()
 
+    def _agrupar(self, items: list[dict]) -> list[dict]:
+        """Agrupa las variantes por (nombre, código) para la vista previa: un
+        renglón por producto con todos sus talles juntos. El guardado sigue
+        creando una variante por talle (upsert_conceptos recibe todos los items)."""
+        grupos: dict = {}
+        orden = []
+        for it in items:
+            key = (it["nombre"], it.get("codigo") or "")
+            if key not in grupos:
+                grupos[key] = {"nombre": it["nombre"], "codigo": it.get("codigo") or "",
+                               "pvp": it["pvp"], "talles": []}
+                orden.append(key)
+            if it.get("talle"):
+                grupos[key]["talles"].append(it["talle"])
+        return [grupos[k] for k in orden]
+
     def _refresh_preview(self, *_a) -> None:
         items = excel_import.filas_a_items(self._filas, self._mapeo())
         self._items = items
-        self._count.setText(f"{len(items)} productos detectados")
+        grupos = self._agrupar(items)
+        if len(grupos) != len(items):
+            self._count.setText(
+                f"{len(grupos)} productos · {len(items)} variantes con talle")
+        else:
+            self._count.setText(f"{len(grupos)} productos detectados")
         self._preview.setRowCount(0)
-        for it in items[:10]:
+        for g in grupos[:10]:
             r = self._preview.rowCount()
             self._preview.insertRow(r)
-            self._preview.setItem(r, 0, QTableWidgetItem(it["codigo"] or "—"))
-            talle = QTableWidgetItem(fmt_talle(it.get("talle")) or "—")
+            self._preview.setItem(r, 0, QTableWidgetItem(g["codigo"] or "—"))
+            talles_txt = ", ".join(fmt_talle(t) for t in ordenar_talles(g["talles"]))
+            talle = QTableWidgetItem(talles_txt or "—")
             talle.setTextAlignment(Qt.AlignCenter)
             self._preview.setItem(r, 1, talle)
-            self._preview.setItem(r, 2, QTableWidgetItem(it["nombre"]))
-            precio = QTableWidgetItem(fmt_ar(it["pvp"]))
+            self._preview.setItem(r, 2, QTableWidgetItem(g["nombre"]))
+            precio = QTableWidgetItem(fmt_ar(g["pvp"]))
             precio.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
             self._preview.setItem(r, 3, precio)
 

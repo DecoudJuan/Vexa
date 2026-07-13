@@ -161,22 +161,44 @@ def formatear_cuit(texto: str | None) -> str:
 
 
 def formatear_telefono(texto: str | None) -> str:
-    """Formatea un teléfono argentino a '+54 9 AA NNNN-NNNN' (best-effort: toma
-    los 10 dígitos de área+abonado, ignorando prefijos 54/9 que se hayan tipeado)."""
-    d = "".join(c for c in (texto or "") if c.isdigit())
-    if d.startswith("54"):
-        d = d[2:]
-    if d.startswith("9"):
-        d = d[1:]
-    d = d[:10]
-    if not d:
+    """Normaliza un teléfono de forma PERMISIVA: no fuerza un país/área fijos
+    (antes imponía '+54 9 ...', lo que impedía cargar códigos de otros países o
+    de otras áreas). Solo conserva los caracteres válidos de un teléfono
+    internacional: un '+' inicial, dígitos, espacios, guiones y paréntesis. El
+    usuario escribe el formato que quiera, ej. '+54 9 11 5555-5555'."""
+    s = (texto or "").strip()
+    if not s:
         return ""
-    if len(d) <= 2:
-        return f"+54 9 {d}"
-    area, resto = d[:2], d[2:]
-    if len(resto) <= 4:
-        return f"+54 9 {area} {resto}"
-    return f"+54 9 {area} {resto[:4]}-{resto[4:]}"
+    mas = "+" if s.startswith("+") else ""
+    cuerpo = "".join(c for c in s if c.isdigit() or c in " -()")
+    return (mas + cuerpo).strip()
+
+
+# Placeholder de ejemplo para los campos de teléfono (código país + área + nº).
+TELEFONO_EJEMPLO = "+54 9 11 5555-5555"
+
+
+def partir_direccion(direccion: str | None) -> tuple[str, str]:
+    """Separa un domicilio guardado ('Av. Corrientes 1234') en (calle, número).
+    Best-effort: el último token que tiene algún dígito se toma como número
+    (ej. '1234', '1234B'). Si no hay número, devuelve ('...', '')."""
+    s = (direccion or "").strip()
+    if not s:
+        return ("", "")
+    partes = s.rsplit(" ", 1)
+    if len(partes) == 2 and any(ch.isdigit() for ch in partes[1]):
+        return (partes[0].strip(), partes[1].strip())
+    return (s, "")
+
+
+def unir_direccion(calle: str | None, numero: str | None) -> str | None:
+    """Une calle y número en un solo domicilio ('Av. Corrientes 1234'). Devuelve
+    None si no hay calle (para guardar NULL en la base)."""
+    calle = (calle or "").strip()
+    numero = (numero or "").strip()
+    if not calle:
+        return None
+    return f"{calle} {numero}".strip() if numero else calle
 
 
 def letra_comprobante(emisor_cond: str | None, receptor_cond: str | None) -> str:

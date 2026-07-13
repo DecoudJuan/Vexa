@@ -10,7 +10,8 @@ from ui.styles import get_palette
 from ui.widgets import fila as _fila, NoScrollComboBox
 from utils.helpers import (
     leer_tema, leer_zoom, valor_valido, set_moneda, CONDICIONES_IVA, MONEDAS,
-    PROVINCIAS_AR, formatear_cuit, formatear_telefono,
+    PROVINCIAS_AR, formatear_cuit, TELEFONO_EJEMPLO, partir_direccion,
+    unir_direccion,
 )
 
 
@@ -99,12 +100,14 @@ class ConfiguracionWidget(QWidget):
         self._nif = QLineEdit()
         self._nif.textEdited.connect(lambda: self._reformatear(self._nif, formatear_cuit))
         self._condicion_iva = self._combo([""] + CONDICIONES_IVA)
-        self._direccion = QLineEdit()
+        self._calle = QLineEdit()
+        self._numero = QLineEdit()
+        self._numero.setPlaceholderText("1234")
         self._cp = QLineEdit()
         self._localidad = QLineEdit()
         self._provincia = self._provincia_combo()
         self._telefono = QLineEdit()
-        self._telefono.textEdited.connect(lambda: self._reformatear(self._telefono, formatear_telefono))
+        self._telefono.setPlaceholderText(TELEFONO_EJEMPLO)
         self._email = QLineEdit()
         self._web = QLineEdit()
         self._moneda = self._combo(MONEDAS, con_data=True)
@@ -112,7 +115,8 @@ class ConfiguracionWidget(QWidget):
         f.addRow("Nombre / razón social", self._nombre)
         f.addRow("CUIT", self._nif)
         f.addRow("Condición frente al IVA", self._condicion_iva)
-        f.addRow("Dirección", self._direccion)
+        f.addRow("Calle", self._calle)
+        f.addRow("Número", self._half(self._numero))
         f.addRow("C.P.", self._half(self._cp))
         f.addRow("Localidad", self._half(self._localidad))
         f.addRow("Provincia", self._provincia)
@@ -232,7 +236,9 @@ class ConfiguracionWidget(QWidget):
         self._nombre.setText(e.get("nombre") or "")
         self._nif.setText(valor_valido(e.get("nif")) or "")
         self._condicion_iva.setCurrentText(e.get("condicion_iva") or "")
-        self._direccion.setText(e.get("direccion") or "")
+        calle, numero = partir_direccion(e.get("direccion"))
+        self._calle.setText(calle)
+        self._numero.setText(numero)
         self._cp.setText(valor_valido(e.get("cp")) or "")
         self._localidad.setText(e.get("localidad") or "")
         self._provincia.setCurrentText(e.get("provincia") or "")
@@ -325,7 +331,7 @@ class ConfiguracionWidget(QWidget):
         self.db.update_datos_empresa({
             "nombre": self._nombre.text().strip(),
             "nif": self._nif.text().strip() or None,
-            "direccion": self._direccion.text().strip() or None,
+            "direccion": unir_direccion(self._calle.text(), self._numero.text()),
             "cp": self._cp.text().strip() or None,
             "localidad": self._localidad.text().strip() or None,
             "provincia": self._provincia.currentText().strip() or None,

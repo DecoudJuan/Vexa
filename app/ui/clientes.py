@@ -16,7 +16,7 @@ from ui.modal import BaseModal, modal_colors
 from ui.widgets import avatar, NoScrollComboBox
 from utils.helpers import (
     leer_zoom, leer_tema, valor_valido, fmt_ar, parse_float, PROVINCIAS_AR,
-    CONDICIONES_IVA,
+    CONDICIONES_IVA, TELEFONO_EJEMPLO,
 )
 
 _SEARCH_MAXW, _ROW_H = 400, 44
@@ -344,6 +344,7 @@ class ClienteDialog(BaseModal):
 
         self._telefono1 = QLineEdit()
         self._telefono1.setObjectName("field")
+        self._telefono1.setPlaceholderText(TELEFONO_EJEMPLO)
         self._fax = QLineEdit()
         self._fax.setObjectName("field")
         c.addLayout(self._row2(self._labeled("TELÉFONO", self._telefono1),

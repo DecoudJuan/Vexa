@@ -1,4 +1,13 @@
+import os
 import sys
+
+# En Windows, Qt sigue por defecto el modo oscuro del SISTEMA y pisa nuestra
+# paleta en diálogos/popups nativos (QMessageBox, desplegables de combo), que
+# salían con fondo negro si el SO estaba en oscuro. El tema claro/oscuro lo
+# maneja la app por su cuenta, así que desactivamos ese seguimiento automático.
+# Debe fijarse ANTES de crear la QApplication.
+if sys.platform == "win32":
+    os.environ.setdefault("QT_QPA_PLATFORM", "windows:darkmode=0")
 
 from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QIcon

@@ -19,7 +19,7 @@ from PySide6.QtGui import QPixmap
 from ui.widgets import NoScrollComboBox
 from utils.helpers import (
     CONDICIONES_IVA, MONEDAS, PROVINCIAS_AR, set_moneda, leer_zoom,
-    formatear_cuit, formatear_telefono,
+    formatear_cuit, TELEFONO_EJEMPLO, unir_direccion,
 )
 from utils.resources import resource_path
 from version import APP_NAME
@@ -210,12 +210,14 @@ class OnboardingWindow(QDialog):
         self._condicion.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
         self._condicion.addItem("")
         self._condicion.addItems(CONDICIONES_IVA)
-        self._direccion = QLineEdit()
+        self._calle = QLineEdit()
+        self._calle.setPlaceholderText("Av. Corrientes")
+        self._numero = QLineEdit()
+        self._numero.setPlaceholderText("1234")
         self._localidad = QLineEdit()
         self._provincia = self._provincia_combo()
         self._telefono = QLineEdit()
-        self._telefono.setPlaceholderText("+54 9 11 5414-0942")
-        self._telefono.textEdited.connect(lambda: self._reformatear(self._telefono, formatear_telefono))
+        self._telefono.setPlaceholderText(TELEFONO_EJEMPLO)
         self._email = QLineEdit()
         self._moneda = NoScrollComboBox()
         self._moneda.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
@@ -225,7 +227,8 @@ class OnboardingWindow(QDialog):
         grid.addWidget(self._labeled("NOMBRE / RAZÓN SOCIAL *", self._nombre), 0, 0, 1, 2)
         grid.addWidget(self._labeled("CUIT", self._cuit), 1, 0)
         grid.addWidget(self._labeled("CONDICIÓN FRENTE AL IVA", self._condicion), 1, 1)
-        grid.addWidget(self._labeled("DOMICILIO", self._direccion), 2, 0, 1, 2)
+        grid.addWidget(self._labeled("CALLE", self._calle), 2, 0)
+        grid.addWidget(self._labeled("NÚMERO", self._numero), 2, 1)
         grid.addWidget(self._labeled("LOCALIDAD", self._localidad), 3, 0)
         grid.addWidget(self._labeled("PROVINCIA", self._provincia), 3, 1)
         grid.addWidget(self._labeled("TELÉFONO", self._telefono), 4, 0)
@@ -289,7 +292,7 @@ class OnboardingWindow(QDialog):
         self.db.update_datos_empresa({
             "nombre": nombre,
             "nif": self._cuit.text().strip() or None,
-            "direccion": self._direccion.text().strip() or None,
+            "direccion": unir_direccion(self._calle.text(), self._numero.text()),
             "cp": None,
             "localidad": self._localidad.text().strip() or None,
             "provincia": self._provincia.currentText().strip() or None,
