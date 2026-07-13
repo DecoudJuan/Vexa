@@ -739,6 +739,8 @@ _PALETTES = {
         "accent_pressed": "#74a8f5",
         "accent_text": "#11111b",
         "accent_rgb": "137, 180, 250",
+        "select_bg": "#34406a",
+        "select_tx": "#cdd6f4",
         "danger": "#f38ba8",
         "danger_rgb": "243, 139, 168",
         "warn": "#f9e2af",
@@ -761,6 +763,8 @@ _PALETTES = {
         "accent_pressed": "#1755c9",
         "accent_text": "#ffffff",
         "accent_rgb": "30, 102, 245",
+        "select_bg": "#dbe6fd",
+        "select_tx": "#3c3f58",
         "danger": "#d20f39",
         "danger_rgb": "210, 15, 57",
         "warn": "#df8e1d",
@@ -844,8 +848,10 @@ def build_qpalette(theme: str = "dark"):
     pal.setColor(QPalette.ToolTipText, c(p["text"]))
     pal.setColor(QPalette.PlaceholderText, c(p["muted2"]))
     pal.setColor(QPalette.BrightText, c(p["danger"]))
-    pal.setColor(QPalette.Highlight, c(p["accent"]))
-    pal.setColor(QPalette.HighlightedText, c(p["accent_text"]))
+    # Selección tenue (no el accent pleno): el azul saturado en filas/listas
+    # resultaba agresivo al clickear clientes/productos.
+    pal.setColor(QPalette.Highlight, c(p["select_bg"]))
+    pal.setColor(QPalette.HighlightedText, c(p["select_tx"]))
     for role in (QPalette.Text, QPalette.WindowText, QPalette.ButtonText):
         pal.setColor(QPalette.Disabled, role, c(p["muted2"]))
     return pal

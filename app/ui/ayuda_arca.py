@@ -78,6 +78,7 @@ class AyudaArcaDialog(BaseModal):
         #guia_title {{ color: {c['ink']}; font-size: 14px; font-weight: 700; }}
         #guia_body {{ color: {c['ink']}; font-size: 13px; }}
         #guia_body a {{ color: {c['focus']}; }}
+        #guia_row, #guia_cmdwrap {{ background: transparent; }}
         #guia_cmd {{
             background: {c['field']}; color: {c['ink']};
             border: 1px solid {c['border']}; border-radius: 8px; padding: 10px 12px;
@@ -121,6 +122,7 @@ class AyudaArcaDialog(BaseModal):
 
     def _paso(self, numero: int, titulo: str, cuerpo: str) -> QWidget:
         w = QWidget()
+        w.setObjectName("guia_row")
         v = QVBoxLayout(w)
         v.setContentsMargins(0, self._S(4), 0, 0)
         v.setSpacing(self._S(4))
@@ -152,6 +154,7 @@ class AyudaArcaDialog(BaseModal):
         cmd.setWordWrap(True)
         cmd.setTextInteractionFlags(Qt.TextSelectableByMouse)
         wrap = QWidget()
+        wrap.setObjectName("guia_cmdwrap")
         lay = QVBoxLayout(wrap)
         lay.setContentsMargins(self._S(36), 0, 0, 0)
         lay.setSpacing(0)

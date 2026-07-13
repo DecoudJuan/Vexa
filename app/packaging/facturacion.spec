@@ -1,5 +1,7 @@
 # -*- mode: python -*-
-from PyInstaller.utils.hooks import collect_data_files, copy_metadata
+from PyInstaller.utils.hooks import (
+    collect_data_files, copy_metadata, collect_submodules,
+)
 
 block_cipher = None
 
@@ -24,7 +26,10 @@ a = Analysis(
     hiddenimports=[
         "sqlalchemy.dialects.sqlite",
         "fiscal.afip", "fiscal.qr", "fiscal.provider",
-    ],
+    # reportlab.graphics.barcode importa sus submódulos por nombre (dinámico) al
+    # inicializarse; sin esto, el QR arrastra un import que rompe el .exe
+    # (ModuleNotFoundError: reportlab.graphics.barcode.code128).
+    ] + collect_submodules("reportlab.graphics.barcode"),
     excludes=["matplotlib", "tkinter"],
     noarchive=False,
 )

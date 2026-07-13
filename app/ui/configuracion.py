@@ -157,15 +157,15 @@ class ConfiguracionWidget(QWidget):
         nota.setWordWrap(True)
         f.addRow(nota)
 
-        btn_ayuda = QPushButton("  ¿Cómo conectarme con ARCA?")
-        btn_ayuda.setObjectName("btn_secondary")
-        btn_ayuda.setIcon(svg_icon("help-circle", 15, self._pal["accent"]))
-        btn_ayuda.setCursor(Qt.PointingHandCursor)
-        btn_ayuda.clicked.connect(self._on_ayuda_arca)
+        self._btn_ayuda = QPushButton("  ¿Cómo conectarme con ARCA?")
+        self._btn_ayuda.setCursor(Qt.PointingHandCursor)
+        self._btn_ayuda.clicked.connect(self._on_ayuda_arca)
+        self._estilar_link_ayuda()
         cont = QWidget()
+        cont.setStyleSheet("background: transparent;")
         hb = QHBoxLayout(cont)
-        hb.setContentsMargins(0, 0, 0, 0)
-        hb.addWidget(btn_ayuda)
+        hb.setContentsMargins(0, 2, 0, 2)
+        hb.addWidget(self._btn_ayuda)
         hb.addStretch()
         f.addRow(cont)
 
@@ -257,6 +257,7 @@ class ConfiguracionWidget(QWidget):
     def set_theme_zoom(self, theme: str, zoom: float) -> None:
         self._pal = get_palette(theme)
         self._btn_guardar.setIcon(svg_icon("check", 14, self._pal["accent_text"]))
+        self._estilar_link_ayuda()
 
     def _on_elegir_logo(self) -> None:
         path, _ = QFileDialog.getOpenFileName(self, "Elegir logo", "",
@@ -280,6 +281,16 @@ class ConfiguracionWidget(QWidget):
             self, "Elegir clave privada", "", "Claves (*.key *.pem);;Todos (*.*)")
         if path:
             self._afip_key.setText(path)
+
+    def _estilar_link_ayuda(self) -> None:
+        """Botón-enlace discreto (accent, sin caja): más prolijo que un botón
+        secundario grande para una acción de ayuda."""
+        accent = self._pal["accent"]
+        self._btn_ayuda.setIcon(svg_icon("help-circle", 15, accent))
+        self._btn_ayuda.setStyleSheet(
+            f"QPushButton {{ background: transparent; border: none; color: {accent};"
+            f" font-weight: 600; font-size: 13px; text-align: left; padding: 2px 0; }}"
+            f" QPushButton:hover {{ text-decoration: underline; }}")
 
     def _on_ayuda_arca(self) -> None:
         from ui.ayuda_arca import AyudaArcaDialog
