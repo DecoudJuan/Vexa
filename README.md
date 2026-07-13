@@ -181,6 +181,46 @@ git status --ignored
 
 ---
 
+## Facturación electrónica (ARCA / AFIP)
+
+La app puede pedir el **CAE** a ARCA (ex AFIP) y estampar el **código QR** en el
+PDF, dejándolo como comprobante fiscal válido. Se hace con **web services**
+(WSAA + WSFEv1) desde la propia máquina — sin intermediarios ni servicios en la
+nube. Se puede con una cuenta **común** de ARCA (CUIT + Clave Fiscal); el trámite
+es gratis y se hace una sola vez.
+
+> Dentro de la app, en **Configuración → AFIP**, el botón
+> **«¿Cómo conectarme con ARCA?»** abre esta misma guía paso a paso.
+
+### Cómo vincularlo (paso a paso)
+
+1. **Tené a mano** tu CUIT y tu Clave Fiscal (nivel 3 o superior).
+2. **Elegí el entorno**: empezá por *Homologación* (pruebas) y, cuando funcione,
+   pasá a *Producción*.
+3. **Generá tu clave privada y el pedido de certificado** (CSR) con OpenSSL,
+   reemplazando el CUIT y el nombre:
+   ```bash
+   openssl genrsa -out vexa.key 2048
+   openssl req -new -key vexa.key \
+     -subj "/C=AR/O=TU NOMBRE/serialNumber=CUIT 20123456789/CN=vexa" \
+     -out vexa.csr
+   ```
+   Te quedan `vexa.key` (tu **clave privada**, no la compartas) y `vexa.csr`.
+4. **Pedí el certificado en ARCA**: con tu Clave Fiscal, en *«Administración de
+   Certificados Digitales»*, subí `vexa.csr` y descargá el certificado (`vexa.crt`).
+5. **Autorizá el certificado** para el servicio *«Facturación Electrónica»*
+   (WSFE) en *«Administrador de Relaciones de Clave Fiscal»*.
+6. **Creá el punto de venta** de tipo *«Web Services»* en *«ABM de Puntos de
+   Venta»* (es distinto del de *Comprobantes en línea*).
+7. **Cargá todo en Vexa** (Configuración → AFIP): certificado, clave privada,
+   punto de venta y entorno; tocá **«Probar conexión»**.
+8. En cada factura, usá **«Autorizar en AFIP»**: se pide el CAE y se agrega el QR.
+
+> Notas: la clave `.key` debe quedar **sin contraseña**; el CUIT del certificado
+> tiene que ser el **mismo** que el de *Datos de la empresa*. La arquitectura es
+> enchufable (`app/fiscal/`), así que el resto de la app no depende de AFIP: sin
+> configurar, los documentos salen como no fiscales, igual que antes.
+
 ## Roadmap
 
 El plan de evolución hacia un facturador vendible (white-label, import flexible,

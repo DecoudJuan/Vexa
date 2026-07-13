@@ -9,8 +9,8 @@ from ui.icons import svg_icon
 from ui.styles import get_palette
 from ui.widgets import fila as _fila, NoScrollComboBox
 from utils.helpers import (
-    leer_tema, valor_valido, set_moneda, CONDICIONES_IVA, MONEDAS, PROVINCIAS_AR,
-    formatear_cuit, formatear_telefono,
+    leer_tema, leer_zoom, valor_valido, set_moneda, CONDICIONES_IVA, MONEDAS,
+    PROVINCIAS_AR, formatear_cuit, formatear_telefono,
 )
 
 
@@ -156,6 +156,19 @@ class ConfiguracionWidget(QWidget):
         nota.setProperty("role", "page-subtitle")
         nota.setWordWrap(True)
         f.addRow(nota)
+
+        btn_ayuda = QPushButton("  ¿Cómo conectarme con ARCA?")
+        btn_ayuda.setObjectName("btn_secondary")
+        btn_ayuda.setIcon(svg_icon("help-circle", 15, self._pal["accent"]))
+        btn_ayuda.setCursor(Qt.PointingHandCursor)
+        btn_ayuda.clicked.connect(self._on_ayuda_arca)
+        cont = QWidget()
+        hb = QHBoxLayout(cont)
+        hb.setContentsMargins(0, 0, 0, 0)
+        hb.addWidget(btn_ayuda)
+        hb.addStretch()
+        f.addRow(cont)
+
         self._afip = QCheckBox("Habilitar facturación electrónica AFIP")
         f.addRow("", self._afip)
         self._punto_venta = QLineEdit()
@@ -267,6 +280,11 @@ class ConfiguracionWidget(QWidget):
             self, "Elegir clave privada", "", "Claves (*.key *.pem);;Todos (*.*)")
         if path:
             self._afip_key.setText(path)
+
+    def _on_ayuda_arca(self) -> None:
+        from ui.ayuda_arca import AyudaArcaDialog
+        AyudaArcaDialog(theme=leer_tema(self.db), zoom=leer_zoom(self.db),
+                        parent=self).exec()
 
     def _on_probar_conexion(self) -> None:
         """Guarda lo cargado y prueba autenticar contra AFIP (WSAA). Sin
