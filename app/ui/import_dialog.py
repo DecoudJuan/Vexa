@@ -5,13 +5,15 @@ columna es cada campo (nombre/precio/código/talle), muestra una vista previa y,
 al confirmar, hace el upsert de conceptos."""
 
 from PySide6.QtWidgets import (
-    QLabel, QGridLayout, QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem,
-    QHeaderView, QAbstractItemView, QMessageBox, QSizePolicy,
+    QLabel, QGridLayout, QWidget, QVBoxLayout, QHBoxLayout, QTableWidget,
+    QTableWidgetItem, QHeaderView, QAbstractItemView, QMessageBox, QSizePolicy,
+    QPushButton, QInputDialog,
 )
 from PySide6.QtCore import Qt
 
 from ui.modal import BaseModal
 from ui.widgets import NoScrollComboBox
+from ui.icons import svg_icon
 from utils.helpers import fmt_ar, leer_zoom, leer_tema
 from utils import excel_import
 
@@ -31,17 +33,45 @@ class ImportDialog(BaseModal):
         self._headers: list[str] = []
         self._filas: list[list] = []
         self._combos: dict = {}
+        self._perfiles: dict = {}
         super().__init__("Importar lista de precios",
                          "Asigná qué columna es cada dato y revisá la vista previa",
                          icon="file-plus", width=680, scroll=True, height=680,
                          zoom=leer_zoom(db), theme=leer_tema(db), parent=parent)
         self._build()
         self.set_primary_action("Importar", self._accept)
+        self._recargar_perfiles()
         self._cargar_hoja()
 
     # ------------------------------------------------------------ armado
     def _build(self) -> None:
         c = self.content
+
+        # Perfil por proveedor: reusa un mapeo guardado (o guarda el actual).
+        c.addWidget(self.section_label("PERFIL DEL PROVEEDOR", "users"))
+        perfil_row = QWidget()
+        perfil_row.setStyleSheet("background: transparent;")
+        pr = QHBoxLayout(perfil_row)
+        pr.setContentsMargins(0, 0, 0, 0)
+        pr.setSpacing(self._S(8))
+        self._perfil_combo = NoScrollComboBox()
+        self._perfil_combo.setObjectName("field")
+        self._perfil_combo.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
+        self._perfil_combo.currentIndexChanged.connect(self._on_perfil_changed)
+        pr.addWidget(self._perfil_combo, 1)
+        self._btn_guardar_perfil = QPushButton("  Guardar")
+        self._btn_guardar_perfil.setObjectName("btn_secondary")
+        self._btn_guardar_perfil.setIcon(svg_icon("plus", self._S(14), "#8a90a2"))
+        self._btn_guardar_perfil.setCursor(Qt.PointingHandCursor)
+        self._btn_guardar_perfil.clicked.connect(self._guardar_perfil)
+        pr.addWidget(self._btn_guardar_perfil)
+        self._btn_del_perfil = QPushButton()
+        self._btn_del_perfil.setObjectName("btn_secondary")
+        self._btn_del_perfil.setIcon(svg_icon("trash", self._S(14), "#8a90a2"))
+        self._btn_del_perfil.setCursor(Qt.PointingHandCursor)
+        self._btn_del_perfil.clicked.connect(self._eliminar_perfil)
+        pr.addWidget(self._btn_del_perfil)
+        c.addWidget(perfil_row)
 
         # Selector de hoja (solo si hay más de una)
         self._hojas = excel_import.listar_hojas(self.path)
@@ -107,21 +137,90 @@ class ImportDialog(BaseModal):
         except Exception as exc:
             QMessageBox.critical(self, "Error al leer el archivo", str(exc))
             self._headers, self._filas = [], []
-        sug = excel_import.sugerir_mapeo(self._headers)
-        for campo, combo in self._combos.items():
+        # Repoblar las opciones de cada combo con los encabezados de la hoja.
+        for combo in self._combos.values():
             combo.blockSignals(True)
             combo.clear()
             combo.addItem("(ninguna)", -1)
             for idx, h in enumerate(self._headers):
                 combo.addItem(h, idx)
-            sugerido = sug.get(campo)
-            combo.setCurrentIndex((sugerido + 1) if sugerido is not None else 0)
+            combo.blockSignals(False)
+        # Selección inicial: perfil elegido si aplica, si no, auto-sugerencia.
+        perfil = self._perfiles.get(self._perfil_combo.currentData())
+        if perfil:
+            mapeo = excel_import.columnas_a_mapeo(perfil.get("columnas", {}), self._headers)
+        else:
+            mapeo = excel_import.sugerir_mapeo(self._headers)
+        self._set_mapeo(mapeo)
+
+    def _set_mapeo(self, mapeo: dict) -> None:
+        """Aplica un mapeo {campo: indice|None} a los combos de columnas."""
+        for campo, combo in self._combos.items():
+            idx = mapeo.get(campo)
+            combo.blockSignals(True)
+            combo.setCurrentIndex((idx + 1) if idx is not None else 0)
             combo.blockSignals(False)
         self._refresh_preview()
 
     def _mapeo(self) -> dict:
         return {campo: (combo.currentData() if combo.currentData() != -1 else None)
                 for campo, combo in self._combos.items()}
+
+    # --------------------------------------------------------- perfiles
+    def _recargar_perfiles(self, seleccion: str | None = None) -> None:
+        self._perfiles = self.db.get_perfiles_import()
+        self._perfil_combo.blockSignals(True)
+        self._perfil_combo.clear()
+        self._perfil_combo.addItem("(sin perfil)", None)
+        for nombre in sorted(self._perfiles):
+            self._perfil_combo.addItem(nombre, nombre)
+        if seleccion and seleccion in self._perfiles:
+            self._perfil_combo.setCurrentText(seleccion)
+        self._perfil_combo.blockSignals(False)
+        self._btn_del_perfil.setEnabled(bool(self._perfil_combo.currentData()))
+
+    def _on_perfil_changed(self, *_a) -> None:
+        nombre = self._perfil_combo.currentData()
+        self._btn_del_perfil.setEnabled(bool(nombre))
+        perfil = self._perfiles.get(nombre)
+        if not perfil:
+            return
+        hoja = perfil.get("hoja")
+        if (self._hoja_combo and hoja and hoja in self._hojas
+                and self._hoja_combo.currentText() != hoja):
+            # Cambiar de hoja recarga los encabezados y ya reaplica el perfil.
+            self._hoja_combo.setCurrentText(hoja)
+        else:
+            self._set_mapeo(excel_import.columnas_a_mapeo(
+                perfil.get("columnas", {}), self._headers))
+
+    def _guardar_perfil(self) -> None:
+        if self._combos["nombre"].currentData() == -1 or self._combos["precio"].currentData() == -1:
+            QMessageBox.warning(self, "Faltan columnas",
+                                "Asigná al menos Nombre y Precio antes de guardar el perfil.")
+            return
+        sugerido = self._perfil_combo.currentData() or ""
+        nombre, ok = QInputDialog.getText(
+            self, "Guardar perfil", "Nombre del perfil (p. ej. el proveedor):",
+            text=sugerido)
+        if not ok or not nombre.strip():
+            return
+        perfil = {
+            "hoja": self._hoja_combo.currentText() if self._hoja_combo else None,
+            "columnas": excel_import.mapeo_a_columnas(self._mapeo(), self._headers),
+        }
+        self.db.save_perfil_import(nombre.strip(), perfil)
+        self._recargar_perfiles(seleccion=nombre.strip())
+
+    def _eliminar_perfil(self) -> None:
+        nombre = self._perfil_combo.currentData()
+        if not nombre:
+            return
+        if QMessageBox.question(self, "Eliminar perfil",
+                                f"¿Eliminar el perfil «{nombre}»?") != QMessageBox.Yes:
+            return
+        self.db.delete_perfil_import(nombre)
+        self._recargar_perfiles()
 
     def _refresh_preview(self, *_a) -> None:
         items = excel_import.filas_a_items(self._filas, self._mapeo())

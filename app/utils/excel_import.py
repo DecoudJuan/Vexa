@@ -96,6 +96,24 @@ def leer_hoja(path: str, hoja: str | None = None) -> tuple[list[str], list[list]
     return headers, filas[header_idx + 1:]
 
 
+def mapeo_a_columnas(mapeo: dict, headers: list[str]) -> dict:
+    """Traduce un mapeo por índice a uno por NOMBRE de columna, para guardarlo
+    como perfil reusable. Guardar por nombre (y no por índice) lo hace robusto
+    ante cambios de orden de columnas entre planillas del mismo proveedor."""
+    return {campo: headers[idx]
+            for campo, idx in mapeo.items()
+            if idx is not None and 0 <= idx < len(headers)}
+
+
+def columnas_a_mapeo(columnas: dict, headers: list[str]) -> dict:
+    """Traduce un mapeo por nombre de columna (perfil guardado) a índices sobre
+    los encabezados actuales. Empareja por texto normalizado; el campo cuya
+    columna ya no exista queda en None."""
+    por_nombre = {_norm(h): i for i, h in enumerate(headers) if _norm(h)}
+    return {campo: (por_nombre.get(_norm(columnas.get(campo))) if columnas.get(campo) else None)
+            for campo in CAMPOS}
+
+
 def sugerir_mapeo(headers: list[str]) -> dict:
     """Auto-detecta qué columna es cada campo por el nombre del encabezado.
     Devuelve {campo: indice | None}."""

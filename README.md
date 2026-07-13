@@ -19,7 +19,7 @@ ejecución la app **no depende de Access** ni de ningún driver ODBC.
 | UI              | PySide6 (Qt 6) — CSS/QSS propio, tema claro/oscuro |
 | Base de datos   | SQLite (modo WAL) vía **SQLAlchemy 2.0** (ORM) |
 | Generación PDF  | ReportLab                                    |
-| Importación     | openpyxl (listas de precios `.xlsx`/`.xlsm`) |
+| Importación     | openpyxl + csv (listas de precios `.xlsx`/`.xlsm`/CSV, mapeo flexible con perfiles) |
 | Migración       | access_parser (lee `.mdb` sin Access/ODBC)   |
 | Empaquetado     | PyInstaller + Inno Setup (instalador Windows)|
 
