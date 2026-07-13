@@ -395,11 +395,111 @@ class DatabaseManager:
             obj = s.get(Concepto, concepto_id)
             if obj is None:
                 return
-            try:
+            self._snapshot_concepto_en_lineas(s, obj)
+            s.delete(obj)
+
+    @staticmethod
+    def _snapshot_concepto_en_lineas(s, obj) -> None:
+        """Antes de borrar un producto, congela su nombre (con código y talle)
+        en el texto libre de las líneas que lo referencian. La FK es ON DELETE
+        SET NULL: sin esto, las facturas viejas perderían el nombre del producto
+        en el PDF. Sólo pisa líneas sin texto libre propio."""
+        from utils.helpers import etiqueta_concepto
+        etq = etiqueta_concepto(obj.nombre, obj.codigo, obj.talle)
+        s.execute(
+            update(Linea)
+            .where(Linea.concepto_id == obj.id, Linea.concepto_libre.is_(None))
+            .values(concepto_libre=etq)
+        )
+
+    # ------------------------------------------------------ productos agrupados
+
+    def get_productos(self, search: str | None = None, order: str = "nombre") -> list[dict]:
+        """Conceptos agrupados por producto (nombre + código): una entrada por
+        producto con sus talles y variantes, para el listado y la factura. Cada
+        variante es un concepto real (id) reusable como línea de factura."""
+        conceptos = self.get_all_conceptos(search, order)
+        grupos: dict = {}
+        orden: list = []
+        for c in conceptos:
+            clave = ((c["nombre"] or "").strip().lower(), (c["codigo"] or "").strip())
+            g = grupos.get(clave)
+            if g is None:
+                g = {"nombre": c["nombre"], "codigo": (c["codigo"] or "").strip(),
+                     "variantes": []}
+                grupos[clave] = g
+                orden.append(clave)
+            g["variantes"].append({"id": c["id"], "talle": (c["talle"] or "").strip(),
+                                   "pvp": c["pvp"] or 0})
+        from utils.helpers import ordenar_talles
+        productos = []
+        for clave in orden:
+            g = grupos[clave]
+            precios = [v["pvp"] for v in g["variantes"]]
+            g["talles"] = ordenar_talles(v["talle"] for v in g["variantes"])
+            g["pvp_min"] = min(precios) if precios else 0
+            g["pvp_max"] = max(precios) if precios else 0
+            g["pvp"] = g["pvp_max"]
+            g["ids"] = [v["id"] for v in g["variantes"]]
+            productos.append(g)
+        return productos
+
+    def save_producto(self, data: dict, orig_nombre: str | None = None,
+                      orig_codigo: str | None = None) -> None:
+        """Crea o edita un producto y reconcilia sus variantes de talle en un
+        solo lugar. `data` = {nombre, codigo, pvp, talles:[...]}. Sin talles se
+        guarda una única variante con talle ''. En edición, pasar la clave
+        original (nombre/código) para reubicar las variantes existentes; los
+        talles que se quiten se borran (con snapshot a las líneas)."""
+        nombre = (data.get("nombre") or "").strip()
+        codigo = (data.get("codigo") or "").strip()
+        pvp = float(data.get("pvp") or 0)
+        talles = [t.strip() for t in (data.get("talles") or []) if t.strip()] or [""]
+        with self._session() as s:
+            if orig_nombre is not None:
+                existentes = s.execute(
+                    select(Concepto).where(
+                        Concepto.nombre.collate("NOCASE") == orig_nombre.strip(),
+                        func.coalesce(Concepto.codigo, "") == (orig_codigo or "").strip(),
+                    )
+                ).scalars().all()
+            else:
+                existentes = []
+            por_talle = {(c.talle or "").strip(): c for c in existentes}
+            objetivo = set(talles)
+            for t in talles:
+                obj = por_talle.get(t)
+                if obj is not None:
+                    obj.nombre, obj.codigo, obj.talle, obj.pvp = nombre, codigo, t, pvp
+                else:
+                    s.add(Concepto(nombre=nombre, codigo=codigo, talle=t, pvp=pvp))
+            for t, obj in por_talle.items():
+                if t not in objetivo:
+                    self._snapshot_concepto_en_lineas(s, obj)
+                    s.delete(obj)
+
+    def delete_producto(self, nombre: str, codigo: str | None = None) -> None:
+        with self._session() as s:
+            objs = s.execute(
+                select(Concepto).where(
+                    Concepto.nombre.collate("NOCASE") == (nombre or "").strip(),
+                    func.coalesce(Concepto.codigo, "") == (codigo or "").strip(),
+                )
+            ).scalars().all()
+            for obj in objs:
+                self._snapshot_concepto_en_lineas(s, obj)
                 s.delete(obj)
-                s.flush()
-            except IntegrityError as e:
-                raise e.orig if e.orig else e
+
+    def clear_conceptos(self) -> int:
+        """Vacía el catálogo de productos (para 'limpiar y reimportar'),
+        congelando antes el nombre en las líneas que los usan para no romper las
+        facturas. Devuelve cuántos productos borró."""
+        with self._session() as s:
+            objs = s.execute(select(Concepto)).scalars().all()
+            for obj in objs:
+                self._snapshot_concepto_en_lineas(s, obj)
+                s.delete(obj)
+            return len(objs)
 
     def upsert_conceptos(self, items: list[dict]) -> dict:
         """Alta/actualización masiva de conceptos por (nombre, talle) —cada

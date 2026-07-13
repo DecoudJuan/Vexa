@@ -49,9 +49,17 @@ Llevar la app (hoy funcional para uso interno, **licencia de escritorio**) a un
 ## Fase 3 — Talles como variantes  ← HECHO (opción A: columna en `conceptos`)
 - [x] Esquema: `talle` como **columna de `conceptos`** (ALTER idempotente). La
       identidad de variante pasa a ser `(nombre, talle)` en `upsert_conceptos`.
-- [x] Import (columna `talle` en su campo, ya no pegada al nombre), listado
-      (columna Talle) y selección en factura/PDF con talle (`etiqueta_concepto`
-      y el JOIN de `get_lineas` traen el talle).
+- [x] Import (columna `talle` en su campo, ya no pegada al nombre) y PDF con
+      talle (`etiqueta_concepto` + JOIN de `get_lineas`).
+- [x] **Producto agrupado**: en el listado el producto aparece **una sola vez**
+      con una columna Talles (`db.get_productos` agrupa por nombre+código); el
+      alta/edición maneja los talles como conjunto (`save_producto` reconcilia
+      variantes). En la factura se elige **producto y luego talle** (combo
+      dependiente que resuelve la variante). Import con opción **Reemplazar
+      catálogo** (vacía antes de importar, sin duplicados).
+- [x] Borrado seguro: al eliminar un producto se congela su nombre en las
+      líneas que lo usan (`_snapshot_concepto_en_lineas`), así las facturas
+      viejas no pierden el detalle (la FK es ON DELETE SET NULL).
 - [x] Backfill desde el nombre: `separar_codigo_talle()` extrae `060/1`/`T1` en
       una sola pasada junto con el código, sin perder el talle al limpiar.
 - Nota: como con el código (Fase previa), los productos existentes cuyo nombre
