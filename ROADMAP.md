@@ -29,10 +29,17 @@ Llevar la app (hoy funcional para uso interno, **licencia de escritorio**) a un
 - [x] **Factura simple / no fiscal**: se emite con la leyenda "DOCUMENTO NO
       VÁLIDO COMO FACTURA" hasta integrar AFIP (Fase 4), con el mismo layout.
 
-## Fase 2 — Import flexible (mapeo de columnas)
-- [ ] Lector con mapeo configurable (`nombre`/`precio`/`codigo`/`talle`) +
-      auto-detección de encabezados.
-- [ ] Diálogo de importación con **preview**, **perfiles** por proveedor y CSV.
+## Fase 2 — Import flexible (mapeo de columnas)  ← EN CURSO (rama `fase2-import-flexible`)
+- [x] Lector con mapeo configurable (`nombre`/`precio`/`codigo`/`talle`) +
+      auto-detección de encabezados. Soporta **.xlsx/.xlsm y CSV** (detecta
+      separador). `utils/excel_import.py` reescrito (listar_hojas, leer_hoja,
+      sugerir_mapeo, filas_a_items).
+- [x] Diálogo de importación (`ui/import_dialog.py`) con selector de hoja,
+      mapeo de columnas (combos con auto-sugerencia) y **vista previa**.
+- [~] Falta: guardar **perfiles** por proveedor (reusar mapeo), probar con
+      planillas reales, y abrir el PR + merge a main.
+- Nota: si se mapea `talle`, por ahora se agrega al nombre; pasa a campo propio
+      en la Fase 3.
 
 ## Fase 3 — Talles como variantes
 - [ ] Esquema: `talle` como columna de `conceptos` o tabla de variantes.

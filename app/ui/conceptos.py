@@ -11,7 +11,7 @@ from PySide6.QtGui import QDoubleValidator, QColor, QBrush
 from ui.icons import svg_pixmap
 from ui.base_page import ListPage
 from ui.modal import BaseModal
-from utils.excel_import import leer_lista_precios
+from ui.import_dialog import ImportDialog
 from utils.helpers import leer_tema, fmt_ar, parse_float
 
 _SEARCH_MAXW, _ROW_H = 400, 40
@@ -150,29 +150,18 @@ class ConceptosWidget(ListPage):
 
     def _on_importar(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
-            self, "Importar lista de precios", "", "Excel (*.xlsx *.xlsm)"
+            self, "Importar lista de precios", "", "Planillas (*.xlsx *.xlsm *.csv)"
         )
         if not path:
             return
-        try:
-            items = leer_lista_precios(path)
-        except Exception as exc:
-            QMessageBox.critical(self, "Error al leer el archivo", str(exc))
-            return
-        if not items:
-            QMessageBox.warning(
-                self, "Sin datos",
-                "No se encontraron artículos con precio en el archivo.\n"
-                "Se esperan columnas 'ARTICULOS' y 'PRECIO'.",
+        dlg = ImportDialog(self.db, path, parent=self)
+        if dlg.exec() == QDialog.Accepted and dlg.resumen:
+            QMessageBox.information(
+                self, "Importación completa",
+                f"{dlg.resumen['creados']} productos nuevos, "
+                f"{dlg.resumen['actualizados']} con precio actualizado.",
             )
-            return
-        resumen = self.db.upsert_conceptos(items)
-        QMessageBox.information(
-            self, "Importación completa",
-            f"{resumen['creados']} productos nuevos, "
-            f"{resumen['actualizados']} con precio actualizado.",
-        )
-        self.refresh()
+            self.refresh()
 
 
 class ConceptoDialog(BaseModal):
