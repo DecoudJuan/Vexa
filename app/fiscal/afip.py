@@ -177,7 +177,8 @@ class AfipProvider(FiscalProvider):
         client = self._soap_client(_ENDPOINTS[self.entorno]["wsfe"])
 
         proximo = self._ultimo_autorizado(client, auth, tipo_cmp) + 1
-        detalle = self._armar_detalle(factura, cliente, empresa, letra, proximo)
+        doc_tipo, doc_nro = _receptor(cliente)   # se calcula una sola vez
+        detalle = self._armar_detalle(factura, empresa, letra, proximo, doc_tipo, doc_nro)
         req = {
             "FeCabReq": {"CantReg": 1, "PtoVta": self.pto_venta, "CbteTipo": tipo_cmp},
             "FeDetReq": {"FECAEDetRequest": [detalle]},
@@ -188,7 +189,7 @@ class AfipProvider(FiscalProvider):
             raise AfipError(f"Error al solicitar el CAE: {exc}") from exc
 
         return self._interpretar_respuesta(
-            resp, factura, empresa, cliente, tipo_cmp, proximo, letra
+            resp, factura, empresa, tipo_cmp, proximo, doc_tipo, doc_nro
         )
 
     def _ultimo_autorizado(self, client, auth, tipo_cmp: int) -> int:
@@ -203,11 +204,10 @@ class AfipProvider(FiscalProvider):
             raise AfipError("AFIP: " + " | ".join(errores))
         return int(getattr(r, "CbteNro", 0) or 0)
 
-    def _armar_detalle(self, factura: dict, cliente: dict, empresa: dict,
-                       letra: str, numero: int) -> dict:
+    def _armar_detalle(self, factura: dict, empresa: dict, letra: str,
+                       numero: int, doc_tipo: int, doc_nro: int) -> dict:
         total = round(float(factura.get("total") or 0), 2)
         fecha_cmp = (factura.get("fecha") or "")[:10].replace("-", "")
-        doc_tipo, doc_nro = _receptor(cliente, letra, total)
 
         detalle = {
             "Concepto": 1,               # 1 = productos
@@ -240,8 +240,8 @@ class AfipProvider(FiscalProvider):
             }]}
         return detalle
 
-    def _interpretar_respuesta(self, resp, factura, empresa, cliente,
-                               tipo_cmp, numero, letra) -> ResultadoAutorizacion:
+    def _interpretar_respuesta(self, resp, factura, empresa, tipo_cmp, numero,
+                               doc_tipo, doc_nro) -> ResultadoAutorizacion:
         errores = _errores(resp)
         if errores:
             raise AfipError("AFIP: " + " | ".join(errores))
@@ -262,7 +262,6 @@ class AfipProvider(FiscalProvider):
         cae = str(det.CAE)
         vto_raw = str(getattr(det, "CAEFchVto", "") or "")   # yyyymmdd
         cae_vto = f"{vto_raw[:4]}-{vto_raw[4:6]}-{vto_raw[6:8]}" if len(vto_raw) == 8 else None
-        doc_tipo, doc_nro = _receptor(cliente, letra, float(factura.get("total") or 0))
         qr_url = construir_url_qr(
             cuit_emisor=self.cuit,
             pto_venta=self.pto_venta,
@@ -295,7 +294,7 @@ def _hash_sha256():
     return hashes.SHA256()
 
 
-def _receptor(cliente: dict, letra: str, total: float) -> tuple[int, int]:
+def _receptor(cliente: dict) -> tuple[int, int]:
     """(DocTipo, DocNro) del receptor. CUIT=80, DNI=96, Consumidor Final=99.
     En comprobante A el receptor debe tener CUIT; si no hay documento se informa
     Consumidor Final con 0 (válido en B/C por debajo del umbral)."""

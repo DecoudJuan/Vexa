@@ -160,21 +160,9 @@ def formatear_cuit(texto: str | None) -> str:
     return f"{d[:2]}-{d[2:10]}-{d[10:]}"
 
 
-def formatear_telefono(texto: str | None) -> str:
-    """Normaliza un teléfono de forma PERMISIVA: no fuerza un país/área fijos
-    (antes imponía '+54 9 ...', lo que impedía cargar códigos de otros países o
-    de otras áreas). Solo conserva los caracteres válidos de un teléfono
-    internacional: un '+' inicial, dígitos, espacios, guiones y paréntesis. El
-    usuario escribe el formato que quiera, ej. '+54 9 11 5555-5555'."""
-    s = (texto or "").strip()
-    if not s:
-        return ""
-    mas = "+" if s.startswith("+") else ""
-    cuerpo = "".join(c for c in s if c.isdigit() or c in " -()")
-    return (mas + cuerpo).strip()
-
-
-# Placeholder de ejemplo para los campos de teléfono (código país + área + nº).
+# Placeholder de ejemplo para los campos de teléfono. Los campos son de texto
+# libre (código de país + área + número) — no se fuerza un formato AR, así se
+# admiten teléfonos de cualquier país.
 TELEFONO_EJEMPLO = "+54 9 11 5555-5555"
 
 
