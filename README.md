@@ -71,7 +71,6 @@ facturacion/
 │   ├── assets/                   # ícono e imagen de la app (icon.ico, logo.png)
 │   └── packaging/                # config de empaquetado (.spec, installer.iss)
 │
-├── design/                       # bocetos HTML de referencia visual (no se empaqueta)
 ├── Distribucion/                 # paquete final para el usuario (ignorado en git)
 └── "Modelo Actual - Access"/     # app Access legacy (DATOS REALES — ignorado en git)
 ```

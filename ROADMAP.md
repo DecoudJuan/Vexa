@@ -70,7 +70,7 @@ Llevar la app (hoy funcional para uso interno, **licencia de escritorio**) a un
 - Descartado por ahora: tabla de variantes separada (opción B) — implicaría
       reapuntar las líneas de factura históricas; no aporta lo suficiente hoy.
 
-## Fase 4 — Facturación electrónica AFIP/ARCA (comprobante con CAE)  ← ANDAMIAJE HECHO (rama `fase4-afip`)
+## Fase 4 — Facturación electrónica AFIP/ARCA (comprobante con CAE)  ← ANDAMIAJE HECHO (release v2.4.0)
 - [x] **Módulo fiscal enchufable** (`app/fiscal/`): interfaz `FiscalProvider` +
       `NoFiscalProvider` (offline, comportamiento actual) + `get_provider(db)` como
       único punto de acoplamiento. Decisión: **wrapper propio** con `zeep` (SOAP) +
@@ -93,6 +93,16 @@ Llevar la app (hoy funcional para uso interno, **licencia de escritorio**) a un
       Prerequisitos externos: **certificado del contribuyente + punto de venta WS +
       homologación** antes de producción.
 - [ ] Futuro: certificados `.pfx`, percepciones/otros tributos, monedas ≠ ARS.
+
+## Fase 5 — Pulido de bugs + UX/UI  ← PRÓXIMA
+Fase dedicada a la experiencia de uso, a abrir después de liberar la Fase 4.
+- [ ] Corrección de bugs reportados en el uso real.
+- [ ] Mejoras de UI/UX generales (consistencia visual, flujos, accesibilidad).
+- Ya adelantado en v2.4.0 (entra con Fase 4): teléfono libre con código de país/área
+      (placeholder `+54 9 11 5555-5555`), domicilio separado en Calle/Número (empresa),
+      vista previa del import agrupada por producto (talles juntos), popups/QMessageBox
+      sin fondo negro en Windows con tema oscuro, selección de filas en azul tenue,
+      guía "¿Cómo conectarme con ARCA?".
 
 ## Transversal
 - [ ] Licenciamiento / activación de escritorio + empaquetado por marca
