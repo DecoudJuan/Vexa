@@ -10,7 +10,7 @@ Uso desde la UI:
     hojas = listar_hojas(path)
     headers, filas = leer_hoja(path, hoja)
     mapeo = sugerir_mapeo(headers)          # {campo: indice_columna | None}
-    items = filas_a_items(filas, mapeo)     # [{'nombre','codigo','pvp'}]
+    items = filas_a_items(filas, mapeo)     # [{'nombre','codigo','talle','pvp'}]
     db.upsert_conceptos(items)
 """
 
@@ -18,7 +18,7 @@ import csv
 
 import openpyxl
 
-from utils.helpers import separar_codigo
+from utils.helpers import separar_codigo_talle
 
 # Campos que se pueden mapear. 'nombre' y 'precio' son obligatorios.
 CAMPOS = ("nombre", "precio", "codigo", "talle")
@@ -149,9 +149,10 @@ def _to_float(texto: str) -> float | None:
 
 
 def filas_a_items(filas: list[list], mapeo: dict) -> list[dict]:
-    """Aplica el mapeo a las filas y devuelve items {'nombre','codigo','pvp'}
-    listos para db.upsert_conceptos. Descarta filas sin nombre o sin precio
-    válido."""
+    """Aplica el mapeo a las filas y devuelve items
+    {'nombre','codigo','talle','pvp'} listos para db.upsert_conceptos. El talle
+    es un dato propio (Fase 3): si no viene en su columna se intenta extraer del
+    nombre. Descarta filas sin nombre o sin precio válido."""
     out = []
     for fila in filas:
         nombre = _celda(fila, mapeo.get("nombre"))
@@ -162,10 +163,15 @@ def filas_a_items(filas: list[list], mapeo: dict) -> list[dict]:
             continue
         codigo = _celda(fila, mapeo.get("codigo"))
         talle = _celda(fila, mapeo.get("talle"))
-        if not codigo:
-            # Si no hay columna de código, intentar extraerlo del nombre.
-            nombre, codigo = separar_codigo(nombre)
-        if talle:
-            nombre = f"{nombre} {talle}".strip()
-        out.append({"nombre": nombre, "codigo": codigo, "pvp": pvp})
+        # Completar código/talle faltantes extrayéndolos del nombre.
+        if not codigo or not talle:
+            limpio, cod_extra, talle_extra = separar_codigo_talle(nombre)
+            usado = False
+            if not codigo and cod_extra:
+                codigo, usado = cod_extra, True
+            if not talle and talle_extra:
+                talle, usado = talle_extra, True
+            if usado:
+                nombre = limpio
+        out.append({"nombre": nombre, "codigo": codigo, "talle": talle, "pvp": pvp})
     return out

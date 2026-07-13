@@ -46,9 +46,21 @@ Llevar la app (hoy funcional para uso interno, **licencia de escritorio**) a un
 - Nota: si se mapea `talle`, por ahora se agrega al nombre; pasa a campo propio
       en la Fase 3.
 
-## Fase 3 — Talles como variantes
-- [ ] Esquema: `talle` como columna de `conceptos` o tabla de variantes.
-- [ ] Import / listado / selección con talle; backfill desde el nombre.
+## Fase 3 — Talles como variantes  ← HECHO (opción A: columna en `conceptos`)
+- [x] Esquema: `talle` como **columna de `conceptos`** (ALTER idempotente). La
+      identidad de variante pasa a ser `(nombre, talle)` en `upsert_conceptos`.
+- [x] Import (columna `talle` en su campo, ya no pegada al nombre), listado
+      (columna Talle) y selección en factura/PDF con talle (`etiqueta_concepto`
+      y el JOIN de `get_lineas` traen el talle).
+- [x] Backfill desde el nombre: `separar_codigo_talle()` extrae `060/1`/`T1` en
+      una sola pasada junto con el código, sin perder el talle al limpiar.
+- Nota: como con el código (Fase previa), los productos existentes cuyo nombre
+      ya venía limpio recién toman talle al **reimportar** la lista con la
+      columna de talle mapeada. Retrocompatible: reimport sin talle actualiza por
+      nombre como antes; las facturas viejas rinden igual (talle vacío no se
+      muestra).
+- Descartado por ahora: tabla de variantes separada (opción B) — implicaría
+      reapuntar las líneas de factura históricas; no aporta lo suficiente hoy.
 
 ## Fase 4 — Facturación electrónica AFIP/ARCA (comprobante con CAE)
 - [ ] Módulo fiscal enchufable: **WSAA** + **WSFE** reusando librería existente

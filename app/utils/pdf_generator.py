@@ -185,8 +185,10 @@ def _tabla_lineas(lineas: list[dict]) -> Table:
     header = ["Producto", "Cantidad", "Precio unit.", "Importe"]
     rows = [header]
     for ln in lineas:
+        # nombre_sin_talle limpia el talle que pudiera quedar pegado en nombres
+        # viejos o en descripciones libres; el talle real viaja aparte.
         base = nombre_sin_talle(ln.get("concepto_nombre") or ln.get("concepto_libre") or "")
-        nombre = etiqueta_concepto(base, ln.get("concepto_codigo"))
+        nombre = etiqueta_concepto(base, ln.get("concepto_codigo"), ln.get("concepto_talle"))
         cantidad = ln.get("cantidad") or 0
         pvp = ln.get("pvp") or 0
         importe = cantidad * pvp
