@@ -7,7 +7,7 @@ al confirmar, hace el upsert de conceptos."""
 from PySide6.QtWidgets import (
     QLabel, QGridLayout, QWidget, QVBoxLayout, QHBoxLayout, QTableWidget,
     QTableWidgetItem, QHeaderView, QAbstractItemView, QMessageBox, QSizePolicy,
-    QPushButton, QInputDialog,
+    QPushButton, QInputDialog, QCheckBox,
 )
 from PySide6.QtCore import Qt
 
@@ -127,6 +127,11 @@ class ImportDialog(BaseModal):
         hh = self._preview.horizontalHeader()
         hh.setSectionResizeMode(2, QHeaderView.Stretch)
         c.addWidget(self._preview)
+
+        # Reemplazar: vacía el catálogo antes de importar (deja la lista limpia,
+        # sin duplicados de importaciones previas). Las facturas no se tocan.
+        self._reemplazar = QCheckBox("Reemplazar el catálogo (vaciar antes de importar)")
+        c.addWidget(self._reemplazar)
         c.addStretch()
 
     # ------------------------------------------------------------ datos
@@ -249,5 +254,13 @@ class ImportDialog(BaseModal):
             QMessageBox.warning(self, "Sin datos",
                                 "No se detectaron productos con el mapeo actual.")
             return
+        if self._reemplazar.isChecked():
+            if QMessageBox.question(
+                    self, "Reemplazar catálogo",
+                    "Se va a vaciar el catálogo actual y cargar solo estos productos.\n"
+                    "Las facturas existentes conservan su detalle. ¿Continuar?"
+            ) != QMessageBox.Yes:
+                return
+            self.db.clear_conceptos()
         self.resumen = self.db.upsert_conceptos(items)
         self.accept()

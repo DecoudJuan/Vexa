@@ -79,6 +79,15 @@ def fmt_talle(talle: str | None) -> str:
     return f"T{t}" if t.isdigit() else t
 
 
+def ordenar_talles(talles) -> list[str]:
+    """Ordena talles: numéricos primero por valor (1, 2, 10), luego los de
+    letra alfabéticamente (M, U, XL). Deduplica preservando el texto."""
+    def clave(t: str):
+        t = t.strip()
+        return (0, int(t), "") if t.isdigit() else (1, 0, t.upper())
+    return sorted({t.strip() for t in talles if t and t.strip()}, key=clave)
+
+
 def etiqueta_concepto(nombre: str | None, codigo: str | None = None,
                       talle: str | None = None) -> str:
     """Etiqueta visible de un producto: "nombre T1 (codigo)" combinando lo que

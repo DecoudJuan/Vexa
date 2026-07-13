@@ -12,7 +12,10 @@ from ui.icons import svg_icon
 from ui.base_page import ListPage
 from ui.modal import BaseModal, modal_colors
 from ui.widgets import NoScrollComboBox
-from utils.helpers import fmt_ar, parse_float, leer_zoom, leer_tema, etiqueta_concepto, abrir_archivo
+from utils.helpers import (
+    fmt_ar, parse_float, leer_zoom, leer_tema, etiqueta_concepto, abrir_archivo,
+    fmt_talle, ordenar_talles,
+)
 from utils.pdf_generator import generar_pdf_documento
 
 # FA=Factura, PR=Presupuesto, AL=Albarán, PE=Pedido, AB=Abono (nota de crédito)
@@ -215,7 +218,7 @@ class DocumentListWidget(ListPage):
 # =====================================================================
 
 # Anchos (en px a zoom 1.0) de las columnas fijas de la tabla de líneas.
-_COL_W = {"cant": 68, "pvp": 104, "imp": 108, "del": 34}
+_COL_W = {"talle": 78, "cant": 68, "pvp": 104, "imp": 108, "del": 34}
 
 
 class DocumentoDialog(BaseModal):
@@ -230,8 +233,15 @@ class DocumentoDialog(BaseModal):
         self.cfg = DOCUMENT_TYPES[tipo]
         self.factura_id = factura_id
         self.origen = origen
-        self._conceptos = db.get_all_conceptos()
-        self._lineas: list[dict] = []          # {row, combo, cant, pvp, importe}
+        # Productos agrupados (uno por nombre+código con sus variantes de talle)
+        # y mapa inverso variante_id -> (índice_producto, talle) para reabrir
+        # líneas de facturas existentes.
+        self._productos = db.get_productos()
+        self._variante_por_id: dict = {}
+        for pi, p in enumerate(self._productos):
+            for v in p["variantes"]:
+                self._variante_por_id[v["id"]] = (pi, v["talle"])
+        self._lineas: list[dict] = []          # {row, prod, talle, cant, pvp, importe}
         # Campos legacy que ya no se editan pero se preservan al guardar.
         self._legacy_iva = 0
         self._legacy_retencion = 0
@@ -398,6 +408,11 @@ class DocumentoDialog(BaseModal):
         prod = QLabel("PRODUCTO")
         prod.setObjectName("col_head")
         hl.addWidget(prod, 1)
+        talle_h = QLabel("TALLE")
+        talle_h.setObjectName("col_head")
+        talle_h.setFixedWidth(self._S(_COL_W["talle"]))
+        talle_h.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+        hl.addWidget(talle_h)
         hl.addWidget(col("CANT.", "cant"))
         hl.addWidget(col("PRECIO UNIT.", "pvp"))
         hl.addWidget(col("IMPORTE", "imp"))
@@ -505,25 +520,20 @@ class DocumentoDialog(BaseModal):
         # espacio libre que dejan las columnas fijas, sin empujarlas fuera.
         combo.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
         combo.addItem("", None)
-        sel = 0
-        for i, c in enumerate(self._conceptos, start=1):
-            # Etiqueta "nombre (codigo)": permite buscar el producto tipeando
-            # el código en el combo (el completer filtra por el texto visible).
-            combo.addItem(etiqueta_concepto(c["nombre"], c.get("codigo"), c.get("talle")), c["id"])
-            combo.setItemData(i, c["pvp"], Qt.UserRole + 1)
-            if concepto_id and c["id"] == concepto_id:
-                sel = i
+        for pi, p in enumerate(self._productos):
+            # Etiqueta "nombre (codigo)" sin talle; el talle se elige aparte.
+            combo.addItem(etiqueta_concepto(p["nombre"], p.get("codigo")), pi)
         combo.lineEdit().setPlaceholderText("Nombre del producto...")
-        if concepto_libre and not concepto_id:
-            combo.setEditText(concepto_libre)
-        elif sel:
-            combo.setCurrentIndex(sel)
-        # Mostrar el comienzo del nombre (no la cola) cuando no entra completo.
         combo.lineEdit().setCursorPosition(0)
         comp = QCompleter([combo.itemText(i) for i in range(combo.count())])
         comp.setCaseSensitivity(Qt.CaseInsensitive)
         comp.setFilterMode(Qt.MatchContains)
         combo.setCompleter(comp)
+
+        # Selector de talle (dependiente del producto).
+        talle = NoScrollComboBox()
+        talle.setObjectName("line_combo")
+        talle.setFixedWidth(self._S(_COL_W["talle"]))
 
         cant = QLineEdit(f"{cantidad:g}")
         cant.setObjectName("cell_input")
@@ -549,22 +559,43 @@ class DocumentoDialog(BaseModal):
         btn_del.setCursor(Qt.PointingHandCursor)
 
         rl.addWidget(combo, 1)
+        rl.addWidget(talle)
         rl.addWidget(cant)
         rl.addWidget(pvp_w)
         rl.addWidget(importe)
         rl.addWidget(btn_del)
 
-        entry = {"row": row, "combo": combo, "cant": cant, "pvp": pvp_w, "importe": importe}
+        entry = {"row": row, "prod": combo, "talle": talle, "cant": cant,
+                 "pvp": pvp_w, "importe": importe}
         self._lineas.append(entry)
 
-        combo.currentIndexChanged.connect(lambda _=None, e=entry: self._on_concepto_changed(e))
+        combo.currentIndexChanged.connect(lambda _=None, e=entry: self._on_producto_changed(e))
         combo.editTextChanged.connect(lambda _=None: self._recalcular())
+        talle.currentIndexChanged.connect(lambda _=None, e=entry: self._on_talle_changed(e))
         cant.textChanged.connect(self._recalcular)
         pvp_w.textChanged.connect(self._recalcular)
         btn_del.clicked.connect(lambda _=None, e=entry: self._quitar_fila(e))
 
         # insertar antes del stretch final del layout
         self._lineas_layout.insertWidget(self._lineas_layout.count() - 1, row)
+
+        # Selección inicial (línea nueva vacía, o carga de una factura existente).
+        if concepto_id is not None and concepto_id in self._variante_por_id:
+            pi, tl = self._variante_por_id[concepto_id]
+            combo.blockSignals(True)
+            combo.setCurrentIndex(combo.findData(pi))
+            combo.lineEdit().setCursorPosition(0)
+            combo.blockSignals(False)
+            self._poblar_talles(entry, sel_talle=tl)
+        elif concepto_libre:
+            combo.blockSignals(True)
+            combo.setEditText(concepto_libre)
+            combo.blockSignals(False)
+            self._poblar_talles(entry)
+        else:
+            self._poblar_talles(entry)
+        # El precio de la línea es el guardado (puede diferir del actual).
+        pvp_w.setText(f"{pvp:.2f}")
 
     def _quitar_fila(self, entry) -> None:
         if entry in self._lineas:
@@ -573,10 +604,49 @@ class DocumentoDialog(BaseModal):
             entry["row"].deleteLater()
         self._recalcular()
 
-    def _on_concepto_changed(self, entry) -> None:
-        pvp = entry["combo"].currentData(Qt.UserRole + 1)
+    def _producto_de(self, entry) -> dict | None:
+        pi = entry["prod"].currentData()
+        if isinstance(pi, int) and 0 <= pi < len(self._productos):
+            return self._productos[pi]
+        return None
+
+    def _poblar_talles(self, entry, sel_talle=None) -> None:
+        """Llena el combo de talle con las variantes del producto elegido. Sin
+        talles (producto único) queda deshabilitado mostrando '—' pero igual
+        guarda el id de la variante."""
+        ct = entry["talle"]
+        ct.blockSignals(True)
+        ct.clear()
+        p = self._producto_de(entry)
+        por_talle = {v["talle"]: v for v in (p["variantes"] if p else [])}
+        talles = ordenar_talles(por_talle.keys())
+        if talles:
+            ct.setEnabled(True)
+            for i, t in enumerate(talles):
+                v = por_talle[t]
+                ct.addItem(fmt_talle(t), v["id"])
+                ct.setItemData(i, v["pvp"], Qt.UserRole + 1)
+            ct.setCurrentIndex(talles.index(sel_talle) if sel_talle in talles else 0)
+        else:
+            ct.setEnabled(False)
+            v0 = p["variantes"][0] if p else None
+            ct.addItem("—", v0["id"] if v0 else None)
+            if v0:
+                ct.setItemData(0, v0["pvp"], Qt.UserRole + 1)
+        ct.blockSignals(False)
+
+    def _aplicar_pvp(self, entry) -> None:
+        pvp = entry["talle"].currentData(Qt.UserRole + 1)
         if pvp is not None:
             entry["pvp"].setText(f"{float(pvp):.2f}")
+
+    def _on_producto_changed(self, entry) -> None:
+        self._poblar_talles(entry)
+        self._aplicar_pvp(entry)
+        self._recalcular()
+
+    def _on_talle_changed(self, entry) -> None:
+        self._aplicar_pvp(entry)
         self._recalcular()
 
     # ------------------------------------------------------------ totales
@@ -584,9 +654,12 @@ class DocumentoDialog(BaseModal):
     def _leer_lineas(self) -> list[dict]:
         out = []
         for e in self._lineas:
-            concepto_id = e["combo"].currentData()
-            texto = e["combo"].currentText().strip()
-            if not texto and not concepto_id:
+            p = self._producto_de(e)
+            # Con producto elegido, el id de la variante lo da el combo de talle;
+            # si no, es una línea de texto libre.
+            concepto_id = e["talle"].currentData() if p else None
+            texto = e["prod"].currentText().strip()
+            if not texto and concepto_id is None:
                 continue
             out.append({
                 "concepto_id": concepto_id,
