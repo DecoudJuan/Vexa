@@ -42,7 +42,7 @@ Llevar la app (hoy funcional para uso interno, **licencia de escritorio**) a un
       (JSON, clave `import_perfiles`) vía `db.get/save/delete_perfil_import`.
 - [x] Probado con planilla real (encabezado con membrete, filas `* CONSULTAR`
       descartadas, precio con coma decimal, reaplicar perfil).
-- [ ] Falta: abrir el PR + merge a main.
+- [x] Mergeado a main (junto con Fase 3) y liberado en release `v2.3.1`.
 - Nota: si se mapea `talle`, por ahora se agrega al nombre; pasa a campo propio
       en la Fase 3.
 
