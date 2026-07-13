@@ -14,7 +14,7 @@ from PySide6.QtCore import Qt
 from ui.modal import BaseModal
 from ui.widgets import NoScrollComboBox
 from ui.icons import svg_icon
-from utils.helpers import fmt_ar, leer_zoom, leer_tema
+from utils.helpers import fmt_ar, fmt_talle, leer_zoom, leer_tema
 from utils import excel_import
 
 _CAMPOS_UI = [
@@ -118,14 +118,14 @@ class ImportDialog(BaseModal):
         self._count.setObjectName("hint")
         c.addWidget(self._count)
         self._preview = QTableWidget()
-        self._preview.setColumnCount(3)
-        self._preview.setHorizontalHeaderLabels(["Código", "Nombre", "Precio"])
+        self._preview.setColumnCount(4)
+        self._preview.setHorizontalHeaderLabels(["Código", "Talle", "Nombre", "Precio"])
         self._preview.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self._preview.setSelectionMode(QAbstractItemView.NoSelection)
         self._preview.verticalHeader().setVisible(False)
         self._preview.setMinimumHeight(self._S(200))
         hh = self._preview.horizontalHeader()
-        hh.setSectionResizeMode(1, QHeaderView.Stretch)
+        hh.setSectionResizeMode(2, QHeaderView.Stretch)
         c.addWidget(self._preview)
         c.addStretch()
 
@@ -231,10 +231,13 @@ class ImportDialog(BaseModal):
             r = self._preview.rowCount()
             self._preview.insertRow(r)
             self._preview.setItem(r, 0, QTableWidgetItem(it["codigo"] or "—"))
-            self._preview.setItem(r, 1, QTableWidgetItem(it["nombre"]))
+            talle = QTableWidgetItem(fmt_talle(it.get("talle")) or "—")
+            talle.setTextAlignment(Qt.AlignCenter)
+            self._preview.setItem(r, 1, talle)
+            self._preview.setItem(r, 2, QTableWidgetItem(it["nombre"]))
             precio = QTableWidgetItem(fmt_ar(it["pvp"]))
             precio.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
-            self._preview.setItem(r, 2, precio)
+            self._preview.setItem(r, 3, precio)
 
     def _accept(self) -> None:
         if self._combos["nombre"].currentData() == -1 or self._combos["precio"].currentData() == -1:

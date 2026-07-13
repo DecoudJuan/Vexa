@@ -52,10 +52,41 @@ def separar_codigo(nombre: str | None):
     return (limpio, codigo)
 
 
-def etiqueta_concepto(nombre: str | None, codigo: str | None = None) -> str:
-    """Etiqueta visible de un producto: "nombre (codigo)" si tiene código,
-    o solo el nombre. Se usa en el combo de líneas de factura y en el PDF."""
+# Talle embebido en el nombre: el número tras la barra de "CÓDIGO/TALLE"
+# ("060/1" -> "1") o el de la forma "T1". Los talles por letra ("U", "M",
+# "S/M/L") no se detectan solos: entran por la columna de talle al importar.
+_TALLE_SLASH_RE = re.compile(r"\b\d{2,4}[A-Z]?\s*/\s*(\d+)\b")
+_TALLE_T_RE = re.compile(r"\bT(\d+)\b")
+
+
+def separar_codigo_talle(nombre: str | None):
+    """Como separar_codigo(), pero además devuelve el talle embebido:
+    (nombre_limpio, codigo, talle). "CALZA REDUCTORA 060/1" ->
+    ("CALZA REDUCTORA", "060", "1"); "FAJA COMPRESION 24CM T1" ->
+    ("FAJA COMPRESION 24CM", "", "1"). Talle "" si no hay."""
+    if not nombre:
+        return (nombre or "", "", "")
+    limpio, codigo = separar_codigo(nombre)
+    m = _TALLE_SLASH_RE.search(nombre) or _TALLE_T_RE.search(nombre)
+    talle = m.group(1) if m else ""
+    return (limpio, codigo, talle)
+
+
+def fmt_talle(talle: str | None) -> str:
+    """Talle para mostrar: "T1" si es numérico, o el texto tal cual (M, XL, U).
+    Vacío si no hay."""
+    t = (talle or "").strip()
+    return f"T{t}" if t.isdigit() else t
+
+
+def etiqueta_concepto(nombre: str | None, codigo: str | None = None,
+                      talle: str | None = None) -> str:
+    """Etiqueta visible de un producto: "nombre T1 (codigo)" combinando lo que
+    haya. Se usa en el combo de líneas de factura y en el PDF."""
     nombre = (nombre or "").strip()
+    t = fmt_talle(talle)
+    if t:
+        nombre = f"{nombre} {t}"
     codigo = (codigo or "").strip()
     return f"{nombre} ({codigo})" if codigo else nombre
 

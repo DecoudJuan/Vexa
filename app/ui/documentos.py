@@ -509,7 +509,7 @@ class DocumentoDialog(BaseModal):
         for i, c in enumerate(self._conceptos, start=1):
             # Etiqueta "nombre (codigo)": permite buscar el producto tipeando
             # el código en el combo (el completer filtra por el texto visible).
-            combo.addItem(etiqueta_concepto(c["nombre"], c.get("codigo")), c["id"])
+            combo.addItem(etiqueta_concepto(c["nombre"], c.get("codigo"), c.get("talle")), c["id"])
             combo.setItemData(i, c["pvp"], Qt.UserRole + 1)
             if concepto_id and c["id"] == concepto_id:
                 sel = i

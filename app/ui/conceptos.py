@@ -1,7 +1,7 @@
 import sqlite3
 
 from PySide6.QtWidgets import (
-    QWidget, QHBoxLayout, QTableWidgetItem,
+    QWidget, QHBoxLayout, QVBoxLayout, QTableWidgetItem,
     QLineEdit, QLabel, QDialog, QMessageBox, QHeaderView,
     QFileDialog,
 )
@@ -12,10 +12,11 @@ from ui.icons import svg_pixmap
 from ui.base_page import ListPage
 from ui.modal import BaseModal
 from ui.import_dialog import ImportDialog
-from utils.helpers import leer_tema, fmt_ar, parse_float
+from utils.helpers import leer_tema, fmt_ar, fmt_talle, parse_float
 
 _SEARCH_MAXW, _ROW_H = 400, 40
 _COD_W = 110
+_TALLE_W = 80
 
 
 class ConceptosWidget(ListPage):
@@ -23,7 +24,7 @@ class ConceptosWidget(ListPage):
     SUBTITULO = "Catálogo de productos y servicios"
     SEARCH_PLACEHOLDER = "Buscar por código o nombre..."
     SEARCH_MAXW = _SEARCH_MAXW
-    COLUMNS = ["Código", "Nombre", "Precio"]
+    COLUMNS = ["Código", "Talle", "Nombre", "Precio"]
     ROW_H = _ROW_H
     _order = "nombre"   # 'nombre' | 'codigo' (clic en el encabezado)
 
@@ -42,30 +43,32 @@ class ConceptosWidget(ListPage):
         return [self._btn_edit, self._btn_del]
 
     def _configure_columns(self, hh) -> None:
-        # Código = ancho fijo (clic para ordenar); Nombre = se estira;
-        # Precio = ancho fijo pegado al borde derecho.
+        # Código y Talle = ancho fijo; Nombre = se estira; Precio = ancho fijo
+        # pegado al borde derecho.
         hh.setSectionResizeMode(0, QHeaderView.Interactive)
-        hh.setSectionResizeMode(1, QHeaderView.Stretch)
-        hh.setSectionResizeMode(2, QHeaderView.Interactive)
+        hh.setSectionResizeMode(1, QHeaderView.Interactive)
+        hh.setSectionResizeMode(2, QHeaderView.Stretch)
+        hh.setSectionResizeMode(3, QHeaderView.Interactive)
         self._resize_columns(hh)
         # Clic en Código/Nombre reordena (re-consultamos la base en vez del sort
         # nativo, que se pelea con los cell-widgets de las filas "sin precio").
         hh.setSectionsClickable(True)
         hh.sectionClicked.connect(self._on_header_clicked)
-        precio_head = self._table.horizontalHeaderItem(2)
+        precio_head = self._table.horizontalHeaderItem(3)
         if precio_head is not None:
             precio_head.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
 
     def _resize_columns(self, hh) -> None:
         self._table.setColumnWidth(0, round(_COD_W * self._zoom))
-        self._table.setColumnWidth(2, round(150 * self._zoom))
+        self._table.setColumnWidth(1, round(_TALLE_W * self._zoom))
+        self._table.setColumnWidth(3, round(150 * self._zoom))
 
     def _query(self, search):
         return self.db.get_all_conceptos(search, order=self._order)
 
     def _on_header_clicked(self, index: int) -> None:
-        # Solo Código (0) y Nombre (1) reordenan; Precio (2) no.
-        if index not in (0, 1):
+        # Solo Código (0) y Nombre (2) reordenan; Talle (1) y Precio (3) no.
+        if index not in (0, 2):
             return
         nuevo = "codigo" if index == 0 else "nombre"
         if nuevo != self._order:
@@ -78,17 +81,19 @@ class ConceptosWidget(ListPage):
     def _fill_row(self, row: int, c: dict) -> None:
         self._table.setItem(row, 0, self._cell(
             (c.get("codigo") or "").strip() or "—", Qt.AlignCenter))
+        self._table.setItem(row, 1, self._cell(
+            fmt_talle(c.get("talle")) or "—", Qt.AlignCenter))
         pvp = c["pvp"] or 0
         if pvp <= 0:
             self._sin_precio += 1
-            self._table.setItem(row, 1, QTableWidgetItem(""))
-            self._table.setCellWidget(row, 1, self._nombre_sin_precio(c["nombre"]))
+            self._table.setItem(row, 2, QTableWidgetItem(""))
+            self._table.setCellWidget(row, 2, self._nombre_sin_precio(c["nombre"]))
             price = self._cell(fmt_ar(0), Qt.AlignRight | Qt.AlignVCenter)
             price.setForeground(QBrush(QColor(self._pal["warn"])))
-            self._table.setItem(row, 2, price)
+            self._table.setItem(row, 3, price)
         else:
-            self._table.setItem(row, 1, QTableWidgetItem(c["nombre"]))
-            self._table.setItem(row, 2, self._cell(fmt_ar(pvp), Qt.AlignRight | Qt.AlignVCenter))
+            self._table.setItem(row, 2, QTableWidgetItem(c["nombre"]))
+            self._table.setItem(row, 3, self._cell(fmt_ar(pvp), Qt.AlignRight | Qt.AlignVCenter))
 
     def _count_text(self, total: int) -> str:
         pl = "s" if total != 1 else ""
@@ -179,11 +184,25 @@ class ConceptoDialog(BaseModal):
         self._nombre.setPlaceholderText("Nombre del producto")
         self.content.addWidget(self._nombre)
 
-        self.content.addWidget(self.section_label("CÓDIGO", "hash"))
+        cod_row = QHBoxLayout()
+        cod_row.setSpacing(self._S(12))
+        cod_col = QVBoxLayout()
+        cod_col.setSpacing(self._S(4))
+        cod_col.addWidget(self.section_label("CÓDIGO", "hash"))
         self._codigo = QLineEdit()
         self._codigo.setObjectName("field")
         self._codigo.setPlaceholderText("Ej. 020 (opcional)")
-        self.content.addWidget(self._codigo)
+        cod_col.addWidget(self._codigo)
+        talle_col = QVBoxLayout()
+        talle_col.setSpacing(self._S(4))
+        talle_col.addWidget(self.section_label("TALLE", "layers"))
+        self._talle = QLineEdit()
+        self._talle.setObjectName("field")
+        self._talle.setPlaceholderText("Ej. 1, M, XL (opcional)")
+        talle_col.addWidget(self._talle)
+        cod_row.addLayout(cod_col, 1)
+        cod_row.addLayout(talle_col, 1)
+        self.content.addLayout(cod_row)
 
         self.content.addWidget(self.section_label("PRECIO", "dollar-sign"))
         prow = QHBoxLayout()
@@ -204,6 +223,7 @@ class ConceptoDialog(BaseModal):
         if concepto:
             self._nombre.setText(concepto.get("nombre", ""))
             self._codigo.setText((concepto.get("codigo") or "").strip())
+            self._talle.setText((concepto.get("talle") or "").strip())
             self._pvp.setText(f"{float(concepto.get('pvp') or 0):.2f}")
 
     def _accept(self) -> None:
@@ -217,7 +237,8 @@ class ConceptoDialog(BaseModal):
                                 "El precio debe ser mayor que 0. Un producto no puede quedar sin precio.")
             self._pvp.setFocus()
             return
-        self._data = {"nombre": nombre, "codigo": self._codigo.text().strip(), "pvp": pvp}
+        self._data = {"nombre": nombre, "codigo": self._codigo.text().strip(),
+                      "talle": self._talle.text().strip(), "pvp": pvp}
         self.accept()
 
     def get_data(self) -> dict:

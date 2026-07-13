@@ -77,7 +77,7 @@ class DatabaseManager:
             ("bonificacion", "REAL DEFAULT 0"),
             ("aplica_bonificacion", "INTEGER DEFAULT 0"),
         ],
-        "conceptos": [("codigo", "TEXT")],
+        "conceptos": [("codigo", "TEXT"), ("talle", "TEXT")],
         "datos_empresa": [
             ("condicion_iva", "TEXT"),
             ("ingresos_brutos", "TEXT"),
@@ -111,22 +111,39 @@ class DatabaseManager:
                 s.execute(sqlite_insert(Configuracion).values(clave=clave, valor=valor)
                           .on_conflict_do_nothing(index_elements=["clave"]))
         self._backfill_codigos_concepto()
+        self._backfill_talles_concepto()
 
     def _backfill_codigos_concepto(self) -> None:
-        """Rellena el código de productos ya cargados sin código (codigo NULL),
-        extrayéndolo del nombre. Idempotente: una vez con '' o valor, no se
+        """Rellena código y talle de productos ya cargados sin código (codigo
+        NULL), extrayéndolos del nombre en una sola pasada (así el talle no se
+        pierde al limpiar el nombre). Idempotente: una vez con '' o valor, no se
         vuelve a tocar. Renombrar es seguro (las líneas referencian por id)."""
-        from utils.helpers import separar_codigo
+        from utils.helpers import separar_codigo_talle
 
         with self._session() as s:
             filas = s.execute(select(Concepto).where(Concepto.codigo.is_(None))).scalars().all()
             for c in filas:
-                limpio, codigo = separar_codigo(c.nombre)
-                if codigo:
+                limpio, codigo, talle = separar_codigo_talle(c.nombre)
+                if codigo or talle:
                     c.nombre = limpio or c.nombre
-                    c.codigo = codigo
-                else:
-                    c.codigo = ""  # marcar para no reprocesar
+                c.codigo = codigo   # '' si no hay, para no reprocesar
+                if c.talle is None:
+                    c.talle = talle
+
+    def _backfill_talles_concepto(self) -> None:
+        """Rellena el talle de productos que ya tenían código pero no talle
+        (bases actualizadas desde una versión previa a la Fase 3). Sólo recupera
+        el talle si aún quedó en el nombre; para el resto hay que reimportar la
+        lista con la columna de talle mapeada. Idempotente."""
+        from utils.helpers import separar_codigo_talle
+
+        with self._session() as s:
+            filas = s.execute(select(Concepto).where(Concepto.talle.is_(None))).scalars().all()
+            for c in filas:
+                limpio, _codigo, talle = separar_codigo_talle(c.nombre)
+                if talle:
+                    c.nombre = limpio or c.nombre
+                c.talle = talle   # '' si no hay, para no reprocesar
 
     # ------------------------------------------------------------------ config
 
@@ -350,7 +367,8 @@ class DatabaseManager:
             stmt = select(Concepto)
             if search:
                 like = f"%{search}%"
-                stmt = stmt.where(Concepto.nombre.like(like) | Concepto.codigo.like(like))
+                stmt = stmt.where(Concepto.nombre.like(like) | Concepto.codigo.like(like)
+                                  | Concepto.talle.like(like))
             stmt = stmt.order_by(*order_by)
             return [_as_dict(o) for o in s.execute(stmt).scalars()]
 
@@ -358,6 +376,7 @@ class DatabaseManager:
         with self._session() as s:
             obj = Concepto(nombre=data.get("nombre"),
                            codigo=data.get("codigo") or "",
+                           talle=data.get("talle") or "",
                            pvp=data.get("pvp") or 0)
             s.add(obj)
             s.flush()
@@ -368,6 +387,7 @@ class DatabaseManager:
             obj = s.get(Concepto, concepto_id)
             obj.nombre = data.get("nombre")
             obj.codigo = data.get("codigo") or ""
+            obj.talle = data.get("talle") or ""
             obj.pvp = data.get("pvp") or 0
 
     def delete_concepto(self, concepto_id: int) -> None:
@@ -382,8 +402,9 @@ class DatabaseManager:
                 raise e.orig if e.orig else e
 
     def upsert_conceptos(self, items: list[dict]) -> dict:
-        """Alta/actualización masiva de conceptos por nombre (importación de
-        listas de precios). Devuelve {'creados', 'actualizados'}."""
+        """Alta/actualización masiva de conceptos por (nombre, talle) —cada
+        talle es una variante distinta— en la importación de listas de precios.
+        Devuelve {'creados', 'actualizados'}."""
         creados = actualizados = 0
         with self._session() as s:
             for item in items:
@@ -392,8 +413,12 @@ class DatabaseManager:
                     continue
                 pvp = float(item.get("pvp") or 0)
                 codigo = (item.get("codigo") or "").strip()
+                talle = (item.get("talle") or "").strip()
                 obj = s.execute(
-                    select(Concepto).where(Concepto.nombre.collate("NOCASE") == nombre)
+                    select(Concepto).where(
+                        Concepto.nombre.collate("NOCASE") == nombre,
+                        func.coalesce(Concepto.talle, "") == talle,
+                    )
                 ).scalars().first()
                 if obj:
                     # El código de la lista pisa; si viene vacío, se conserva.
@@ -402,7 +427,7 @@ class DatabaseManager:
                         obj.codigo = codigo
                     actualizados += 1
                 else:
-                    s.add(Concepto(nombre=nombre, codigo=codigo, pvp=pvp))
+                    s.add(Concepto(nombre=nombre, codigo=codigo, talle=talle, pvp=pvp))
                     creados += 1
         return {"creados": creados, "actualizados": actualizados}
 
@@ -450,12 +475,14 @@ class DatabaseManager:
         with self._session() as s:
             stmt = (select(Linea,
                            Concepto.nombre.label("concepto_nombre"),
-                           Concepto.codigo.label("concepto_codigo"))
+                           Concepto.codigo.label("concepto_codigo"),
+                           Concepto.talle.label("concepto_talle"))
                     .outerjoin(Concepto, Linea.concepto_id == Concepto.id)
                     .where(Linea.factura_id == factura_id)
                     .order_by(Linea.orden, Linea.id))
-            return [{**_as_dict(ln), "concepto_nombre": cn, "concepto_codigo": cc}
-                    for ln, cn, cc in s.execute(stmt)]
+            return [{**_as_dict(ln), "concepto_nombre": cn, "concepto_codigo": cc,
+                     "concepto_talle": ct}
+                    for ln, cn, cc, ct in s.execute(stmt)]
 
     def get_suplidos(self, factura_id: int) -> list[dict]:
         with self._session() as s:

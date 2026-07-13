@@ -47,7 +47,7 @@ facturacion/
 │   │   ├── onboarding.py         # asistente de primera ejecución (datos de empresa)
 │   │   ├── base_page.py          # ListPage: base común de las pantallas de listado
 │   │   ├── clientes.py           # ABM de clientes (+ CUIT/CUIL, saldos)
-│   │   ├── conceptos.py          # ABM de productos + importación de listas de precios
+│   │   ├── conceptos.py          # ABM de productos (código y talle) + importación de listas
 │   │   ├── documentos.py         # listado y alta/edición de documentos (facturas…)
 │   │   ├── cobros.py             # recibos y remesas
 │   │   ├── configuracion.py      # datos de empresa, IVA, formas de pago, apariencia
@@ -57,7 +57,7 @@ facturacion/
 │   │   └── icons.py              # íconos SVG inline renderizados a QIcon/QPixmap
 │   │
 │   ├── utils/                    # helpers puros, reutilizables y sin estado de UI
-│   │   ├── helpers.py            # formato ($/fecha), parseo de código de producto…
+│   │   ├── helpers.py            # formato ($/fecha), parseo de código y talle de producto…
 │   │   ├── pdf_generator.py      # armado de PDF de documentos y remesas (ReportLab)
 │   │   ├── excel_import.py       # lectura de listas de precios en Excel
 │   │   └── resources.py          # resolución de rutas de assets (dev y PyInstaller)
@@ -86,8 +86,8 @@ La app está organizada en **tres capas** con dependencias en una sola direcció
   el `DatabaseManager` por constructor. La ventana principal (`main_window.py`)
   los apila en un `QStackedWidget` y coordina navegación, zoom y tema.
 - **`utils/`** — Funciones puras sin estado de UI (formato de dinero/fecha,
-  extracción del código embebido en el nombre del producto, generación de PDF,
-  importación de Excel). Reutilizables desde cualquier capa.
+  extracción del código y talle embebidos en el nombre del producto, generación
+  de PDF, importación de Excel). Reutilizables desde cualquier capa.
 
 **Tema y zoom** son preferencias persistidas en la tabla `configuracion`. El
 stylesheet (`styles.py`) se genera a partir de una paleta + nivel de zoom y se

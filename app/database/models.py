@@ -138,6 +138,7 @@ class Concepto(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     nombre: Mapped[str] = mapped_column(Text, nullable=False)
     codigo: Mapped[str | None] = mapped_column(Text)
+    talle: Mapped[str | None] = mapped_column(Text)
     pvp: Mapped[float] = mapped_column(Float, nullable=False, server_default=text("0"))
     legacy_id: Mapped[int | None] = mapped_column(Integer, unique=True)
 
