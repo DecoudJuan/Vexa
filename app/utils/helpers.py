@@ -72,6 +72,34 @@ def separar_codigo_talle(nombre: str | None):
     return (limpio, codigo, talle)
 
 
+# Rango de talles embebido en el nombre: "TALLES 0 AL 4", "TALLE 1 A 3",
+# "TALLES DEL 2 AL 6", "TALLES 0-4". Exige la palabra TALLE(S) para no confundir
+# con medidas ("50CM") u otros números del nombre.
+_TALLES_RANGO_RE = re.compile(
+    r"\bTALLES?\s+(?:DEL\s+)?(\d{1,2})\s*(?:AL|A|-|/)\s*(\d{1,2})\b", re.IGNORECASE
+)
+
+
+def separar_talles_rango(nombre: str | None):
+    """Detecta un rango de talles en el nombre y lo expande:
+    "INMOVILIZADOR ... 50CM TALLES 0 AL 4" -> ("INMOVILIZADOR ... 50CM",
+    ["0","1","2","3","4"]). Devuelve (nombre_limpio, [talles]); si no hay rango,
+    (nombre, []). Ignora rangos absurdos (>20 talles) para no explotar el catálogo."""
+    if not nombre:
+        return (nombre or "", [])
+    m = _TALLES_RANGO_RE.search(nombre)
+    if not m:
+        return (nombre, [])
+    a, b = int(m.group(1)), int(m.group(2))
+    if a > b:
+        a, b = b, a
+    if b - a > 20:
+        return (nombre, [])
+    talles = [str(i) for i in range(a, b + 1)]
+    limpio = re.sub(r"\s{2,}", " ", nombre[:m.start()] + " " + nombre[m.end():]).strip()
+    return (limpio, talles)
+
+
 def fmt_talle(talle: str | None) -> str:
     """Talle para mostrar: "T1" si es numérico, o el texto tal cual (M, XL, U).
     Vacío si no hay."""
