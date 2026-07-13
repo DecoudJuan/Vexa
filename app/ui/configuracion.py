@@ -45,6 +45,17 @@ class ConfiguracionWidget(QWidget):
         v.addStretch()
         return scroll, form
 
+    def _half(self, widget: QWidget) -> QWidget:
+        """Envuelve un campo para que ocupe solo la mitad izquierda de la fila
+        (útil para datos cortos como C.P., localidad o moneda)."""
+        box = QWidget()
+        h = QHBoxLayout(box)
+        h.setContentsMargins(0, 0, 0, 0)
+        h.setSpacing(0)
+        h.addWidget(widget, 1)
+        h.addStretch(1)
+        return box
+
     def _combo(self, items_o_pares, con_data=False) -> NoScrollComboBox:
         combo = NoScrollComboBox()
         combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
@@ -102,13 +113,13 @@ class ConfiguracionWidget(QWidget):
         f.addRow("CUIT", self._nif)
         f.addRow("Condición frente al IVA", self._condicion_iva)
         f.addRow("Dirección", self._direccion)
-        f.addRow("C.P.", self._cp)
-        f.addRow("Localidad", self._localidad)
+        f.addRow("C.P.", self._half(self._cp))
+        f.addRow("Localidad", self._half(self._localidad))
         f.addRow("Provincia", self._provincia)
         f.addRow("Teléfono", self._telefono)
         f.addRow("Email", self._email)
         f.addRow("Web", self._web)
-        f.addRow("Moneda", self._moneda)
+        f.addRow("Moneda", self._half(self._moneda))
         return scroll
 
     def _tab_guardado(self) -> QWidget:
