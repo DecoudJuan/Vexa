@@ -15,33 +15,6 @@ class NoScrollComboBox(QComboBox):
         event.ignore()
 
 
-def celda(inner: QWidget, align: str = "left", pad: int = 12) -> QWidget:
-    """Envuelve un widget (pill/avatar/chip) para usarlo como celda de tabla,
-    con fondo transparente para que se vea el color de la fila detrás.
-    `align` = 'left' | 'center' | 'right'."""
-    w = QWidget()
-    w.setStyleSheet("background: transparent;")
-    h = QHBoxLayout(w)
-    h.setContentsMargins(pad, 0, pad, 0)
-    h.setSpacing(6)
-    if align in ("center", "right"):
-        h.addStretch()
-    h.addWidget(inner)
-    if align in ("center", "left"):
-        h.addStretch()
-    return w
-
-
-def pill(text: str, fg: str, rgb: str) -> QLabel:
-    """Etiqueta redondeada de estado. `rgb` es 'r, g, b' para el fondo tenue."""
-    lbl = QLabel(text)
-    lbl.setStyleSheet(
-        f"color:{fg}; background: rgba({rgb}, 0.16); border-radius: 9px;"
-        f"padding: 3px 11px; font-weight: 700; font-size: 11px;"
-    )
-    return lbl
-
-
 def avatar(initials: str, bg: str, fg: str, size: int = 32) -> QLabel:
     lbl = QLabel(initials)
     lbl.setFixedSize(size, size)
@@ -49,15 +22,6 @@ def avatar(initials: str, bg: str, fg: str, size: int = 32) -> QLabel:
     lbl.setStyleSheet(
         f"background: {bg}; color: {fg}; border-radius: 8px;"
         f"font-weight: 800; font-size: 12px;"
-    )
-    return lbl
-
-
-def chip(text: str, fg: str, rgb: str) -> QLabel:
-    lbl = QLabel(text)
-    lbl.setStyleSheet(
-        f"color:{fg}; background: rgba({rgb}, 0.16); border-radius: 6px;"
-        f"padding: 2px 8px; font-size: 11px; font-weight: 600;"
     )
     return lbl
 

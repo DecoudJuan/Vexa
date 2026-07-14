@@ -31,15 +31,6 @@ _PATHS: dict[str, str] = {
         '<path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>'
         '<line x1="12" y1="17" x2="12.01" y2="17"/>'
     ),
-    "bar-chart": (
-        '<line x1="18" y1="20" x2="18" y2="10"/>'
-        '<line x1="12" y1="20" x2="12" y2="4"/>'
-        '<line x1="6" y1="20" x2="6" y2="14"/>'
-    ),
-    "trending-up": (
-        '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/>'
-        '<polyline points="17 6 23 6 23 12"/>'
-    ),
     "plus": (
         '<line x1="12" y1="5" x2="12" y2="19"/>'
         '<line x1="5" y1="12" x2="19" y2="12"/>'
@@ -52,13 +43,6 @@ _PATHS: dict[str, str] = {
         '<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>'
         '<line x1="10" y1="11" x2="10" y2="17"/>'
         '<line x1="14" y1="11" x2="14" y2="17"/>'
-    ),
-    "pause": (
-        '<rect x="6" y="4" width="4" height="16"/>'
-        '<rect x="14" y="4" width="4" height="16"/>'
-    ),
-    "play": (
-        '<polygon points="5 3 19 12 5 21 5 3"/>'
     ),
     "search": (
         '<circle cx="11" cy="11" r="8"/>'
@@ -100,23 +84,10 @@ _PATHS: dict[str, str] = {
         '<line x1="12" y1="18" x2="12" y2="12"/>'
         '<line x1="9" y1="15" x2="15" y2="15"/>'
     ),
-    "check-circle": (
-        '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>'
-        '<polyline points="22 4 12 14.01 9 11.01"/>'
-    ),
-    "clock": (
-        '<circle cx="12" cy="12" r="10"/>'
-        '<polyline points="12 6 12 12 16 14"/>'
-    ),
     "layers": (
         '<polygon points="12 2 2 7 12 12 22 7 12 2"/>'
         '<polyline points="2 17 12 22 22 17"/>'
         '<polyline points="2 12 12 17 22 12"/>'
-    ),
-    "percent": (
-        '<line x1="19" y1="5" x2="5" y2="19"/>'
-        '<circle cx="6.5" cy="6.5" r="2.5"/>'
-        '<circle cx="17.5" cy="17.5" r="2.5"/>'
     ),
     "user": (
         '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>'

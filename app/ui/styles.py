@@ -164,18 +164,6 @@ QScrollArea > QWidget > QWidget {{
 }}
 
 /* =====================================================================
-   CONVERSION BANNER (Documentos: "generar factura desde presupuesto", etc.)
-   ===================================================================== */
-QLabel#conversion_banner {{
-    background-color: rgba({accent_rgb}, 0.12);
-    border: 1px solid rgba({accent_rgb}, 0.4);
-    border-radius: 8px;
-    padding: 10px 14px;
-    color: {text};
-    font-weight: 600;
-}}
-
-/* =====================================================================
    TYPOGRAPHY — dynamic property [role="..."]
    ===================================================================== */
 QLabel[role="page-title"] {{
@@ -801,9 +789,6 @@ _PALETTES = {
         "danger": "#f38ba8",
         "danger_rgb": "243, 139, 168",
         "warn": "#f9e2af",
-        "warn_rgb": "249, 226, 175",
-        "ok": "#a6e3a1",
-        "ok_rgb": "166, 227, 161",
         "disabled_bg": "#24273a",
     },
     "light": {
@@ -827,9 +812,6 @@ _PALETTES = {
         "danger": "#d20f39",
         "danger_rgb": "210, 15, 57",
         "warn": "#df8e1d",
-        "warn_rgb": "223, 142, 29",
-        "ok": "#40a02b",
-        "ok_rgb": "64, 160, 43",
         "disabled_bg": "#dce0e8",
     },
 }
@@ -914,7 +896,3 @@ def build_qpalette(theme: str = "dark"):
     for role in (QPalette.Text, QPalette.WindowText, QPalette.ButtonText):
         pal.setColor(QPalette.Disabled, role, c(p["muted2"]))
     return pal
-
-
-# Compatibilidad con código existente que importaba el estilo oscuro fijo.
-APP_STYLE = build_style("dark", 1.0)

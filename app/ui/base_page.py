@@ -26,7 +26,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QColor
 
-from ui.icons import svg_icon, svg_pixmap
+from ui.icons import svg_icon
 from ui.styles import get_palette
 from utils.helpers import leer_zoom, leer_tema
 
