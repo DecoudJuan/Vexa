@@ -14,7 +14,6 @@ from ui.modal import BaseModal, modal_colors
 from ui.widgets import NoScrollComboBox
 from utils.helpers import (
     fmt_ar, parse_float, leer_zoom, leer_tema, etiqueta_concepto, abrir_archivo,
-    fmt_talle, ordenar_talles,
 )
 from utils.pdf_generator import generar_pdf_documento
 
@@ -272,7 +271,7 @@ class DocumentListWidget(ListPage):
 # =====================================================================
 
 # Anchos (en px a zoom 1.0) de las columnas fijas de la tabla de líneas.
-_COL_W = {"talle": 78, "cant": 68, "pvp": 104, "imp": 108, "del": 34}
+_COL_W = {"cant": 68, "pvp": 104, "imp": 108, "del": 34}
 
 
 class DocumentoDialog(BaseModal):
@@ -295,7 +294,7 @@ class DocumentoDialog(BaseModal):
         for pi, p in enumerate(self._productos):
             for v in p["variantes"]:
                 self._variante_por_id[v["id"]] = (pi, v["talle"])
-        self._lineas: list[dict] = []          # {row, prod, talle, cant, pvp, importe}
+        self._lineas: list[dict] = []          # {row, prod, cant, pvp, importe}
         # Campos legacy que ya no se editan pero se preservan al guardar.
         self._legacy_iva = 0
         self._legacy_retencion = 0
@@ -364,6 +363,10 @@ class DocumentoDialog(BaseModal):
         comp.setFilterMode(Qt.MatchContains)
         self._cliente.setCompleter(comp)
         self._cliente.currentIndexChanged.connect(self._on_cliente_changed)
+        # Si se escribe el nombre exacto sin elegirlo del popup, engancharlo al
+        # ítem al salir del campo (si no coincide, queda como texto para crear).
+        self._cliente.lineEdit().editingFinished.connect(
+            lambda: self._snap_a_item(self._cliente))
         v.addWidget(self._cliente)
 
         # ---- DOCUMENTO + FECHA (etiquetas en una fila, campos en la siguiente)
@@ -462,11 +465,6 @@ class DocumentoDialog(BaseModal):
         prod = QLabel("PRODUCTO")
         prod.setObjectName("col_head")
         hl.addWidget(prod, 1)
-        talle_h = QLabel("TALLE")
-        talle_h.setObjectName("col_head")
-        talle_h.setFixedWidth(self._S(_COL_W["talle"]))
-        talle_h.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-        hl.addWidget(talle_h)
         hl.addWidget(col("CANT.", "cant"))
         hl.addWidget(col("PRECIO UNIT.", "pvp"))
         hl.addWidget(col("IMPORTE", "imp"))
@@ -575,7 +573,8 @@ class DocumentoDialog(BaseModal):
         combo.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
         combo.addItem("", None)
         for pi, p in enumerate(self._productos):
-            # Etiqueta "nombre (codigo)" sin talle; el talle se elige aparte.
+            # Etiqueta "nombre (codigo)" sin talle: en la factura el producto va
+            # por nombre, sin discriminar talle.
             combo.addItem(etiqueta_concepto(p["nombre"], p.get("codigo")), pi)
         combo.lineEdit().setPlaceholderText("Nombre del producto...")
         combo.lineEdit().setCursorPosition(0)
@@ -583,11 +582,6 @@ class DocumentoDialog(BaseModal):
         comp.setCaseSensitivity(Qt.CaseInsensitive)
         comp.setFilterMode(Qt.MatchContains)
         combo.setCompleter(comp)
-
-        # Selector de talle (dependiente del producto).
-        talle = NoScrollComboBox()
-        talle.setObjectName("line_combo")
-        talle.setFixedWidth(self._S(_COL_W["talle"]))
 
         cant = QLineEdit(f"{cantidad:g}")
         cant.setObjectName("cell_input")
@@ -613,19 +607,20 @@ class DocumentoDialog(BaseModal):
         btn_del.setCursor(Qt.PointingHandCursor)
 
         rl.addWidget(combo, 1)
-        rl.addWidget(talle)
         rl.addWidget(cant)
         rl.addWidget(pvp_w)
         rl.addWidget(importe)
         rl.addWidget(btn_del)
 
-        entry = {"row": row, "prod": combo, "talle": talle, "cant": cant,
+        entry = {"row": row, "prod": combo, "cant": cant,
                  "pvp": pvp_w, "importe": importe}
         self._lineas.append(entry)
 
         combo.currentIndexChanged.connect(lambda _=None, e=entry: self._on_producto_changed(e))
+        # Nombre escrito a mano (sin elegir del popup): al salir del campo lo
+        # enganchamos al producto que coincide para tomar su precio.
+        combo.lineEdit().editingFinished.connect(lambda e=entry: self._snap_a_item(e["prod"]))
         combo.editTextChanged.connect(lambda _=None: self._recalcular())
-        talle.currentIndexChanged.connect(lambda _=None, e=entry: self._on_talle_changed(e))
         cant.textChanged.connect(self._recalcular)
         pvp_w.textChanged.connect(self._recalcular)
         btn_del.clicked.connect(lambda _=None, e=entry: self._quitar_fila(e))
@@ -634,20 +629,18 @@ class DocumentoDialog(BaseModal):
         self._lineas_layout.insertWidget(self._lineas_layout.count() - 1, row)
 
         # Selección inicial (línea nueva vacía, o carga de una factura existente).
+        # El talle de la variante no se usa acá: en la factura el producto va por
+        # nombre, sin discriminar talle.
         if concepto_id is not None and concepto_id in self._variante_por_id:
-            pi, tl = self._variante_por_id[concepto_id]
+            pi, _tl = self._variante_por_id[concepto_id]
             combo.blockSignals(True)
             combo.setCurrentIndex(combo.findData(pi))
             combo.lineEdit().setCursorPosition(0)
             combo.blockSignals(False)
-            self._poblar_talles(entry, sel_talle=tl)
         elif concepto_libre:
             combo.blockSignals(True)
             combo.setEditText(concepto_libre)
             combo.blockSignals(False)
-            self._poblar_talles(entry)
-        else:
-            self._poblar_talles(entry)
         # El precio de la línea es el guardado (puede diferir del actual).
         pvp_w.setText(f"{pvp:.2f}")
 
@@ -664,42 +657,14 @@ class DocumentoDialog(BaseModal):
             return self._productos[pi]
         return None
 
-    def _poblar_talles(self, entry, sel_talle=None) -> None:
-        """Llena el combo de talle con las variantes del producto elegido. Sin
-        talles (producto único) queda deshabilitado mostrando '—' pero igual
-        guarda el id de la variante."""
-        ct = entry["talle"]
-        ct.blockSignals(True)
-        ct.clear()
-        p = self._producto_de(entry)
-        por_talle = {v["talle"]: v for v in (p["variantes"] if p else [])}
-        talles = ordenar_talles(por_talle.keys())
-        if talles:
-            ct.setEnabled(True)
-            for i, t in enumerate(talles):
-                v = por_talle[t]
-                ct.addItem(fmt_talle(t), v["id"])
-                ct.setItemData(i, v["pvp"], Qt.UserRole + 1)
-            ct.setCurrentIndex(talles.index(sel_talle) if sel_talle in talles else 0)
-        else:
-            ct.setEnabled(False)
-            v0 = p["variantes"][0] if p else None
-            ct.addItem("—", v0["id"] if v0 else None)
-            if v0:
-                ct.setItemData(0, v0["pvp"], Qt.UserRole + 1)
-        ct.blockSignals(False)
-
     def _aplicar_pvp(self, entry) -> None:
-        pvp = entry["talle"].currentData(Qt.UserRole + 1)
-        if pvp is not None:
-            entry["pvp"].setText(f"{float(pvp):.2f}")
+        # El talle no se discrimina en la factura: se toma el precio del
+        # producto (el máximo entre sus variantes, que casi siempre coinciden).
+        p = self._producto_de(entry)
+        if p is not None:
+            entry["pvp"].setText(f"{float(p.get('pvp') or 0):.2f}")
 
     def _on_producto_changed(self, entry) -> None:
-        self._poblar_talles(entry)
-        self._aplicar_pvp(entry)
-        self._recalcular()
-
-    def _on_talle_changed(self, entry) -> None:
         self._aplicar_pvp(entry)
         self._recalcular()
 
@@ -709,9 +674,10 @@ class DocumentoDialog(BaseModal):
         out = []
         for e in self._lineas:
             p = self._producto_de(e)
-            # Con producto elegido, el id de la variante lo da el combo de talle;
-            # si no, es una línea de texto libre.
-            concepto_id = e["talle"].currentData() if p else None
+            # En la factura el producto va por nombre, sin discriminar talle: se
+            # guarda una variante representativa (la primera) sólo para enlazar
+            # con el concepto. Si no hay producto, es una línea de texto libre.
+            concepto_id = p["ids"][0] if p and p.get("ids") else None
             texto = e["prod"].currentText().strip()
             if not texto and concepto_id is None:
                 continue
@@ -820,16 +786,38 @@ class DocumentoDialog(BaseModal):
 
     # ------------------------------------------------------------ guardar
 
+    def _snap_a_item(self, combo) -> None:
+        """Si se tipeó el texto exacto de un ítem sin elegirlo del popup, el
+        combo editable queda con índice sin fijar (texto libre) y se pierde su
+        dato asociado (id de cliente / variante de producto). Lo enganchamos al
+        ítem que coincide para que valga como una selección real; si no coincide
+        con ninguno, se deja el texto tal cual."""
+        if combo.currentData() is not None:
+            return
+        txt = combo.currentText().strip()
+        if not txt:
+            return
+        idx = combo.findText(txt, Qt.MatchFixedString)
+        if idx > 0:
+            combo.setCurrentIndex(idx)
+
     def _accept(self) -> None:
+        # Enganchar textos escritos a mano (cliente y productos) a su ítem real
+        # antes de leer, así una selección tipeada vale igual que una elegida
+        # (en el producto esto además toma su precio de lista).
+        self._snap_a_item(self._cliente)
+        for e in self._lineas:
+            self._snap_a_item(e["prod"])
+
         cliente_id = self._cliente.currentData()
         if cliente_id is None:
-            # El usuario pudo tipear un nombre exacto sin elegirlo del popup.
+            # No coincide con ningún cliente: se crea al vuelo con lo escrito,
+            # así se puede facturar a un cliente nuevo sin cargarlo aparte antes.
             txt = self._cliente.currentText().strip()
-            idx = self._cliente.findText(txt, Qt.MatchFixedString) if txt else -1
-            if idx > 0:
-                cliente_id = self._cliente.itemData(idx)
+            if txt:
+                cliente_id = self.db.create_cliente({"nombre": txt})
         if cliente_id is None:
-            QMessageBox.warning(self, "Campo requerido", "Elegí un cliente.")
+            QMessageBox.warning(self, "Campo requerido", "Escribí o elegí un cliente.")
             return
         lineas = self._leer_lineas()
         if not lineas:

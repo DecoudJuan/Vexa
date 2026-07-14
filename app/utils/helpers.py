@@ -243,6 +243,16 @@ def valor_valido(valor: str | None) -> str | None:
     return None
 
 
+def texto_valido(valor: str | None) -> str | None:
+    """Como valor_valido() pero para campos de texto libre (dirección,
+    localidad): descarta los placeholders de la migración hechos solo de
+    símbolos ("*", "-", ".", espacios) que no aportan dato. Un texto real
+    tiene al menos una letra o dígito."""
+    if valor and any(ch.isalnum() for ch in valor):
+        return valor
+    return None
+
+
 # Símbolo de moneda actual (configurable desde Configuración > Mi empresa).
 # Por defecto pesos argentinos ('$'); se puede cambiar a dólares ('US$', 'USD',
 # etc.). Lo fija set_moneda() al arrancar y al guardar la configuración, así
