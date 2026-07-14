@@ -268,17 +268,15 @@ _COL_W = {"cant": 68, "pvp": 104, "imp": 108, "del": 34}
 
 
 class DocumentoDialog(BaseModal):
-    """Alta/edición de un documento (cabecera + líneas), y generación de un
-    documento nuevo a partir de otro (origen) para 'convertir presupuesto en
-    factura', etc. Reutiliza el chrome (cabecera/pie/arrastre/centrado) de
-    BaseModal; acá vive solo el cuerpo propio (líneas + totales)."""
+    """Alta/edición de un documento (cabecera + líneas). Reutiliza el chrome
+    (cabecera/pie/arrastre/centrado) de BaseModal; acá vive solo el cuerpo
+    propio (líneas + totales)."""
 
-    def __init__(self, db, tipo: str, factura_id: int | None = None, origen: dict | None = None, parent=None):
+    def __init__(self, db, tipo: str, factura_id: int | None = None, parent=None):
         self.db = db
         self.tipo = tipo
         self.cfg = DOCUMENT_TYPES[tipo]
         self.factura_id = factura_id
-        self.origen = origen
         # Productos agrupados (uno por nombre+código con sus variantes de talle)
         # y mapa inverso variante_id -> (índice_producto, talle) para reabrir
         # líneas de facturas existentes.
@@ -293,7 +291,6 @@ class DocumentoDialog(BaseModal):
         self._legacy_retencion = 0
         self._legacy_pedido_cliente = None
         self._ultimo_total = 0.0
-        self._ultimo_subtotal = 0.0
 
         titulo, sub = self._titulos()
         super().__init__(titulo, sub, icon="file-invoice", width=860,
@@ -310,8 +307,6 @@ class DocumentoDialog(BaseModal):
 
         if factura_id:
             self._cargar_existente(factura_id)
-        elif origen:
-            self._cargar_desde_origen(origen)
         else:
             self._crear_fila_linea()
             self._sugerir_numero()
@@ -319,12 +314,7 @@ class DocumentoDialog(BaseModal):
         self._recalcular()
 
     def _titulos(self) -> tuple[str, str]:
-        if self.origen and not self.factura_id:
-            oc = DOCUMENT_TYPES[self.origen["tipo"]]
-            titulo = f"Nuevo/a {self.cfg['label'].lower()}"
-            sub = (f"Desde {oc['prefijo']}-{self.origen.get('ejercicio')}-"
-                   f"{self.origen.get('numero')} · el original no se modifica")
-        elif self.factura_id:
+        if self.factura_id:
             titulo = f"Editar {self.cfg['label'].lower()}"
             sub = "Modificá los datos del comprobante"
         else:
@@ -698,7 +688,6 @@ class DocumentoDialog(BaseModal):
         self._lbl_bonif_val.setText(f"−{fmt_ar(bonificacion)}" if aplica else "—")
         self._lbl_total.setText(fmt_ar(total))
         self._ultimo_total = total
-        self._ultimo_subtotal = subtotal
 
     # ------------------------------------------------------------- carga
 
@@ -752,30 +741,6 @@ class DocumentoDialog(BaseModal):
             )
         if not self._lineas:
             self._crear_fila_linea()
-
-    def _cargar_desde_origen(self, origen: dict) -> None:
-        idx = self._cliente.findData(origen["cliente_id"])
-        self._cliente.setCurrentIndex(max(idx, 0))
-        self._comentarios.setPlainText(origen.get("comentarios") or "")
-        self._bonif_input.setText(
-            f"{float(origen.get('bonificacion') or 0):g}" if origen.get("aplica_bonificacion") else "0"
-        )
-        fp_idx = self._forma_pago.findData(origen.get("forma_pago_id"))
-        self._forma_pago.setCurrentIndex(max(fp_idx, 0))
-        self._sugerir_numero()
-
-        for ln in self.db.get_lineas(origen["id"]):
-            self._crear_fila_linea(
-                concepto_id=ln.get("concepto_id"),
-                concepto_libre=ln.get("concepto_libre") or "",
-                cantidad=ln.get("cantidad") or 1.0,
-                pvp=ln.get("pvp") or 0.0,
-            )
-        if not self._lineas:
-            self._crear_fila_linea()
-
-        self._origen_tipo = origen.get("tipo")
-        self._origen_numero = origen.get("numero")
 
     # ------------------------------------------------------------ guardar
 
@@ -834,8 +799,8 @@ class DocumentoDialog(BaseModal):
             "aplica_bonificacion": 1 if pct > 0 else 0,
             "forma_pago_id": self._forma_pago.currentData(),
             "comentarios": self._comentarios.toPlainText().strip() or None,
-            "origen_tipo": getattr(self, "_origen_tipo", None),
-            "origen_numero": getattr(self, "_origen_numero", None),
+            "origen_tipo": None,
+            "origen_numero": None,
             "iva": self._legacy_iva,
             "retencion": self._legacy_retencion,
             "pedido_cliente": self._legacy_pedido_cliente,

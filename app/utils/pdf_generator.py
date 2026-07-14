@@ -8,7 +8,6 @@ from reportlab.platypus import (
     SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer,
 )
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.enums import TA_RIGHT
 from reportlab.graphics.barcode.qr import QrCodeWidget
 from reportlab.graphics.shapes import Drawing
 from reportlab.graphics import renderPDF
@@ -37,8 +36,6 @@ _TITULOS = {
 _styles = getSampleStyleSheet()
 _style_normal = _styles["Normal"]
 _style_small = ParagraphStyle("small", parent=_style_normal, fontSize=8, leading=10)
-_style_titulo = ParagraphStyle("titulo", parent=_styles["Title"], alignment=TA_RIGHT, fontSize=20)
-_style_right = ParagraphStyle("right", parent=_style_normal, alignment=TA_RIGHT)
 
 
 def _slug(texto: str) -> str:
