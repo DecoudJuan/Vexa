@@ -292,38 +292,3 @@ def _tabla_totales(doc: dict, lineas: list[dict], suplidos: list[dict], tipo: st
     ]
     table.setStyle(TableStyle(style))
     return table
-
-
-def generar_reporte_remesa(db, remesa_id: int) -> str:
-    """Reporte PDF simple de una remesa (no es un archivo bancario SEPA/AEB real)."""
-    remesas = db.get_all_remesas()
-    remesa = next((r for r in remesas if r["id"] == remesa_id), None)
-    if not remesa:
-        raise ValueError(f"Remesa {remesa_id} no encontrada")
-    recibos = db.get_recibos_de_remesa(remesa_id)
-
-    carpeta = obtener_carpeta_pdf(db)
-    carpeta.mkdir(parents=True, exist_ok=True)
-    out_path = carpeta / f"remesa_{remesa_id}.pdf"
-
-    pdf_doc = SimpleDocTemplate(str(out_path), pagesize=A4, topMargin=20 * mm)
-    story = [
-        Paragraph(f"Remesa #{remesa_id} — {remesa.get('descripcion') or ''}", _styles["Title"]),
-        Spacer(1, 6 * mm),
-    ]
-    rows = [["Cliente", "Documento", "Importe"]]
-    for r in recibos:
-        rows.append([r.get("cliente_nombre", ""), f"{r.get('factura_tipo','')}-{r.get('factura_numero','')}",
-                     fmt_ar(r.get("importe") or 0)])
-    rows.append(["", "TOTAL", fmt_ar(sum(r.get("importe") or 0 for r in recibos))])
-    table = Table(rows, colWidths=[80 * mm, 50 * mm, 30 * mm])
-    table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2b2b2b")),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#cccccc")),
-        ("ALIGN", (2, 0), (2, -1), "RIGHT"),
-        ("FONTNAME", (0, -1), (-1, -1), "Helvetica-Bold"),
-    ]))
-    story.append(table)
-    pdf_doc.build(story)
-    return str(out_path)

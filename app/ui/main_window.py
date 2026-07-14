@@ -9,7 +9,6 @@ from ui.styles import build_style, get_palette, build_qpalette
 from ui.clientes import ClientesWidget
 from ui.conceptos import ConceptosWidget
 from ui.documentos import DocumentosWidget
-from ui.cobros import CobrosWidget
 from ui.configuracion import ConfiguracionWidget
 from version import VERSION, APP_NAME
 
@@ -19,7 +18,6 @@ _NAV_ITEMS = [
     ("clientes",      "Clientes",      "users"),
     ("conceptos",     "Productos",     "layers"),
     ("documentos",    "Documentos",    "file-text"),
-    ("cobros",        "Cobros",        "credit-card"),
     ("configuracion", "Configuración", "settings"),
 ]
 
@@ -84,7 +82,6 @@ class MainWindow(QMainWindow):
         self._add_page("clientes", ClientesWidget(self.db))
         self._add_page("conceptos", ConceptosWidget(self.db))
         self._add_page("documentos", DocumentosWidget(self.db))
-        self._add_page("cobros", CobrosWidget(self.db))
         self._add_page("configuracion",
                        ConfiguracionWidget(self.db, on_empresa_changed=self.actualizar_marca))
 

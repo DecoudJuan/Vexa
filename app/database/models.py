@@ -248,39 +248,6 @@ class Suplido(Base):
     legacy_id: Mapped[int | None] = mapped_column(Integer, unique=True)
 
 
-class Remesa(Base):
-    __tablename__ = "remesas"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    descripcion: Mapped[str | None] = mapped_column(Text)
-    fecha: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("(date('now'))"))
-    fecha_cargo: Mapped[str | None] = mapped_column(Text)
-    fecha_vto: Mapped[str | None] = mapped_column(Text)
-    legacy_id: Mapped[int | None] = mapped_column(Integer, unique=True)
-    created_at: Mapped[str | None] = mapped_column(Text, server_default=_NOW)
-
-
-class Recibo(Base):
-    __tablename__ = "recibos"
-    __table_args__ = (
-        CheckConstraint(
-            "estado IN ('pendiente','cobrado','devuelto')", name="ck_recibos_estado"
-        ),
-        Index("idx_recibos_remesa", "remesa_id"),
-    )
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    remesa_id: Mapped[int | None] = mapped_column(
-        ForeignKey("remesas.id", ondelete="SET NULL")
-    )
-    factura_id: Mapped[int | None] = mapped_column(
-        ForeignKey("facturas.id", ondelete="SET NULL")
-    )
-    importe: Mapped[float] = mapped_column(Float, nullable=False, server_default=text("0"))
-    estado: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'pendiente'"))
-    legacy_id: Mapped[int | None] = mapped_column(Integer, unique=True)
-
-
 class Configuracion(Base):
     __tablename__ = "configuracion"
 

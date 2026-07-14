@@ -20,7 +20,7 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from database.models import (
     Base, DatosEmpresa, Iva, FormaPago, Cliente, ClienteCuit, Concepto,
-    Factura, Linea, Suplido, Remesa, Recibo, Configuracion, TIPOS_DOCUMENTO,
+    Factura, Linea, Suplido, Configuracion, TIPOS_DOCUMENTO,
 )
 
 # Carpeta de datos: por defecto ~/Facturacion, pero se puede apuntar a otra
@@ -685,69 +685,6 @@ class DatabaseManager:
             obj = s.get(Factura, factura_id)
             if obj is not None:
                 s.delete(obj)
-
-    # --------------------------------------------------------------- remesas / recibos
-
-    def get_all_remesas(self) -> list[dict]:
-        with self._session() as s:
-            n_recibos = (select(func.count()).select_from(Recibo)
-                         .where(Recibo.remesa_id == Remesa.id).scalar_subquery())
-            total = (select(func.coalesce(func.sum(Recibo.importe), 0))
-                     .where(Recibo.remesa_id == Remesa.id).scalar_subquery())
-            stmt = (select(Remesa, n_recibos.label("n_recibos"), total.label("total"))
-                    .order_by(Remesa.fecha.desc(), Remesa.id.desc()))
-            return [{**_as_dict(r), "n_recibos": nr, "total": tot}
-                    for r, nr, tot in s.execute(stmt)]
-
-    def get_recibos_pendientes(self) -> list[dict]:
-        with self._session() as s:
-            stmt = (select(Recibo,
-                           Factura.numero.label("factura_numero"),
-                           Factura.tipo.label("factura_tipo"),
-                           Cliente.nombre.label("cliente_nombre"))
-                    .join(Factura, Recibo.factura_id == Factura.id)
-                    .join(Cliente, Factura.cliente_id == Cliente.id)
-                    .where(Recibo.estado == "pendiente", Recibo.remesa_id.is_(None))
-                    .order_by(Cliente.nombre.collate("NOCASE")))
-            return [{**_as_dict(re), "factura_numero": fn, "factura_tipo": ft,
-                     "cliente_nombre": cn}
-                    for re, fn, ft, cn in s.execute(stmt)]
-
-    def get_recibos_de_remesa(self, remesa_id: int) -> list[dict]:
-        with self._session() as s:
-            stmt = (select(Recibo,
-                           Factura.numero.label("factura_numero"),
-                           Factura.tipo.label("factura_tipo"),
-                           Cliente.nombre.label("cliente_nombre"),
-                           Cliente.ccc1, Cliente.ccc2, Cliente.ccc3, Cliente.ccc4)
-                    .join(Factura, Recibo.factura_id == Factura.id)
-                    .join(Cliente, Factura.cliente_id == Cliente.id)
-                    .where(Recibo.remesa_id == remesa_id)
-                    .order_by(Cliente.nombre.collate("NOCASE")))
-            out = []
-            for re, fn, ft, cn, c1, c2, c3, c4 in s.execute(stmt):
-                out.append({**_as_dict(re), "factura_numero": fn, "factura_tipo": ft,
-                            "cliente_nombre": cn, "ccc1": c1, "ccc2": c2,
-                            "ccc3": c3, "ccc4": c4})
-            return out
-
-    def create_recibo(self, factura_id: int, importe: float) -> int:
-        with self._session() as s:
-            obj = Recibo(factura_id=factura_id, importe=importe)
-            s.add(obj)
-            s.flush()
-            return obj.id
-
-    def create_remesa(self, recibo_ids: list[int], data: dict) -> int:
-        with self._session() as s:
-            remesa = Remesa(descripcion=data.get("descripcion"), fecha=data.get("fecha"),
-                            fecha_cargo=data.get("fecha_cargo"), fecha_vto=data.get("fecha_vto"))
-            s.add(remesa)
-            s.flush()
-            if recibo_ids:
-                s.execute(update(Recibo).where(Recibo.id.in_(recibo_ids))
-                          .values(remesa_id=remesa.id))
-            return remesa.id
 
     # ------------------------------------------------------------------ dashboard
 
