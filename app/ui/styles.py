@@ -320,11 +320,15 @@ QTableWidget::item:alternate {{
    además está seleccionada, gana la regla declarada más abajo. Si :selected
    fuera la primera, la selección quedaba invisible en las filas alternadas
    (parecía que el click "no hacía nada" en esas filas). */
+/* Selección suave: relleno neutro (sin el azul saturado) y un contorno
+   horizontal continuo arriba/abajo. Sin border-left para no repetir una barra
+   vertical en cada celda (se veía como columnas segmentadas). */
 QTableWidget::item:selected,
 QTableWidget::item:alternate:selected {{
-    background-color: rgba({accent_rgb}, 0.14);
+    background-color: {row_sel};
     color: {text};
-    border-left: 3px solid {accent};
+    border-top: 1px solid {row_sel_bar};
+    border-bottom: 1px solid {row_sel_bar};
 }}
 
 QHeaderView {{
@@ -332,15 +336,22 @@ QHeaderView {{
     border: none;
 }}
 
+/* border-right: una fina línea divisoria entre columnas que además señala el
+   borde arrastrable para ensanchar/achicar cada columna. */
 QHeaderView::section {{
     background-color: {crust};
     color: {subtext};
     padding: 10px 12px;
     border: none;
     border-bottom: 1px solid {line};
+    border-right: 1px solid {line};
     font-weight: 700;
     font-size: 10px;
     letter-spacing: 0.5px;
+}}
+
+QHeaderView::section:last {{
+    border-right: none;
 }}
 
 /* =====================================================================
@@ -785,6 +796,8 @@ _PALETTES = {
         "accent_rgb": "137, 180, 250",
         "select_bg": "#34406a",
         "select_tx": "#cdd6f4",
+        "row_sel": "#333a54",
+        "row_sel_bar": "#4a5379",
         "danger": "#f38ba8",
         "danger_rgb": "243, 139, 168",
         "warn": "#f9e2af",
@@ -809,6 +822,8 @@ _PALETTES = {
         "accent_rgb": "30, 102, 245",
         "select_bg": "#dbe6fd",
         "select_tx": "#3c3f58",
+        "row_sel": "#d7dfee",
+        "row_sel_bar": "#b3c0d8",
         "danger": "#d20f39",
         "danger_rgb": "210, 15, 57",
         "warn": "#df8e1d",
