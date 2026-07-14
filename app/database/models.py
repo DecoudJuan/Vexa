@@ -14,8 +14,8 @@ from sqlalchemy import (
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 # Tipos de documento soportados por la tabla polimórfica `facturas`.
-# FA=Factura, PR=Presupuesto, AL=Albarán, PE=Pedido, AB=Abono (nota de crédito)
-TIPOS_DOCUMENTO = ("FA", "PR", "AL", "PE", "AB")
+# FA=Factura, PR=Presupuesto, PE=Pedido.
+TIPOS_DOCUMENTO = ("FA", "PR", "PE")
 
 _NOW = text("(datetime('now'))")
 

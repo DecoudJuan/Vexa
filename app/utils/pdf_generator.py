@@ -31,8 +31,7 @@ def obtener_carpeta_pdf(db) -> Path:
 
 
 _TITULOS = {
-    "FA": "FACTURA", "PR": "PRESUPUESTO", "AL": "ALBARÁN",
-    "PE": "PEDIDO", "AB": "ABONO",
+    "FA": "FACTURA", "PR": "PRESUPUESTO", "PE": "PEDIDO",
 }
 
 _styles = getSampleStyleSheet()

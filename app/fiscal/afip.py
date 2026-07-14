@@ -37,10 +37,9 @@ _ENDPOINTS = {
 }
 
 # Letra del comprobante -> código de tipo AFIP (WSFE).
-#   Factura: A=1, B=6, C=11 · Nota de crédito (abono): A=3, B=8, C=13
+#   Factura: A=1, B=6, C=11
 _TIPO_CMP = {
     "FA": {"A": 1, "B": 6, "C": 11},
-    "AB": {"A": 3, "B": 8, "C": 13},
 }
 
 # Alícuota de IVA (%) -> Id de alícuota AFIP.

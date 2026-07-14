@@ -17,23 +17,17 @@ from utils.helpers import (
 )
 from utils.pdf_generator import generar_pdf_documento
 
-# FA=Factura, PR=Presupuesto, AL=Albarán, PE=Pedido, AB=Abono (nota de crédito)
+# FA=Factura, PR=Presupuesto, PE=Pedido. La app apunta a facturar: no hay
+# albaranes ni abonos (notas de crédito).
 DOCUMENT_TYPES = {
-    "FA": {"label": "Factura", "plural": "Facturas", "prefijo": "FA",
-           "show_suplidos": True, "convierte_a": ["AB"]},
-    "PR": {"label": "Presupuesto", "plural": "Presupuestos", "prefijo": "PR",
-           "show_suplidos": False, "convierte_a": ["FA"]},
-    "AL": {"label": "Albarán", "plural": "Albaranes", "prefijo": "AL",
-           "show_suplidos": False, "convierte_a": ["FA"]},
-    "PE": {"label": "Pedido", "plural": "Pedidos", "prefijo": "PE",
-           "show_suplidos": False, "convierte_a": ["AL", "FA"]},
-    "AB": {"label": "Abono", "plural": "Abonos", "prefijo": "AB",
-           "show_suplidos": False, "convierte_a": []},
+    "FA": {"label": "Factura", "plural": "Facturas", "prefijo": "FA"},
+    "PR": {"label": "Presupuesto", "plural": "Presupuestos", "prefijo": "PR"},
+    "PE": {"label": "Pedido", "plural": "Pedidos", "prefijo": "PE"},
 }
 
 
 class DocumentosWidget(QWidget):
-    """Aloja una pestaña por cada tipo de documento (Factura/Presupuesto/Albarán/Pedido/Abono)."""
+    """Aloja una pestaña por cada tipo de documento (Factura/Presupuesto/Pedido)."""
 
     def __init__(self, db, parent=None):
         super().__init__(parent)
@@ -92,9 +86,8 @@ class DocumentListWidget(ListPage):
         self._btn_pdf = self._boton("  Ver PDF", "file-text", "text", "btn_secondary",
                                     self._on_pdf, needs_selection=True)
         widgets = [self._btn_edit, self._btn_pdf]
-        # Autorización electrónica solo para comprobantes fiscales (factura y
-        # nota de crédito/abono).
-        if self.tipo in ("FA", "AB"):
+        # Autorización electrónica solo para la factura (único comprobante fiscal).
+        if self.tipo == "FA":
             self._btn_afip = self._boton("  Autorizar en AFIP", "check", "text",
                                          "btn_secondary", self._on_autorizar,
                                          needs_selection=True)

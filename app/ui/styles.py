@@ -18,7 +18,7 @@ QWidget {{
 }}
 
 /* =====================================================================
-   TABS (ej. Facturas / Presupuestos / Albaranes / Pedidos / Abonos)
+   TABS (ej. Facturas / Presupuestos / Pedidos)
    Se estilan explícitamente porque el look nativo de Windows para pestañas
    no tiene suficiente contraste con nuestra paleta (se veían casi
    invisibles en modo claro).
