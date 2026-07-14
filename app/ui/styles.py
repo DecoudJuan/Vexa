@@ -234,6 +234,50 @@ QLabel[role="placeholder-sub"] {{
     background: transparent;
 }}
 
+/* Etiqueta de campo (arriba del input, estilo formulario moderno). */
+QLabel[role="field-label"] {{
+    font-size: 11px;
+    font-weight: 600;
+    color: {subtext};
+    background: transparent;
+}}
+
+/* =====================================================================
+   SECCIONES DE FORMULARIO (Configuración): banda con ícono + título
+   ===================================================================== */
+QFrame#form_section {{
+    background-color: {surface};
+    border: 1px solid {line};
+    border-radius: 12px;
+}}
+
+QFrame#section_head {{
+    background-color: rgba({accent_rgb}, 0.07);
+    border: none;
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+}}
+
+QLabel[role="section-title"] {{
+    font-size: 13px;
+    font-weight: 700;
+    color: {accent};
+    background: transparent;
+}}
+
+/* Barra de búsqueda ancha de las listas (ícono adentro, a la izquierda). */
+QLineEdit#search_input {{
+    background-color: {surface};
+    border: 1px solid {line};
+    border-radius: 10px;
+    padding: 10px 14px;
+    min-height: 22px;
+    font-size: 13.5px;
+}}
+QLineEdit#search_input:focus {{
+    border-color: {accent};
+}}
+
 /* =====================================================================
    METRIC CARDS
    ===================================================================== */

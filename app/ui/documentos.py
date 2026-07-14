@@ -174,7 +174,7 @@ class DocumentListWidget(ListPage):
 
     def _fill_row(self, row: int, d: dict) -> None:
         numero = f"{self.cfg['prefijo']}-{d.get('ejercicio')}-{d.get('numero') or ''}"
-        self._table.setItem(row, 0, self._cell(numero))
+        self._table.setItem(row, 0, self._cell(numero, accent=True))
         self._table.setItem(row, 1, self._cell((d.get("fecha") or "")[:10]))
         self._table.setItem(row, 2, self._cell(d.get("cliente_nombre") or ""))
         self._table.setItem(row, 3, self._cell(fmt_ar(d.get("total") or 0), Qt.AlignRight | Qt.AlignVCenter))

@@ -1,11 +1,11 @@
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QTabWidget, QFormLayout, QLineEdit,
-    QPushButton, QLabel, QCheckBox, QFileDialog, QFrame, QScrollArea,
+    QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QTabWidget, QFormLayout,
+    QLineEdit, QPushButton, QLabel, QCheckBox, QFileDialog, QFrame, QScrollArea,
     QSizePolicy, QMessageBox, QComboBox, QCompleter,
 )
 from PySide6.QtCore import Qt
 
-from ui.icons import svg_icon
+from ui.icons import svg_icon, svg_pixmap
 from ui.styles import get_palette
 from ui.widgets import fila as _fila, NoScrollComboBox
 from utils.helpers import (
@@ -95,7 +95,7 @@ class ConfiguracionWidget(QWidget):
         outer.addLayout(bar)
 
     def _tab_empresa(self) -> QWidget:
-        scroll, f = self._scroll_form()
+        scroll, v = self._scroll_vbox()
         self._nombre = QLineEdit()
         self._nif = QLineEdit()
         self._nif.textEdited.connect(lambda: self._reformatear(self._nif, formatear_cuit))
@@ -110,21 +110,91 @@ class ConfiguracionWidget(QWidget):
         self._telefono.setPlaceholderText(TELEFONO_EJEMPLO)
         self._email = QLineEdit()
         self._web = QLineEdit()
+        self._web.setPlaceholderText("https://…")
         self._moneda = self._combo(MONEDAS, con_data=True)
 
-        f.addRow("Nombre / razón social", self._nombre)
-        f.addRow("CUIT", self._nif)
-        f.addRow("Condición frente al IVA", self._condicion_iva)
-        f.addRow("Calle", self._calle)
-        f.addRow("Número", self._half(self._numero))
-        f.addRow("C.P.", self._half(self._cp))
-        f.addRow("Localidad", self._half(self._localidad))
-        f.addRow("Provincia", self._provincia)
-        f.addRow("Teléfono", self._telefono)
-        f.addRow("Email", self._email)
-        f.addRow("Web", self._web)
-        f.addRow("Moneda", self._half(self._moneda))
+        # Grilla de 4 columnas: full=4, mitad=2, cuarto=1.
+        v.addWidget(self._section("file-invoice", "Datos de la empresa", [
+            [("Nombre / razón social", self._nombre, 4)],
+            [("CUIT", self._nif, 2), ("Condición frente al IVA", self._condicion_iva, 2)],
+        ]))
+        v.addWidget(self._section("package", "Dirección", [
+            [("Calle", self._calle, 2), ("Número", self._numero, 1), ("C.P.", self._cp, 1)],
+            [("Localidad", self._localidad, 2), ("Provincia", self._provincia, 2)],
+        ]))
+        v.addWidget(self._section("credit-card", "Contacto y configuración", [
+            [("Teléfono", self._telefono, 2), ("Email", self._email, 2)],
+            [("Sitio web", self._web, 2), ("Moneda", self._moneda, 2)],
+        ]))
+        v.addStretch()
         return scroll
+
+    # ------------------------------------------------------------ secciones
+    def _scroll_vbox(self):
+        """(scroll, vbox) para armar una página con tarjetas de sección."""
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.NoFrame)
+        content = QWidget()
+        scroll.setWidget(content)
+        v = QVBoxLayout(content)
+        v.setContentsMargins(28, 22, 28, 22)
+        v.setSpacing(16)
+        return scroll, v
+
+    def _field(self, label: str, widget: QWidget) -> QWidget:
+        """Campo con su etiqueta arriba (estilo formulario moderno)."""
+        box = QWidget()
+        box.setStyleSheet("background: transparent;")
+        lay = QVBoxLayout(box)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(5)
+        lbl = QLabel(label)
+        lbl.setProperty("role", "field-label")
+        lay.addWidget(lbl)
+        lay.addWidget(widget)
+        return box
+
+    def _section(self, icon: str, titulo: str, filas: list) -> QFrame:
+        """Tarjeta de sección: banda con ícono + título y una grilla de campos.
+        `filas` = lista de filas; cada fila = [(label, widget, span), ...] en una
+        grilla de 4 columnas (full=4, mitad=2, cuarto=1)."""
+        card = QFrame()
+        card.setObjectName("form_section")
+        outer = QVBoxLayout(card)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(0)
+
+        head = QFrame()
+        head.setObjectName("section_head")
+        hl = QHBoxLayout(head)
+        hl.setContentsMargins(16, 11, 16, 11)
+        hl.setSpacing(8)
+        ic = QLabel()
+        ic.setPixmap(svg_pixmap(icon, 15, self._pal["accent"]))
+        ic.setStyleSheet("background: transparent;")
+        t = QLabel(titulo)
+        t.setProperty("role", "section-title")
+        hl.addWidget(ic)
+        hl.addWidget(t)
+        hl.addStretch()
+        outer.addWidget(head)
+
+        body = QWidget()
+        body.setStyleSheet("background: transparent;")
+        grid = QGridLayout(body)
+        grid.setContentsMargins(16, 14, 16, 16)
+        grid.setHorizontalSpacing(16)
+        grid.setVerticalSpacing(12)
+        for col in range(4):
+            grid.setColumnStretch(col, 1)
+        for r, fila in enumerate(filas):
+            c = 0
+            for label, widget, span in fila:
+                grid.addWidget(self._field(label, widget), r, c, 1, span)
+                c += span
+        outer.addWidget(body)
+        return card
 
     def _tab_guardado(self) -> QWidget:
         scroll, f = self._scroll_form()
