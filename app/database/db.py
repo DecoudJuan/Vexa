@@ -19,7 +19,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from database.models import (
-    Base, DatosEmpresa, Iva, FormaPago, Cliente, ClienteCuit, Concepto,
+    Base, DatosEmpresa, FormaPago, Cliente, ClienteCuit, Concepto,
     Factura, Linea, Suplido, Configuracion, TIPOS_DOCUMENTO,
 )
 
@@ -216,58 +216,12 @@ class DatabaseManager:
             for c in campos:
                 setattr(obj, c, data.get(c))
 
-    # ----------------------------------------------------------------------- iva
-
-    def get_all_iva(self, solo_activos: bool = False) -> list[dict]:
-        with self._session() as s:
-            stmt = select(Iva)
-            if solo_activos:
-                stmt = stmt.where(Iva.activo == 1)
-            stmt = stmt.order_by(Iva.tipo.desc())
-            return [_as_dict(o) for o in s.execute(stmt).scalars()]
-
-    def create_iva(self, data: dict) -> int:
-        with self._session() as s:
-            obj = Iva(tipo=data["tipo"], recargo=data["recargo"], activo=data["activo"])
-            s.add(obj)
-            s.flush()
-            return obj.id
-
-    def update_iva(self, iva_id: int, data: dict) -> None:
-        with self._session() as s:
-            s.execute(update(Iva).where(Iva.id == iva_id).values(
-                tipo=data["tipo"], recargo=data["recargo"], activo=data["activo"]))
-
-    def delete_iva(self, iva_id: int) -> None:
-        with self._session() as s:
-            s.execute(delete(Iva).where(Iva.id == iva_id))
-
     # ------------------------------------------------------------------ forma_pago
 
     def get_all_forma_pago(self) -> list[dict]:
         with self._session() as s:
             stmt = select(FormaPago).order_by(FormaPago.tipo.collate("NOCASE"))
             return [_as_dict(o) for o in s.execute(stmt).scalars()]
-
-    def create_forma_pago(self, data: dict) -> int:
-        with self._session() as s:
-            obj = FormaPago(
-                tipo=data["tipo"], genera_recibo=data["genera_recibo"],
-                vto1=data["vto1"], vto2=data["vto2"], vto3=data["vto3"],
-            )
-            s.add(obj)
-            s.flush()
-            return obj.id
-
-    def update_forma_pago(self, forma_pago_id: int, data: dict) -> None:
-        with self._session() as s:
-            s.execute(update(FormaPago).where(FormaPago.id == forma_pago_id).values(
-                tipo=data["tipo"], genera_recibo=data["genera_recibo"],
-                vto1=data["vto1"], vto2=data["vto2"], vto3=data["vto3"]))
-
-    def delete_forma_pago(self, forma_pago_id: int) -> None:
-        with self._session() as s:
-            s.execute(delete(FormaPago).where(FormaPago.id == forma_pago_id))
 
     # --------------------------------------------------------------------- clientes
 
@@ -375,32 +329,6 @@ class DatabaseManager:
                                   | Concepto.talle.like(like))
             stmt = stmt.order_by(*order_by)
             return [_as_dict(o) for o in s.execute(stmt).scalars()]
-
-    def create_concepto(self, data: dict) -> int:
-        with self._session() as s:
-            obj = Concepto(nombre=data.get("nombre"),
-                           codigo=data.get("codigo") or "",
-                           talle=data.get("talle") or "",
-                           pvp=data.get("pvp") or 0)
-            s.add(obj)
-            s.flush()
-            return obj.id
-
-    def update_concepto(self, concepto_id: int, data: dict) -> None:
-        with self._session() as s:
-            obj = s.get(Concepto, concepto_id)
-            obj.nombre = data.get("nombre")
-            obj.codigo = data.get("codigo") or ""
-            obj.talle = data.get("talle") or ""
-            obj.pvp = data.get("pvp") or 0
-
-    def delete_concepto(self, concepto_id: int) -> None:
-        with self._session() as s:
-            obj = s.get(Concepto, concepto_id)
-            if obj is None:
-                return
-            self._snapshot_concepto_en_lineas(s, obj)
-            s.delete(obj)
 
     @staticmethod
     def _snapshot_concepto_en_lineas(s, obj) -> None:
@@ -676,26 +604,8 @@ class DatabaseManager:
             factura.lineas = self._nuevas_lineas(lineas)
             factura.suplidos = self._nuevos_suplidos(suplidos)
 
-    def update_factura_estado(self, factura_id: int, estado: str) -> None:
-        with self._session() as s:
-            s.execute(update(Factura).where(Factura.id == factura_id).values(estado=estado))
-
     def delete_factura(self, factura_id: int) -> None:
         with self._session() as s:
             obj = s.get(Factura, factura_id)
             if obj is not None:
                 s.delete(obj)
-
-    # ------------------------------------------------------------------ dashboard
-
-    def get_resumen(self, ejercicio: int) -> dict:
-        with self._session() as s:
-            totales = s.execute(
-                select(Factura.tipo,
-                       func.count().label("cantidad"),
-                       func.coalesce(func.sum(Factura.total), 0).label("total"))
-                .where(Factura.ejercicio == ejercicio)
-                .group_by(Factura.tipo)
-            ).mappings().all()
-            n_clientes = s.execute(select(func.count()).select_from(Cliente)).scalar()
-            return {"por_tipo": [dict(m) for m in totales], "n_clientes": n_clientes}
