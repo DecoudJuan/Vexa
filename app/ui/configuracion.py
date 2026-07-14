@@ -1,16 +1,16 @@
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QTabWidget, QFormLayout,
     QLineEdit, QPushButton, QLabel, QCheckBox, QFileDialog, QFrame, QScrollArea,
-    QSizePolicy, QMessageBox, QComboBox, QCompleter,
+    QSizePolicy, QMessageBox,
 )
 from PySide6.QtCore import Qt
 
 from ui.icons import svg_icon, svg_pixmap
 from ui.styles import get_palette
-from ui.widgets import fila as _fila, NoScrollComboBox
+from ui.widgets import fila as _fila, NoScrollComboBox, provincia_combo
 from utils.helpers import (
     leer_tema, leer_zoom, valor_valido, set_moneda, CONDICIONES_IVA, MONEDAS,
-    PROVINCIAS_AR, formatear_cuit, TELEFONO_EJEMPLO, partir_direccion,
+    formatear_cuit, TELEFONO_EJEMPLO, partir_direccion,
     unir_direccion,
 )
 
@@ -105,7 +105,7 @@ class ConfiguracionWidget(QWidget):
         self._numero.setPlaceholderText("1234")
         self._cp = QLineEdit()
         self._localidad = QLineEdit()
-        self._provincia = self._provincia_combo()
+        self._provincia = provincia_combo(expandir=True, placeholder=None)
         self._telefono = QLineEdit()
         self._telefono.setPlaceholderText(TELEFONO_EJEMPLO)
         self._email = QLineEdit()
@@ -284,21 +284,6 @@ class ConfiguracionWidget(QWidget):
         line.setText(fmt(line.text()))
         line.setCursorPosition(len(line.text()))
 
-    def _provincia_combo(self) -> NoScrollComboBox:
-        combo = NoScrollComboBox()
-        combo.setEditable(True)
-        combo.setInsertPolicy(QComboBox.NoInsert)
-        combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        combo.addItem("")
-        for prov in PROVINCIAS_AR:
-            combo.addItem(prov)
-        combo.setCurrentIndex(0)
-        comp = QCompleter(PROVINCIAS_AR)
-        comp.setCaseSensitivity(Qt.CaseInsensitive)
-        comp.setFilterMode(Qt.MatchContains)
-        comp.setCompletionMode(QCompleter.PopupCompletion)
-        combo.setCompleter(comp)
-        return combo
 
     # ------------------------------------------------------------ datos
     def refresh(self) -> None:

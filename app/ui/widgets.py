@@ -1,7 +1,11 @@
 """Widgets chicos compartidos entre pantallas."""
 
-from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QComboBox
+from PySide6.QtWidgets import (
+    QWidget, QHBoxLayout, QLabel, QComboBox, QSizePolicy, QCompleter,
+)
 from PySide6.QtCore import Qt
+
+from utils.helpers import PROVINCIAS_AR
 
 
 class NoScrollComboBox(QComboBox):
@@ -24,6 +28,32 @@ def avatar(initials: str, bg: str, fg: str, size: int = 32) -> QLabel:
         f"font-weight: 800; font-size: 12px;"
     )
     return lbl
+
+
+def provincia_combo(object_name: str | None = None, expandir: bool = False,
+                    placeholder: str | None = "Elegí o escribí la provincia…") -> NoScrollComboBox:
+    """Combo editable de provincias argentinas con autocompletado (elegir o
+    escribir a mano). Los sitios difieren solo en la política de tamaño, el
+    objectName y si muestran placeholder, así que eso va por parámetro."""
+    combo = NoScrollComboBox()
+    if object_name:
+        combo.setObjectName(object_name)
+    combo.setEditable(True)
+    combo.setInsertPolicy(QComboBox.NoInsert)
+    ancho = QSizePolicy.Expanding if expandir else QSizePolicy.Ignored
+    combo.setSizePolicy(ancho, QSizePolicy.Fixed)
+    combo.addItem("")
+    for prov in PROVINCIAS_AR:
+        combo.addItem(prov)
+    combo.setCurrentIndex(0)
+    if placeholder:
+        combo.lineEdit().setPlaceholderText(placeholder)
+    comp = QCompleter(PROVINCIAS_AR)
+    comp.setCaseSensitivity(Qt.CaseInsensitive)
+    comp.setFilterMode(Qt.MatchContains)
+    comp.setCompletionMode(QCompleter.PopupCompletion)
+    combo.setCompleter(comp)
+    return combo
 
 
 def fila(*widgets: QWidget) -> QWidget:
