@@ -23,6 +23,7 @@ from PySide6.QtCore import Qt, QPoint, QRect
 from PySide6.QtGui import QColor
 
 from ui.icons import svg_icon, svg_pixmap
+from utils.resources import resource_path
 
 _PX_RE = re.compile(r"(\d+)px")
 
@@ -104,9 +105,11 @@ QLabel { background: transparent; }
 }
 #modal_body QComboBox#field QLineEdit { background: transparent; border: none; padding: 0; color: %INK%; }
 #modal_body QComboBox::drop-down, #modal_body QDateEdit::drop-down {
-    border: none; background: transparent; width: 22px;
+    border: none; background: transparent; width: 24px;
 }
-#modal_body QComboBox::down-arrow, #modal_body QDateEdit::down-arrow { image: none; width: 0px; height: 0px; }
+#modal_body QComboBox::down-arrow, #modal_body QDateEdit::down-arrow {
+    image: url(%CHEVRON%); width: 13px; height: 13px;
+}
 #modal_body QComboBox QAbstractItemView {
     background: %CARD%; color: %INK%; border: 1px solid %BORDER%; border-radius: 8px;
     selection-background-color: %LIST_SEL%; selection-color: %INK%; outline: none; padding: 4px;
@@ -182,6 +185,7 @@ def build_modal_css(theme: str = "dark") -> str:
     css = _MODAL_TEMPLATE
     for key, value in modal_colors(theme).items():
         css = css.replace("%" + key.upper() + "%", value)
+    css = css.replace("%CHEVRON%", resource_path("assets/chevron.png").as_posix())
     return css
 
 
