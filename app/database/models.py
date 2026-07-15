@@ -146,7 +146,10 @@ class Concepto(Base):
 class Factura(Base):
     __tablename__ = "facturas"
     __table_args__ = (
-        CheckConstraint("tipo IN ('FA','PR','AL','PE','AB')", name="ck_facturas_tipo"),
+        CheckConstraint(
+            "tipo IN (" + ", ".join(f"'{t}'" for t in TIPOS_DOCUMENTO) + ")",
+            name="ck_facturas_tipo",
+        ),
         CheckConstraint(
             "estado IN ('abierto','facturado','cobrado','anulado')",
             name="ck_facturas_estado",
