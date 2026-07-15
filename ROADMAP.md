@@ -121,6 +121,29 @@ sin guardar + barra de selección deslizante (v2.6.0).
       sin fondo negro en Windows con tema oscuro, selección de filas en azul tenue,
       guía "¿Cómo conectarme con ARCA?".
 
+## Fase 6 — App Android (Flet) + monorepo con core compartido  ← EN CURSO
+Llevar Vexa a una **APK Android** descargable, responsive y sin perder funcionalidad,
+manteniendo también el escritorio. Framework mobile elegido: **Flet** (UI Flutter en
+Python, buildea APK desde Windows, soporta cryptography+lxml+pillow). El core ya es
+Qt-free y reutilizable. Repo pasa a monorepo y se renombra a **`Vexa`**.
+
+- [x] **Pre-paso**: quitar la leyenda "DOCUMENTO NO VÁLIDO COMO FACTURA" del PDF
+      (`utils/pdf_generator.py`).
+- [~] **Fase 6.1 — Monorepo + `vexa_core`**: extraer el core (`database`/`utils`/
+      `fiscal`/`version`) a un paquete instalable **`vexa_core`** (pip install -e);
+      mover la UI de escritorio a `desktop/`; reescribir imports a `vexa_core.*`;
+      actualizar `.spec`/`installer.iss`. **Verificar que el escritorio queda intacto**
+      (correr fuente + rebuild exe). Refactor sin features → release patch (v2.6.1).
+- [ ] **Fase 6.2 — Mobile offline (Flet)**: carpeta `mobile/` que consume `vexa_core`.
+      Spike técnico (Flet + DB + generar/abrir PDF en dispositivo real; validar reportlab,
+      plan B fpdf2+qrcode). UI responsive con paridad de funcionalidad **menos AFIP**
+      (documentos no fiscales, comportamiento por defecto de `NoFiscalProvider`):
+      Home/Clientes/Productos/Documentos/Configuración/Onboarding. Adaptaciones Android
+      (compartir PDF vía share intent, `FilePicker`, `FACTURACION_DATA_DIR` → storage de
+      la app). Empaquetar `flet build apk` (Flutter+JDK17+Android SDK) y entregar APK.
+- [ ] **Fase 6.3 — AFIP en mobile**: `cryptography`+`lxml`+`zeep` en el build; reactivar
+      "Autorizar en AFIP" y solapa AFIP (cert/key vía FilePicker); QR fiscal + CAE.
+
 ## Transversal
 - [ ] Licenciamiento / activación de escritorio + empaquetado por marca
       (nombre/ícono/publisher configurables).
