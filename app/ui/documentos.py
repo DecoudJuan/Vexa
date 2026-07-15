@@ -314,6 +314,8 @@ class DocumentoDialog(BaseModal):
             self._crear_fila_linea()
             self._sugerir_numero()
 
+        self.enable_unsaved_guard()
+
         self._recalcular()
 
     def _titulos(self) -> tuple[str, str]:

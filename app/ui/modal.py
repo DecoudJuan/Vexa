@@ -17,7 +17,9 @@ import re
 
 from PySide6.QtWidgets import (
     QDialog, QFrame, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QWidget,
-    QGraphicsDropShadowEffect, QScrollArea, QApplication,
+    QGraphicsDropShadowEffect, QScrollArea, QApplication, QMessageBox,
+    QLineEdit, QTextEdit, QComboBox, QCheckBox, QSpinBox, QDoubleSpinBox,
+    QDateEdit, QTableWidget,
 )
 from PySide6.QtCore import (
     Qt, QPoint, QRect, QPropertyAnimation, QEasingCurve, QParallelAnimationGroup,
@@ -202,6 +204,8 @@ class BaseModal(QDialog):
         self._drag_pos = None
         self._centered = False
         self._scroll = scroll
+        self._guard_unsaved = False
+        self._snap_inicial = None
 
         self.setWindowTitle(title)
         self.setModal(True)
@@ -222,6 +226,75 @@ class BaseModal(QDialog):
     # -------------------------------------------------------- helpers
     def _S(self, px) -> int:
         return max(1, round(px * self._zoom))
+
+    # ----------------------------------------- cambios sin guardar (descarte)
+    def enable_unsaved_guard(self) -> None:
+        """Activa la confirmación al cerrar (Escape / Cancelar / X) si hay cambios
+        sin guardar. Se llama al final del __init__ del subdiálogo, ya con el
+        formulario poblado, para tomar el estado inicial de referencia."""
+        self._guard_unsaved = True
+        self._snap_inicial = self._snapshot()
+
+    def _snapshot(self) -> tuple:
+        """Foto del estado de los campos del formulario, para detectar cambios.
+        Recorre los inputs reales (no la cabecera/botones del modal)."""
+        partes = []
+        for w in self.findChildren(QWidget):
+            if isinstance(w, QComboBox):
+                partes.append(("cb", w.currentText()))
+            elif isinstance(w, QCheckBox):
+                partes.append(("ck", w.isChecked()))
+            elif isinstance(w, (QSpinBox, QDoubleSpinBox)):
+                partes.append(("sp", w.value()))
+            elif isinstance(w, QDateEdit):
+                partes.append(("dt", w.date().toString("yyyy-MM-dd")))
+            elif isinstance(w, QTextEdit):
+                partes.append(("te", w.toPlainText()))
+            elif isinstance(w, QLineEdit):
+                partes.append(("le", w.text()))
+            elif isinstance(w, QTableWidget):
+                partes.append(("tb", w.rowCount(), tuple(
+                    (w.item(r, c).text() if w.item(r, c) else "")
+                    for r in range(w.rowCount()) for c in range(w.columnCount())
+                )))
+        return tuple(partes)
+
+    def _hay_cambios_sin_guardar(self) -> bool:
+        return self._guard_unsaved and self._snapshot() != self._snap_inicial
+
+    def reject(self) -> None:
+        # Cerrar con cambios sin guardar pide confirmación (Escape, Cancelar y la
+        # X del encabezado pasan por acá); guardar usa accept() y no lo dispara.
+        if self._hay_cambios_sin_guardar():
+            box = QMessageBox(self)
+            box.setWindowTitle("Cambios sin guardar")
+            box.setIcon(QMessageBox.Warning)
+            box.setText("Hay cambios sin guardar.")
+            box.setInformativeText("¿Querés descartarlos y cerrar?")
+            descartar = box.addButton("Descartar", QMessageBox.DestructiveRole)
+            seguir = box.addButton("Seguir editando", QMessageBox.RejectRole)
+            box.setDefaultButton(seguir)
+            # El QMessageBox hereda el QSS acotado del modal (fondo transparente,
+            # sin color de texto), que en Windows lo dejaba gris sobre negro.
+            # Se le da un estilo propio con la paleta del modal. Sin ancho fijo:
+            # el botón crece con el texto (así "Seguir editando" no se corta con
+            # el escalado de pantalla), y el padding se escala con el zoom.
+            f = box.font()
+            f.setPixelSize(self._S(13))
+            box.setFont(f)
+            mc = modal_colors(self._theme)
+            box.setStyleSheet(
+                f"QMessageBox {{ background-color: {mc['card']}; }}"
+                f"QMessageBox QLabel {{ color: {mc['ink']}; background: transparent; }}"
+                f"QMessageBox QPushButton {{ background-color: {mc['field']}; color: {mc['ink']};"
+                f" border: 1px solid {mc['border']}; border-radius: {self._S(8)}px;"
+                f" padding: {self._S(7)}px {self._S(16)}px; min-width: {self._S(150)}px; }}"
+                f"QMessageBox QPushButton:hover {{ background-color: {mc['border']}; }}"
+            )
+            box.exec()
+            if box.clickedButton() is not descartar:
+                return
+        super().reject()
 
     def extra_css(self) -> str:
         """Reglas QSS adicionales del subdiálogo (opcional)."""

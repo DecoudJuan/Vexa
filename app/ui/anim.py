@@ -1,9 +1,10 @@
 """Helpers de animación reutilizables de la UI."""
 
-from PySide6.QtWidgets import QFrame, QTabWidget, QGraphicsOpacityEffect, QWidget
-from PySide6.QtCore import (
-    Qt, QEvent, QRect, QPropertyAnimation, QEasingCurve,
+from PySide6.QtWidgets import (
+    QFrame, QTabWidget, QTableWidget, QGraphicsOpacityEffect, QWidget,
 )
+from PySide6.QtCore import Qt, QEvent, QRect, QPropertyAnimation, QEasingCurve
+from PySide6.QtGui import QColor
 
 
 class TabUnderline(QFrame):
@@ -68,3 +69,72 @@ def fade_in(widget: QWidget, duration: int = 160) -> QPropertyAnimation:
     anim.finished.connect(lambda: widget.setGraphicsEffect(None))
     anim.start()
     return anim
+
+
+class RowHighlight(QFrame):
+    """Da la sensación de que el resaltado de fila "se desliza" de una a otra.
+
+    El resaltado en reposo lo dibuja el CSS (sólido, legible). Este overlay solo
+    aparece DURANTE el cambio de selección: arranca sobre la fila anterior, se
+    desliza hasta la nueva y se oculta, dejando el resaltado del CSS. Así no
+    atenúa el texto en reposo ni revela separadores de columna."""
+
+    def __init__(self, table: QTableWidget, pal: dict):
+        super().__init__(table.viewport())
+        self._table = table
+        self._anim: QPropertyAnimation | None = None
+        self.setObjectName("row_highlight")
+        self.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+        self.set_palette(pal)
+        self.hide()
+        table.selectionModel().selectionChanged.connect(self._on_selection_changed)
+
+    def set_palette(self, pal: dict) -> None:
+        # Translúcido para que el texto se vea mientras el bar se desliza
+        # (en reposo el resaltado lo dibuja el CSS, sólido).
+        c = QColor(pal["row_sel"])
+        self.setStyleSheet(
+            f"#row_highlight {{ background-color: rgba({c.red()},{c.green()},{c.blue()},0.5);"
+            f" border: none; border-radius: 6px; }}"
+        )
+
+    def _rect_for(self, index) -> QRect | None:
+        r = self._table.visualRect(index)
+        if r.height() <= 0:
+            return None
+        vp = self._table.viewport()
+        return QRect(0, r.y(), vp.width(), r.height())
+
+    def _on_selection_changed(self, selected, deselected) -> None:
+        rows = self._table.selectionModel().selectedRows()
+        if not rows:
+            self._stop()
+            self.hide()
+            return
+        new_rect = self._rect_for(rows[0])
+        old_idx = deselected.indexes()
+        # Sin fila anterior (primera selección, o repoblado): lo muestra el CSS.
+        if new_rect is None or not old_idx:
+            self._stop()
+            self.hide()
+            return
+        old_rect = self._rect_for(old_idx[0])
+        if old_rect is None:
+            self.hide()
+            return
+        self._stop()
+        self.setGeometry(old_rect)
+        self.show()
+        self.raise_()
+        self._anim = QPropertyAnimation(self, b"geometry", self)
+        self._anim.setDuration(200)
+        self._anim.setStartValue(old_rect)
+        self._anim.setEndValue(new_rect)
+        self._anim.setEasingCurve(QEasingCurve.OutCubic)
+        self._anim.finished.connect(self.hide)
+        self._anim.start()
+
+    def _stop(self) -> None:
+        if self._anim is not None:
+            self._anim.stop()
+            self._anim = None
