@@ -296,11 +296,12 @@ class DocumentoDialog(BaseModal):
         super().__init__(titulo, sub, icon="file-invoice", width=860,
                          zoom=leer_zoom(db), theme=leer_tema(db),
                          scale_css=True, parent=parent)
-        # Modal grande: ancho fijo y alto generoso pero que siempre entre en la
-        # pantalla. La lista de productos (elástica) se lleva el alto sobrante.
+        # Modal grande: apunta al tamaño de diseño pero se limita a un % de la
+        # pantalla para entrar en cualquier monitor. La lista de productos
+        # (elástica) se lleva el alto sobrante.
         avail = QApplication.primaryScreen().availableGeometry()
-        self.setFixedWidth(min(self._S(860), avail.width() - self._S(40)))
-        self.setFixedHeight(min(self._S(900), avail.height() - self._S(56)))
+        self.setFixedWidth(min(self._S(860), int(avail.width() * 0.94)))
+        self.setFixedHeight(min(self._S(900), int(avail.height() * 0.92)))
 
         self._build_body()
         self.set_primary_action("Guardar", self._accept)

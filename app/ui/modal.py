@@ -205,10 +205,13 @@ class BaseModal(QDialog):
         self.setModal(True)
         self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
         self.setAttribute(Qt.WA_TranslucentBackground)
-        self.setFixedWidth(self._S(width))
+        # Tamaño responsivo: el px de diseño (× zoom) es el objetivo, pero nunca
+        # más que un % de la pantalla disponible, así entra en cualquier monitor
+        # (notebooks, pantallas chicas) sin salirse ni recortarse.
+        avail = QApplication.primaryScreen().availableGeometry()
+        self.setFixedWidth(min(self._S(width), int(avail.width() * 0.94)))
         if scroll:
-            avail = QApplication.primaryScreen().availableGeometry()
-            self.setFixedHeight(min(self._S(height or 720), avail.height() - self._S(40)))
+            self.setFixedHeight(min(self._S(height or 720), int(avail.height() * 0.92)))
 
         self._build_chrome(title, subtitle, icon)
         css = build_modal_css(theme) + self.extra_css()
