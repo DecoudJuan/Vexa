@@ -1,11 +1,17 @@
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QPushButton,
     QLabel, QStackedWidget, QFrame, QButtonGroup, QApplication,
+    QGraphicsOpacityEffect,
 )
-from PySide6.QtCore import Qt, QSize, QTimer
+from PySide6.QtCore import (
+    Qt, QSize, QTimer, Signal, QPropertyAnimation, QEasingCurve,
+    QRect, QParallelAnimationGroup,
+)
 
 from ui.icons import svg_icon
 from ui.styles import build_style, get_palette, build_qpalette
+from ui.home import HomeWidget, logo_symbol_pixmap, _logo_v_color
+from ui.anim import fade_in
 from ui.clientes import ClientesWidget
 from ui.conceptos import ConceptosWidget
 from ui.documentos import DocumentosWidget
@@ -50,6 +56,17 @@ class _NavButton(QPushButton):
         self.setIcon(self._icon_on if self.isChecked() else self._icon_off)
 
 
+class _ClickableWidget(QWidget):
+    """QWidget que emite `clicked` al soltar el mouse dentro suyo."""
+
+    clicked = Signal()
+
+    def mouseReleaseEvent(self, e):  # noqa: N802
+        if e.button() == Qt.LeftButton and self.rect().contains(e.position().toPoint()):
+            self.clicked.emit()
+        super().mouseReleaseEvent(e)
+
+
 class MainWindow(QMainWindow):
     def __init__(self, db):
         super().__init__()
@@ -63,8 +80,9 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(APP_NAME)
         self.setMinimumSize(round(1150 * self._zoom), round(700 * self._zoom))
         self.resize(round(1320 * self._zoom), round(780 * self._zoom))
+        self._current_key: str | None = None
         self._build_ui()
-        self._navigate_to("clientes")
+        self._go_home(animate=False)
 
     def _build_ui(self) -> None:
         central = QWidget()
@@ -79,6 +97,9 @@ class MainWindow(QMainWindow):
         root.addWidget(self.stack)
 
         self.pages: dict[str, QWidget] = {}
+        home = HomeWidget(self.db)
+        home.navigate.connect(self._navigate_to)
+        self._add_page("home", home)
         self._add_page("clientes", ClientesWidget(self.db))
         self._add_page("conceptos", ConceptosWidget(self.db))
         self._add_page("documentos", DocumentosWidget(self.db))
@@ -97,16 +118,34 @@ class MainWindow(QMainWindow):
         layout.setContentsMargins(12, 0, 12, 16)
         layout.setSpacing(4)
 
-        brand = QWidget()
+        # Marca clickeable (logo + "Vexa"): vuelve a la pantalla de inicio.
+        brand = _ClickableWidget()
+        brand.setObjectName("brand_click")
+        brand.setCursor(Qt.PointingHandCursor)
+        brand.setToolTip("Ir al inicio")
+        brand.clicked.connect(self._go_home)
         bl = QVBoxLayout(brand)
         bl.setContentsMargins(8, 20, 8, 16)
         bl.setSpacing(2)
+
+        top = QHBoxLayout()
+        top.setContentsMargins(0, 0, 0, 0)
+        top.setSpacing(8)
+        self._brand_logo = QLabel()
+        # El QLabel toma por defecto el fondo 'base' (más claro que el 'crust' de
+        # la sidebar) y se veía un recuadro blanco alrededor del logo.
+        self._brand_logo.setStyleSheet("background: transparent;")
+        self._brand_logo.setPixmap(logo_symbol_pixmap(round(26 * self._zoom), _logo_v_color(self._theme)))
         name_lbl = QLabel(APP_NAME)
         name_lbl.setObjectName("brand_name")
+        top.addWidget(self._brand_logo)
+        top.addWidget(name_lbl)
+        top.addStretch()
+
         sub_lbl = QLabel(self._empresa_nombre())
         sub_lbl.setObjectName("brand_sub")
         self._brand_sub = sub_lbl
-        bl.addWidget(name_lbl)
+        bl.addLayout(top)
         bl.addWidget(sub_lbl)
         layout.addWidget(brand)
 
@@ -116,6 +155,13 @@ class MainWindow(QMainWindow):
         sep.setFixedHeight(1)
         layout.addWidget(sep)
         layout.addSpacing(6)
+
+        # Indicador deslizante del ítem activo (se posiciona detrás de los
+        # botones, que tienen fondo transparente). Se crea antes que los botones
+        # y se baja en la pila para que el texto/ícono queden por encima.
+        self._nav_indicator = QFrame(sidebar)
+        self._nav_indicator.setObjectName("nav_indicator")
+        self._nav_indicator.hide()
 
         self._btn_group = QButtonGroup(self)
         self._btn_group.setExclusive(True)
@@ -242,9 +288,13 @@ class MainWindow(QMainWindow):
         stylesheet (anchos/altos fijados por código, no por CSS), para que
         el zoom no termine recortando el texto de la sidebar."""
         self._sidebar.setFixedWidth(round(210 * self._zoom))
+        self._brand_logo.setPixmap(logo_symbol_pixmap(round(26 * self._zoom), _logo_v_color(self._theme)))
         for btn in self._nav_btns.values():
             btn.setFixedHeight(round(44 * self._zoom))
         self.setMinimumSize(round(1150 * self._zoom), round(700 * self._zoom))
+        # Reubicar el indicador tras recalcular alturas/anchos (sin animar).
+        if self._current_key:
+            QTimer.singleShot(0, lambda: self._position_nav_indicator(animate=False))
 
     def _persist_preferences(self) -> None:
         self.db.set_config("theme", self._theme)
@@ -270,16 +320,209 @@ class MainWindow(QMainWindow):
         self.pages[key] = widget
         self.stack.addWidget(widget)
 
+    def _slide_sidebar(self, show: bool, animate: bool = True) -> None:
+        """Muestra/oculta la barra lateral deslizándola (animando su ancho).
+        La sidebar tiene ancho fijo; para animar se afloja el mínimo a 0 y se
+        anima el máximo, restableciendo el ancho fijo al terminar."""
+        bar = self._sidebar
+        target = round(210 * self._zoom)
+
+        # Sin animación: fijar el estado directamente (se usa al arrancar, cuando
+        # la ventana aún no es visible y no se puede confiar en isVisible()).
+        if not animate:
+            if show:
+                bar.setFixedWidth(target)
+                bar.show()
+            else:
+                bar.hide()
+                bar.setMinimumWidth(0)
+                bar.setMaximumWidth(0)
+            return
+
+        if show and bar.isVisible() and bar.maximumWidth() >= target:
+            return
+        if not show and not bar.isVisible():
+            return
+
+        bar.setMinimumWidth(0)
+        if show and not bar.isVisible():
+            bar.setMaximumWidth(0)
+            bar.show()
+
+        anim = QPropertyAnimation(bar, b"maximumWidth", self)
+        anim.setDuration(240)
+        anim.setStartValue(bar.width())
+        anim.setEndValue(target if show else 0)
+        anim.setEasingCurve(QEasingCurve.OutCubic if show else QEasingCurve.InCubic)
+
+        def _fin() -> None:
+            if show:
+                bar.setFixedWidth(target)  # restablece min=max=target
+            else:
+                bar.hide()
+                bar.setMinimumWidth(0)
+                bar.setMaximumWidth(0)
+
+        anim.finished.connect(_fin)
+        anim.start()
+        self._sidebar_anim = anim  # evita que lo recolecte el GC
+
+    def _position_nav_indicator(self, animate: bool) -> None:
+        """Coloca el indicador del ítem activo bajo el botón seleccionado; con
+        `animate` se desliza desde su posición actual (cambio entre secciones)."""
+        ind = self._nav_indicator
+        btn = self._nav_btns.get(self._current_key or "")
+        if btn is None:
+            return
+        target = btn.geometry()
+        if target.height() == 0:
+            return
+        ind.show()
+        ind.lower()
+        if animate and ind.geometry().height() > 0:
+            anim = QPropertyAnimation(ind, b"geometry", self)
+            anim.setDuration(220)
+            anim.setStartValue(ind.geometry())
+            anim.setEndValue(target)
+            anim.setEasingCurve(QEasingCurve.OutCubic)
+            anim.start()
+            self._nav_ind_anim = anim  # evita que lo recolecte el GC
+        else:
+            ind.setGeometry(target)
+
+    def _go_home(self, animate: bool = True) -> None:
+        """Vuelve a la pantalla de inicio y esconde la barra lateral (recién
+        reaparece al elegir una sección)."""
+        self._slide_sidebar(False, animate=animate)
+        # QButtonGroup exclusivo no permite dejar todo sin marcar salvo que se
+        # afloje la exclusividad un instante.
+        self._btn_group.setExclusive(False)
+        for btn in self._nav_btns.values():
+            btn.setChecked(False)
+        self._btn_group.setExclusive(True)
+        self._current_key = None
+        self._nav_indicator.hide()
+        self.stack.setCurrentWidget(self.pages["home"])
+        self.pages["home"].refresh()
+        if animate:
+            fade_in(self.pages["home"])
+
     def _navigate_to(self, key: str) -> None:
         if key not in self.pages:
             return
+        # Ya estamos en esa sección: no recargar ni re-animar.
+        if key == self._current_key:
+            return
+        target = round(210 * self._zoom)
+        ya_abierta = self._sidebar.isVisible() and self._sidebar.maximumWidth() >= target
+        self._slide_sidebar(True)
         self.stack.setCurrentWidget(self.pages[key])
         if key in self._nav_btns:
             self._nav_btns[key].setChecked(True)
+        self._current_key = key
+        # Si la sidebar ya estaba abierta, el indicador se desliza entre ítems;
+        # si recién se despliega, se coloca (sin animar) cuando termina el slide,
+        # ya con el ancho final para medir bien la geometría del botón.
+        if ya_abierta:
+            self._position_nav_indicator(animate=True)
+        else:
+            QTimer.singleShot(260, lambda: self._position_nav_indicator(animate=False))
         page = self.pages[key]
         if hasattr(page, "refresh"):
             page.refresh()
+        fade_in(page)
 
     def _empresa_nombre(self) -> str:
         empresa = self.db.get_datos_empresa()
         return (empresa.get("nombre") or "").upper() or "MI EMPRESA"
+
+    # ---------------------------------------------------------------- intro
+    def play_intro(self, hold_ms: int = 600, move_ms: int = 750) -> None:
+        """Arranque: la V aparece centrada sobre toda la ventana; tras una pausa
+        se desplaza y encoge hasta el lugar del logo de la pantalla de inicio,
+        mientras el fondo opaco se desvanece revelando las tarjetas. Se llama al
+        abrir el programa, después de show()."""
+        pal = get_palette(self._theme)
+        zoom = self._zoom
+        home = self.pages.get("home")
+
+        overlay = QWidget(self)
+        overlay.setObjectName("intro_overlay")
+        overlay.setGeometry(self.rect())
+
+        # Fondo opaco que se desvanece: al hacerlo, la home (tarjetas, wordmark)
+        # va "apareciendo" detrás.
+        bg = QWidget(overlay)
+        bg.setObjectName("intro_bg")
+        bg.setStyleSheet(f"#intro_bg {{ background-color: {pal['base']}; }}")
+        bg.setGeometry(overlay.rect())
+
+        # La V que viaja del centro al lugar del logo real.
+        big = round(150 * zoom)
+        small = round(64 * zoom)  # tamaño del logo en la home
+        v = QLabel(overlay)
+        v.setScaledContents(True)
+        v.setStyleSheet("background: transparent;")
+        v.setPixmap(logo_symbol_pixmap(big, _logo_v_color(self._theme)))
+
+        cx, cy = overlay.width() // 2, overlay.height() // 2
+        start = QRect(cx - big // 2, cy - big // 2, big, big)
+
+        # Destino = centro del logo real de la home (mapeado a coords de la
+        # ventana). Se oculta el logo real durante la intro y se revela al final,
+        # así el traspaso entre la V animada y la real es sin salto.
+        tx, ty = cx, cy - big
+        if home is not None and hasattr(home, "_logo"):
+            c = home._logo.mapTo(self, home._logo.rect().center())
+            tx, ty = c.x(), c.y()
+            home._logo.setGraphicsEffect(QGraphicsOpacityEffect(home._logo))
+            home._logo.graphicsEffect().setOpacity(0.0)
+        end = QRect(tx - small // 2, ty - small // 2, small, small)
+
+        v.setGeometry(start)
+        v.raise_()
+        overlay.show()
+        self._intro_overlay = overlay
+        self._intro_bg = bg
+
+        def _start_move() -> None:
+            bg_effect = QGraphicsOpacityEffect(bg)
+            bg.setGraphicsEffect(bg_effect)
+
+            move = QPropertyAnimation(v, b"geometry", self)
+            move.setDuration(move_ms)
+            move.setStartValue(start)
+            move.setEndValue(end)
+            move.setEasingCurve(QEasingCurve.InOutCubic)
+
+            fade = QPropertyAnimation(bg_effect, b"opacity", self)
+            fade.setDuration(move_ms)
+            fade.setStartValue(1.0)
+            fade.setEndValue(0.0)
+            fade.setEasingCurve(QEasingCurve.InOutCubic)
+
+            group = QParallelAnimationGroup(self)
+            group.addAnimation(move)
+            group.addAnimation(fade)
+
+            def _done() -> None:
+                if home is not None and hasattr(home, "_logo"):
+                    home._logo.setGraphicsEffect(None)  # revela el logo real
+                overlay.deleteLater()
+
+            group.finished.connect(_done)
+            group.start()
+            self._intro_group = group  # evita que lo recolecte el GC
+
+        QTimer.singleShot(hold_ms, _start_move)
+
+    def resizeEvent(self, e):  # noqa: N802
+        # Mientras el overlay de arranque está visible, que cubra toda la ventana
+        # aunque se redimensione.
+        super().resizeEvent(e)
+        overlay = getattr(self, "_intro_overlay", None)
+        if overlay is not None and overlay.isVisible():
+            overlay.setGeometry(self.rect())
+            bg = getattr(self, "_intro_bg", None)
+            if bg is not None:
+                bg.setGeometry(overlay.rect())

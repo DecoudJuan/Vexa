@@ -7,6 +7,7 @@ from PySide6.QtCore import Qt
 
 from ui.icons import svg_icon, svg_pixmap
 from ui.styles import get_palette
+from ui.anim import TabUnderline
 from ui.widgets import fila as _fila, NoScrollComboBox, provincia_combo
 from utils.helpers import (
     leer_tema, leer_zoom, valor_valido, set_moneda, CONDICIONES_IVA, MONEDAS,
@@ -76,6 +77,7 @@ class ConfiguracionWidget(QWidget):
         self._tabs.addTab(self._tab_empresa(), "Datos de la empresa")
         self._tabs.addTab(self._tab_guardado(), "Guardado")
         self._tabs.addTab(self._tab_afip(), "AFIP (opcional)")
+        TabUnderline(self._tabs)
         outer.addWidget(self._tabs, 1)
 
         sep = QFrame()

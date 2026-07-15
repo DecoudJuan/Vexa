@@ -19,7 +19,9 @@ from PySide6.QtWidgets import (
     QDialog, QFrame, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QWidget,
     QGraphicsDropShadowEffect, QScrollArea, QApplication,
 )
-from PySide6.QtCore import Qt, QPoint, QRect
+from PySide6.QtCore import (
+    Qt, QPoint, QRect, QPropertyAnimation, QEasingCurve, QParallelAnimationGroup,
+)
 from PySide6.QtGui import QColor
 
 from ui.icons import svg_icon, svg_pixmap
@@ -369,3 +371,29 @@ class BaseModal(QDialog):
             if geo.top() < avail.top():
                 geo.moveTop(avail.top())
             self.move(geo.topLeft())
+            self._animate_open(geo.topLeft())
+
+    def _animate_open(self, final_pos: QPoint) -> None:
+        """Aparición del modal: fade + un leve deslizamiento hacia arriba."""
+        offset = self._S(14)
+        start_pos = QPoint(final_pos.x(), final_pos.y() + offset)
+        self.setWindowOpacity(0.0)
+        self.move(start_pos)
+
+        fade = QPropertyAnimation(self, b"windowOpacity", self)
+        fade.setDuration(190)
+        fade.setStartValue(0.0)
+        fade.setEndValue(1.0)
+        fade.setEasingCurve(QEasingCurve.OutCubic)
+
+        slide = QPropertyAnimation(self, b"pos", self)
+        slide.setDuration(220)
+        slide.setStartValue(start_pos)
+        slide.setEndValue(final_pos)
+        slide.setEasingCurve(QEasingCurve.OutCubic)
+
+        group = QParallelAnimationGroup(self)
+        group.addAnimation(fade)
+        group.addAnimation(slide)
+        group.start()
+        self._open_anim = group  # evita que lo recolecte el GC

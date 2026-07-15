@@ -9,6 +9,7 @@ from PySide6.QtCore import Qt, QDate
 from PySide6.QtGui import QDoubleValidator
 
 from ui.icons import svg_icon
+from ui.anim import TabUnderline
 from ui.base_page import ListPage
 from ui.modal import BaseModal, modal_colors
 from ui.widgets import NoScrollComboBox
@@ -42,6 +43,7 @@ class DocumentosWidget(QWidget):
             widget = DocumentListWidget(self.db, tipo, parent=self)
             self._lists[tipo] = widget
             self._tabs.addTab(widget, cfg["plural"])
+        TabUnderline(self._tabs)
         self._tabs.currentChanged.connect(self._on_tab_changed)
         layout.addWidget(self._tabs)
 

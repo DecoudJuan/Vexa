@@ -48,7 +48,16 @@ QTabBar::tab:hover {{
 
 QTabBar::tab:selected {{
     color: {accent};
-    border-bottom: 2px solid {accent};
+    /* El subrayado lo dibuja un indicador que se desliza (ui/anim.TabUnderline),
+       no un borde estático, para animar el cambio de solapa. */
+    border-bottom: 2px solid transparent;
+}}
+
+/* Indicador deslizante bajo la solapa activa. */
+QFrame#tab_underline {{
+    background-color: {accent};
+    border: none;
+    border-radius: 1px;
 }}
 
 /* =====================================================================
@@ -97,14 +106,23 @@ QPushButton#nav_button {{
 }}
 
 QPushButton#nav_button:hover {{
-    background-color: {base};
+    background-color: rgba({accent_rgb}, 0.06);
     color: {text};
 }}
 
 QPushButton#nav_button:checked {{
-    background-color: rgba({accent_rgb}, 0.12);
+    /* El resaltado del ítem activo lo dibuja un indicador que se desliza
+       (ver MainWindow._nav_indicator); acá sólo el color/negrita del texto. */
+    background-color: transparent;
     color: {accent};
     font-weight: 600;
+}}
+
+/* Indicador deslizante del ítem activo de la sidebar. */
+QFrame#nav_indicator {{
+    background-color: rgba({accent_rgb}, 0.12);
+    border: none;
+    border-radius: 8px;
 }}
 
 /* =====================================================================
@@ -264,6 +282,64 @@ QLineEdit#search_input {{
 }}
 QLineEdit#search_input:focus {{
     border-color: {accent};
+}}
+
+/* =====================================================================
+   HOME / LANDING (tarjetas de acceso a las secciones)
+   ===================================================================== */
+QLabel#home_brand {{
+    font-size: 30px;
+    font-weight: 800;
+    color: {accent};
+    letter-spacing: 0.5px;
+    background: transparent;
+}}
+
+QLabel#home_brand_sub {{
+    font-size: 12px;
+    color: {subtext};
+    letter-spacing: 3px;
+    background: transparent;
+}}
+
+QFrame#home_card {{
+    background-color: {surface};
+    border: 1px solid {line};
+    border-radius: 16px;
+}}
+
+QFrame#home_card:hover {{
+    border-color: {accent};
+    background-color: rgba({accent_rgb}, 0.05);
+}}
+
+QLabel#home_icon_chip {{
+    background-color: rgba({accent_rgb}, 0.12);
+    border: none;
+    border-radius: 18px;
+}}
+
+QLabel[role="home-title"] {{
+    font-size: 16px;
+    font-weight: 700;
+    color: {text};
+    background: transparent;
+}}
+
+QLabel[role="home-sub"] {{
+    font-size: 12px;
+    color: {subtext};
+    background: transparent;
+}}
+
+/* Marca de la sidebar: clickeable para volver al inicio. */
+QWidget#brand_click {{
+    background: transparent;
+    border-radius: 8px;
+}}
+
+QWidget#brand_click:hover {{
+    background-color: rgba({accent_rgb}, 0.08);
 }}
 
 /* =====================================================================
