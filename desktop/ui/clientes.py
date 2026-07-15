@@ -14,7 +14,7 @@ from ui.styles import get_palette
 from ui.base_page import ListPage
 from ui.modal import BaseModal, modal_colors
 from ui.widgets import avatar, NoScrollComboBox, provincia_combo
-from utils.helpers import (
+from vexa_core.utils.helpers import (
     leer_zoom, leer_tema, valor_valido, fmt_ar, parse_float,
     CONDICIONES_IVA, TELEFONO_EJEMPLO,
 )

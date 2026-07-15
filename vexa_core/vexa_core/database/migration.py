@@ -19,7 +19,7 @@ from pathlib import Path
 
 from access_parser import AccessParser
 
-from database.db import DatabaseManager, DEFAULT_DB
+from vexa_core.database.db import DatabaseManager, DEFAULT_DB
 
 import sqlite3
 

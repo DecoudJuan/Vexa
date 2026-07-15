@@ -16,7 +16,7 @@ from ui.clientes import ClientesWidget
 from ui.conceptos import ConceptosWidget
 from ui.documentos import DocumentosWidget
 from ui.configuracion import ConfiguracionWidget
-from version import VERSION, APP_NAME
+from vexa_core.version import VERSION, APP_NAME
 
 ZOOM_MIN, ZOOM_MAX, ZOOM_STEP = 0.8, 1.4, 0.05
 

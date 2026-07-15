@@ -18,8 +18,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
-from fiscal.provider import FiscalProvider, ResultadoAutorizacion
-from fiscal.qr import construir_url_qr, moneda_afip
+from vexa_core.fiscal.provider import FiscalProvider, ResultadoAutorizacion
+from vexa_core.fiscal.qr import construir_url_qr, moneda_afip
 
 # Zona horaria de Argentina (UTC-3), para los timestamps del ticket WSAA.
 _TZ_AR = timezone(timedelta(hours=-3))
@@ -90,7 +90,7 @@ class AfipProvider(FiscalProvider):
         return ta
 
     def _ta_cache_path(self) -> Path:
-        from database.db import DATA_DIR
+        from vexa_core.database.db import DATA_DIR
         return DATA_DIR / "afip" / f"ta_wsfe_{self.entorno}.json"
 
     def _leer_ta_cache(self, cache: Path) -> dict | None:
@@ -159,7 +159,7 @@ class AfipProvider(FiscalProvider):
     # -------------------------------------------------------------- WSFE (CAE)
     def autorizar(self, *, factura: dict, empresa: dict, cliente: dict,
                   lineas: list[dict]) -> ResultadoAutorizacion:
-        from utils.helpers import letra_comprobante
+        from vexa_core.utils.helpers import letra_comprobante
 
         self._validar_config()
         tipo_doc = factura.get("tipo") or "FA"
@@ -297,7 +297,7 @@ def _receptor(cliente: dict) -> tuple[int, int]:
     """(DocTipo, DocNro) del receptor. CUIT=80, DNI=96, Consumidor Final=99.
     En comprobante A el receptor debe tener CUIT; si no hay documento se informa
     Consumidor Final con 0 (válido en B/C por debajo del umbral)."""
-    from utils.helpers import valor_valido
+    from vexa_core.utils.helpers import valor_valido
 
     nif = valor_valido(cliente.get("nif"))
     solo = "".join(c for c in (nif or "") if c.isdigit())

@@ -12,8 +12,8 @@ from reportlab.graphics.barcode.qr import QrCodeWidget
 from reportlab.graphics.shapes import Drawing
 from reportlab.graphics import renderPDF
 
-from database.db import DATA_DIR
-from utils.helpers import (
+from vexa_core.database.db import DATA_DIR
+from vexa_core.utils.helpers import (
     fmt_ar, fmt_fecha, nombre_sin_talle, valor_valido, texto_valido,
     etiqueta_concepto, letra_comprobante,
 )
@@ -76,7 +76,7 @@ def generar_pdf_documento(db, factura_id: int) -> str:
 
     def _on_page(canvas, _doc):
         canvas.saveState()
-        _dibujar_encabezado(canvas, empresa, cliente, titulo, numero_fmt, letra, doc, no_valido)
+        _dibujar_encabezado(canvas, empresa, cliente, titulo, numero_fmt, letra, doc)
         if not no_valido:
             _dibujar_pie_fiscal(canvas, doc)
         canvas.restoreState()
@@ -95,7 +95,7 @@ def generar_pdf_documento(db, factura_id: int) -> str:
     return str(out_path)
 
 
-def _dibujar_encabezado(canvas, empresa, cliente, titulo, numero_fmt, letra, doc, no_valido):
+def _dibujar_encabezado(canvas, empresa, cliente, titulo, numero_fmt, letra, doc):
     """Encabezado con el layout de comprobante argentino: marco con recuadro de
     letra (A/B/C/X) centrado arriba, emisor a la izquierda y datos del
     comprobante a la derecha; bajo una línea separadora, el receptor. Cada
@@ -118,16 +118,23 @@ def _dibujar_encabezado(canvas, empresa, cliente, titulo, numero_fmt, letra, doc
     # --- Recuadro de la letra (centrado arriba, contenido dentro del marco) ---
     lb = 13 * mm
     lb_top = top - 1.5 * mm
+    lb_bottom = lb_top - lb
     # Divisor vertical de la banda superior: sube hasta el pie del recuadro para
     # no sobresalir por encima de él.
-    canvas.line(mid_x, band_split, mid_x, lb_top - lb)
+    canvas.line(mid_x, band_split, mid_x, lb_bottom)
     canvas.setFillColor(colors.white)
-    canvas.rect(mid_x - lb / 2, lb_top - lb, lb, lb, stroke=1, fill=1)
+    canvas.rect(mid_x - lb / 2, lb_bottom, lb, lb, stroke=1, fill=1)
     canvas.setFillColor(colors.black)
     canvas.setFont("Helvetica-Bold", 20)
-    canvas.drawCentredString(mid_x, lb_top - lb + 4.3 * mm, letra or "X")
-    canvas.setFont("Helvetica", 5)
-    canvas.drawCentredString(mid_x, lb_top - lb + 1 * mm, "COMPROBANTE")
+    canvas.drawCentredString(mid_x, lb_bottom + 5 * mm, letra or "X")
+    # "COMPROBANTE" en mayúsculas es más ancho que el recuadro a 5pt: se achica
+    # la fuente hasta que entre dentro del cuadro (con un pequeño margen).
+    etiqueta = "COMPROBANTE"
+    fs = 5.0
+    while fs > 3 and canvas.stringWidth(etiqueta, "Helvetica", fs) > lb - 2 * mm:
+        fs -= 0.25
+    canvas.setFont("Helvetica", fs)
+    canvas.drawCentredString(mid_x, lb_bottom + 1.7 * mm, etiqueta)
 
     # --- Emisor (izquierda) --- (los comprobantes NO llevan logo)
     canvas.setFont("Helvetica-Bold", 13)
@@ -178,13 +185,6 @@ def _dibujar_encabezado(canvas, empresa, cliente, titulo, numero_fmt, letra, doc
     if rec:
         canvas.setFont("Helvetica", 8)
         canvas.drawString(xL + 18 * mm, band_split - 10.5 * mm, "   ".join(rec))
-
-    # --- Leyenda no fiscal (hasta integrar AFIP/CAE en Fase 4) ---
-    if no_valido:
-        canvas.setFont("Helvetica-Bold", 8)
-        canvas.setFillColor(colors.HexColor("#b00000"))
-        canvas.drawCentredString(mid_x, box_bottom - 5 * mm, "DOCUMENTO NO VÁLIDO COMO FACTURA")
-        canvas.setFillColor(colors.black)
 
 
 def _draw_qr(canvas, url: str, x: float, y: float, size: float) -> None:

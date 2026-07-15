@@ -13,10 +13,10 @@ from ui.anim import TabUnderline
 from ui.base_page import ListPage
 from ui.modal import BaseModal, modal_colors
 from ui.widgets import NoScrollComboBox
-from utils.helpers import (
+from vexa_core.utils.helpers import (
     fmt_ar, parse_float, leer_zoom, leer_tema, etiqueta_concepto, abrir_archivo,
 )
-from utils.pdf_generator import generar_pdf_documento
+from vexa_core.utils.pdf_generator import generar_pdf_documento
 
 # FA=Factura, PR=Presupuesto, PE=Pedido. La app apunta a facturar: no hay
 # albaranes ni abonos (notas de crédito).
@@ -212,7 +212,7 @@ class DocumentListWidget(ListPage):
                 self, "AFIP",
                 f"Este comprobante ya está autorizado (CAE {d['cae']}).")
             return
-        from fiscal import get_provider
+        from vexa_core.fiscal import get_provider
         provider = get_provider(self.db)
         if not provider.disponible():
             QMessageBox.warning(

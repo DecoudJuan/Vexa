@@ -16,12 +16,12 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
 
 from ui.widgets import NoScrollComboBox, provincia_combo
-from utils.helpers import (
+from vexa_core.utils.helpers import (
     CONDICIONES_IVA, MONEDAS, set_moneda, leer_zoom,
     formatear_cuit, TELEFONO_EJEMPLO, unir_direccion,
 )
-from utils.resources import resource_path
-from version import APP_NAME
+from resources import resource_path
+from vexa_core.version import APP_NAME
 
 # Pantalla branded, independiente del tema oscuro/claro de la app.
 _INK = "#0F1B2D"

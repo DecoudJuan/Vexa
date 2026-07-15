@@ -79,7 +79,7 @@ def get_provider(db) -> FiscalProvider:
         return NoFiscalProvider()
 
     # Import perezoso: no cargar zeep/cryptography salvo que se use AFIP.
-    from fiscal.afip import AfipProvider
+    from vexa_core.fiscal.afip import AfipProvider
 
     return AfipProvider(
         cuit=empresa.get("nif"),

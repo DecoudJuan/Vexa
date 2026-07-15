@@ -10,7 +10,7 @@ from ui.icons import svg_pixmap
 from ui.base_page import ListPage
 from ui.modal import BaseModal
 from ui.import_dialog import ImportDialog
-from utils.helpers import leer_tema, fmt_ar, parse_float
+from vexa_core.utils.helpers import leer_tema, fmt_ar, parse_float
 
 _SEARCH_MAXW, _ROW_H = 400, 40
 _COD_W = 110

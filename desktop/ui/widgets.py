@@ -5,7 +5,7 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt
 
-from utils.helpers import PROVINCIAS_AR
+from vexa_core.utils.helpers import PROVINCIAS_AR
 
 
 class NoScrollComboBox(QComboBox):

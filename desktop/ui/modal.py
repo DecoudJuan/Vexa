@@ -27,7 +27,7 @@ from PySide6.QtCore import (
 from PySide6.QtGui import QColor
 
 from ui.icons import svg_icon, svg_pixmap
-from utils.resources import resource_path
+from resources import resource_path
 
 _PX_RE = re.compile(r"(\d+)px")
 

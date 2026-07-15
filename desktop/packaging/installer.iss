@@ -1,6 +1,6 @@
 [Setup]
 AppName=Vexa
-AppVersion=2.6.0
+AppVersion=2.6.1
 AppPublisher=Vexa
 DefaultDirName={autopf}\Facturacion
 DefaultGroupName=Vexa
@@ -8,7 +8,7 @@ OutputBaseFilename=FacturacionSetup
 OutputDir=dist_installer
 Compression=lzma2
 SolidCompression=yes
-SetupIconFile=..\assets\icon.ico
+SetupIconFile=..\assets\vexa_symbol.ico
 UninstallDisplayIcon={app}\Facturacion.exe
 
 [Languages]

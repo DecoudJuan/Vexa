@@ -12,9 +12,9 @@ from PySide6.QtGui import QPixmap, QImage, QColor
 
 from ui.icons import svg_pixmap
 from ui.styles import get_palette
-from utils.helpers import leer_tema, leer_zoom
-from utils.resources import resource_path
-from version import APP_NAME
+from vexa_core.utils.helpers import leer_tema, leer_zoom
+from resources import resource_path
+from vexa_core.version import APP_NAME
 
 
 def logo_symbol_pixmap(size: int, v_color: str | None = None) -> QPixmap:

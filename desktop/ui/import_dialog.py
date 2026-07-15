@@ -14,8 +14,8 @@ from PySide6.QtCore import Qt
 from ui.modal import BaseModal
 from ui.widgets import NoScrollComboBox
 from ui.icons import svg_icon
-from utils.helpers import fmt_ar, fmt_talle, ordenar_talles, leer_zoom, leer_tema
-from utils import excel_import
+from vexa_core.utils.helpers import fmt_ar, fmt_talle, ordenar_talles, leer_zoom, leer_tema
+from vexa_core.utils import excel_import
 
 _CAMPOS_UI = [
     ("nombre", "NOMBRE / DESCRIPCIÓN *"),

@@ -11,12 +11,12 @@ if sys.platform == "win32":
 
 from PySide6.QtWidgets import QApplication
 from PySide6.QtGui import QIcon
-from database.db import DatabaseManager
+from vexa_core.database.db import DatabaseManager
 from ui.main_window import MainWindow
 from ui.styles import build_style, build_qpalette
-from utils.helpers import set_moneda
-from utils.resources import resource_path
-from version import VERSION, APP_NAME
+from vexa_core.utils.helpers import set_moneda
+from resources import resource_path
+from vexa_core.version import VERSION, APP_NAME
 
 
 def main() -> None:
@@ -34,7 +34,7 @@ def main() -> None:
     app.setApplicationName(APP_NAME)
     app.setOrganizationName("Facturacion")
     app.setApplicationVersion(VERSION)
-    app.setWindowIcon(QIcon(str(resource_path("assets/vexa_icon.ico"))))
+    app.setWindowIcon(QIcon(str(resource_path("assets/vexa_symbol.ico"))))
 
     db = DatabaseManager()
     db.init_db()

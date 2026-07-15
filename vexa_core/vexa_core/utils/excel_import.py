@@ -18,7 +18,7 @@ import csv
 
 import openpyxl
 
-from utils.helpers import separar_codigo_talle, separar_talles_rango
+from vexa_core.utils.helpers import separar_codigo_talle, separar_talles_rango
 
 # Campos que se pueden mapear. 'nombre' y 'precio' son obligatorios.
 CAMPOS = ("nombre", "precio", "codigo", "talle")

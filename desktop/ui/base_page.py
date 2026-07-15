@@ -29,7 +29,7 @@ from PySide6.QtGui import QColor
 from ui.icons import svg_icon
 from ui.styles import get_palette
 from ui.anim import RowHighlight
-from utils.helpers import leer_zoom, leer_tema
+from vexa_core.utils.helpers import leer_zoom, leer_tema
 
 
 class ListPage(QWidget):

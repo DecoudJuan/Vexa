@@ -1,6 +1,6 @@
 import re
 
-from utils.resources import resource_path
+from resources import resource_path
 
 _TEMPLATE = """
 /* =====================================================================

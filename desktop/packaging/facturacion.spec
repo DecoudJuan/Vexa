@@ -12,6 +12,7 @@ datas = [
     ("../assets/vexa_icon.png", "assets"),
     ("../assets/vexa_icon.ico", "assets"),
     ("../assets/vexa_symbol.png", "assets"),
+    ("../assets/vexa_symbol.ico", "assets"),
     ("../assets/chevron.png", "assets"),
 ]
 # zeep (SOAP AFIP, Fase 4): sus WSDL/plantillas y su metadata de versión, que
@@ -21,12 +22,12 @@ datas += copy_metadata("zeep")
 
 a = Analysis(
     ["../main.py"],
-    pathex=["../"],
+    pathex=["../", "../../vexa_core"],  # desktop/ + raíz del paquete vexa_core
     binaries=[],
     datas=datas,
     hiddenimports=[
         "sqlalchemy.dialects.sqlite",
-        "fiscal.afip", "fiscal.qr", "fiscal.provider",
+        "vexa_core.fiscal.afip", "vexa_core.fiscal.qr", "vexa_core.fiscal.provider",
     # reportlab.graphics.barcode importa sus submódulos por nombre (dinámico) al
     # inicializarse; sin esto, el QR arrastra un import que rompe el .exe
     # (ModuleNotFoundError: reportlab.graphics.barcode.code128).
@@ -40,7 +41,7 @@ exe = EXE(
     pyz, a.scripts, [],
     exclude_binaries=True,
     name="Facturacion",
-    icon="../assets/vexa_icon.ico",
+    icon="../assets/vexa_symbol.ico",
     console=False,
     disable_windowed_traceback=False,
 )

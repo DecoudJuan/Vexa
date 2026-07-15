@@ -9,7 +9,7 @@ from ui.icons import svg_icon, svg_pixmap
 from ui.styles import get_palette
 from ui.anim import TabUnderline
 from ui.widgets import fila as _fila, NoScrollComboBox, provincia_combo
-from utils.helpers import (
+from vexa_core.utils.helpers import (
     leer_tema, leer_zoom, valor_valido, set_moneda, CONDICIONES_IVA, MONEDAS,
     formatear_cuit, TELEFONO_EJEMPLO, partir_direccion,
     unir_direccion,
@@ -364,7 +364,7 @@ class ConfiguracionWidget(QWidget):
         """Guarda lo cargado y prueba autenticar contra AFIP (WSAA). Sin
         certificado válido o sin red, muestra el motivo sin romper."""
         self._on_guardar(silencioso=True)
-        from fiscal import get_provider
+        from vexa_core.fiscal import get_provider
         try:
             provider = get_provider(self.db)
             if not provider.disponible():

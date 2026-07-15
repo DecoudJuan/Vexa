@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
-from database.models import (
+from vexa_core.database.models import (
     Base, DatosEmpresa, FormaPago, Cliente, ClienteCuit, Concepto,
     Factura, Linea, Suplido, Configuracion, TIPOS_DOCUMENTO,
 )
@@ -122,7 +122,7 @@ class DatabaseManager:
         NULL), extrayéndolos del nombre en una sola pasada (así el talle no se
         pierde al limpiar el nombre). Idempotente: una vez con '' o valor, no se
         vuelve a tocar. Renombrar es seguro (las líneas referencian por id)."""
-        from utils.helpers import separar_codigo_talle
+        from vexa_core.utils.helpers import separar_codigo_talle
 
         with self._session() as s:
             filas = s.execute(select(Concepto).where(Concepto.codigo.is_(None))).scalars().all()
@@ -139,7 +139,7 @@ class DatabaseManager:
         (bases actualizadas desde una versión previa a la Fase 3). Sólo recupera
         el talle si aún quedó en el nombre; para el resto hay que reimportar la
         lista con la columna de talle mapeada. Idempotente."""
-        from utils.helpers import separar_codigo_talle
+        from vexa_core.utils.helpers import separar_codigo_talle
 
         with self._session() as s:
             filas = s.execute(select(Concepto).where(Concepto.talle.is_(None))).scalars().all()
@@ -336,7 +336,7 @@ class DatabaseManager:
         en el texto libre de las líneas que lo referencian. La FK es ON DELETE
         SET NULL: sin esto, las facturas viejas perderían el nombre del producto
         en el PDF. Sólo pisa líneas sin texto libre propio."""
-        from utils.helpers import etiqueta_concepto
+        from vexa_core.utils.helpers import etiqueta_concepto
         etq = etiqueta_concepto(obj.nombre, obj.codigo, obj.talle)
         s.execute(
             update(Linea)
@@ -363,7 +363,7 @@ class DatabaseManager:
                 orden.append(clave)
             g["variantes"].append({"id": c["id"], "talle": (c["talle"] or "").strip(),
                                    "pvp": c["pvp"] or 0})
-        from utils.helpers import ordenar_talles
+        from vexa_core.utils.helpers import ordenar_talles
         productos = []
         for clave in orden:
             g = grupos[clave]
