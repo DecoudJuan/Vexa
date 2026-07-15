@@ -28,6 +28,7 @@ from PySide6.QtGui import QColor
 
 from ui.icons import svg_icon
 from ui.styles import get_palette
+from ui.anim import RowHighlight
 from utils.helpers import leer_zoom, leer_tema
 
 
@@ -64,6 +65,7 @@ class ListPage(QWidget):
             layout.addWidget(extra)
         layout.addLayout(self._build_search())
         self._table = self._build_table()
+        self._row_highlight = RowHighlight(self._table, self._pal)
         layout.addWidget(self._table)
         layout.addLayout(self._build_actions())
         self._update_actions()
@@ -199,6 +201,8 @@ class ListPage(QWidget):
         for btn, icon, size, color_key in self._theme_icons:
             btn.setIcon(svg_icon(icon, size, self._pal[color_key]))
         self._resize_columns(self._table.horizontalHeader())
+        if hasattr(self, "_row_highlight"):
+            self._row_highlight.set_palette(self._pal)
 
     # -------------------------------------------- ganchos por defecto
     def _header_buttons(self) -> list:
