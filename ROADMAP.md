@@ -94,8 +94,10 @@ Llevar la app (hoy funcional para uso interno, **licencia de escritorio**) a un
       homologación** antes de producción.
 - [ ] Futuro: certificados `.pfx`, percepciones/otros tributos, monedas ≠ ARS.
 
-## Fase 5 — Pulido de bugs + UX/UI  ← EN CURSO (rama `fase5-ui`)
+## Fase 5 — Pulido de bugs + UX/UI  ← EN CURSO
 Fase dedicada a la experiencia de uso, a abrir después de liberar la Fase 4.
+Liberado hasta ahora: pantalla de inicio + animaciones (v2.5.0), guard de cambios
+sin guardar + barra de selección deslizante (v2.6.0).
 - [x] **Pantalla de inicio** (`ui/home.py`): al abrir, tarjetas de acceso a las 4
       secciones con íconos grandes; la barra lateral aparece recién al elegir una
       (y se vuelve al inicio tocando el logo/marca). Logo de marca (símbolo V)
@@ -107,6 +109,10 @@ Fase dedicada a la experiencia de uso, a abrir después de liberar la Fase 4.
       con fade + deslizamiento.
 - [x] Consistencia de datos/docs: `CHECK` de `facturas.tipo` derivado de
       `TIPOS_DOCUMENTO`; README al día con el código.
+- [x] **Cambios sin guardar**: al cerrar un diálogo de edición (cliente/producto/
+      factura) con cambios, confirma antes de descartar (Escape/Cancelar/X).
+- [x] **Selección de fila deslizante**: la barra de selección se desliza de una
+      fila a otra en los listados (`ui/anim.RowHighlight`).
 - [ ] Corrección de bugs reportados en el uso real.
 - [ ] Más mejoras de UI/UX (accesibilidad, flujos).
 - Ya adelantado en v2.4.0 (entra con Fase 4): teléfono libre con código de país/área
