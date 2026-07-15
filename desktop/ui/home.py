@@ -1,20 +1,22 @@
-"""Pantalla de inicio (landing): tarjetas de acceso a las 4 secciones.
+"""Sección Inicio: dashboard con saludo, métricas, facturas recientes y accesos.
 
-Es la primera pantalla al abrir la app; la barra lateral recién aparece cuando
-se elige una sección. Cada tarjeta emite `clicked(key)` con la clave de la
-sección, que la ventana principal usa para navegar."""
+Reemplaza el viejo landing de tarjetas 2×2. Es una sección más de la app (el
+sidebar queda siempre visible); emite `navigate(key)` cuando el usuario toca un
+acceso rápido o un CTA del encabezado."""
+
+from datetime import datetime
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QFrame,
+    QScrollArea, QPushButton, QSizePolicy,
 )
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QPixmap, QImage, QColor
 
-from ui.icons import svg_pixmap
+from ui.icons import svg_pixmap, svg_icon
 from ui.styles import get_palette
-from vexa_core.utils.helpers import leer_tema, leer_zoom
+from vexa_core.utils.helpers import leer_tema, leer_zoom, fmt_ar
 from resources import resource_path
-from vexa_core.version import APP_NAME
 
 
 def logo_symbol_pixmap(size: int, v_color: str | None = None) -> QPixmap:
@@ -45,67 +47,27 @@ def _logo_v_color(theme: str) -> str | None:
     """Color para la V del logo según el tema (None = original, tema claro)."""
     return get_palette(theme)["text"] if theme == "dark" else None
 
-# (clave, título, subtítulo, ícono) — la clave coincide con la de _NAV_ITEMS.
-_CARDS = [
-    ("clientes",      "Clientes",      "Alta y gestión de clientes",       "users"),
-    ("conceptos",     "Productos",     "Catálogo y listas de precios",     "layers"),
-    ("documentos",    "Documentos",    "Facturas, presupuestos y pedidos", "file-text"),
-    ("configuracion", "Configuración", "Datos de la empresa y AFIP",       "settings"),
-]
+
+_DIAS = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+_MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio",
+          "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
 
 
-class _HomeCard(QFrame):
-    """Tarjeta clickeable con ícono grande, título y subtítulo."""
+def _fecha_larga(d: datetime) -> str:
+    return f"{_DIAS[d.weekday()]}, {d.day} de {_MESES[d.month - 1]} {d.year}"
 
-    clicked = Signal(str)
 
-    def __init__(self, key, title, subtitle, icon_name, zoom, pal, parent=None):
-        super().__init__(parent)
-        self._key = key
-        self._icon_name = icon_name
-        self.setObjectName("home_card")
-        self.setCursor(Qt.PointingHandCursor)
-
-        lay = QVBoxLayout(self)
-        lay.setContentsMargins(28, 28, 28, 28)
-        lay.setSpacing(6)
-        lay.setAlignment(Qt.AlignCenter)
-
-        self._chip = QLabel()
-        self._chip.setObjectName("home_icon_chip")
-        self._chip.setAlignment(Qt.AlignCenter)
-        lay.addWidget(self._chip, alignment=Qt.AlignHCenter)
-        lay.addSpacing(6)
-
-        title_lbl = QLabel(title)
-        title_lbl.setProperty("role", "home-title")
-        title_lbl.setAlignment(Qt.AlignCenter)
-        sub_lbl = QLabel(subtitle)
-        sub_lbl.setProperty("role", "home-sub")
-        sub_lbl.setAlignment(Qt.AlignCenter)
-        sub_lbl.setWordWrap(True)
-        lay.addWidget(title_lbl)
-        lay.addWidget(sub_lbl)
-
-        self.set_theme_zoom(pal, zoom)
-
-    def set_theme_zoom(self, pal: dict, zoom: float) -> None:
-        chip = round(72 * zoom)
-        icon = round(34 * zoom)
-        self._chip.setFixedSize(chip, chip)
-        self._chip.setPixmap(svg_pixmap(self._icon_name, icon, pal["accent"]))
-        self.setMinimumSize(round(230 * zoom), round(190 * zoom))
-
-    def mouseReleaseEvent(self, e):  # noqa: N802
-        # Sólo dispara si el click suelta dentro de la tarjeta (arrastrar afuera
-        # cancela), como cualquier botón.
-        if e.button() == Qt.LeftButton and self.rect().contains(e.position().toPoint()):
-            self.clicked.emit(self._key)
-        super().mouseReleaseEvent(e)
+def _saludo(d: datetime) -> str:
+    h = d.hour
+    if 6 <= h < 13:
+        return "Buen día"
+    if 13 <= h < 20:
+        return "Buenas tardes"
+    return "Buenas noches"
 
 
 class HomeWidget(QWidget):
-    """Landing con las 4 tarjetas de sección centradas."""
+    """Dashboard de la sección Inicio."""
 
     navigate = Signal(str)
 
@@ -114,60 +76,282 @@ class HomeWidget(QWidget):
         self.db = db
         self._theme = leer_tema(db)
         self._zoom = leer_zoom(db)
-        self._cards: list[_HomeCard] = []
-        self._build_ui()
+        self._outer = QVBoxLayout(self)
+        self._outer.setContentsMargins(0, 0, 0, 0)
+        self._build()
 
-    def _build_ui(self) -> None:
+    # ---------------------------------------------------------------- datos
+    def _metrics(self) -> dict:
+        facturas = self.db.get_facturas(tipo="FA")
+        mes = datetime.now().strftime("%Y-%m")
+        del_mes = [f for f in facturas if (f.get("fecha") or "")[:7] == mes]
+        return {
+            "fac_mes": len(del_mes),
+            "fac_total": len(facturas),
+            "clientes": len(self.db.get_all_clientes()),
+            "productos": len(self.db.get_productos()),
+            "recientes": facturas[:5],
+        }
+
+    # ---------------------------------------------------------------- build
+    def _build(self) -> None:
+        # Rehace todo el contenido (se llama al abrir, refrescar y cambiar tema/
+        # zoom): la data y los colores de íconos dependen del estado actual.
+        while self._outer.count():
+            item = self._outer.takeAt(0)
+            w = item.widget()
+            if w is not None:
+                # setParent(None) lo saca del árbol visual YA; deleteLater() solo
+                # libera memoria en el próximo ciclo de eventos, así que sin esto
+                # el contenido viejo seguía dibujándose debajo del nuevo (fantasma).
+                w.setParent(None)
+                w.deleteLater()
+
         pal = get_palette(self._theme)
-        outer = QVBoxLayout(self)
-        outer.setContentsMargins(40, 40, 40, 40)
-        outer.addStretch()
+        z = self._zoom
+        m = self._metrics()
 
-        self._logo = QLabel()
-        self._logo.setAlignment(Qt.AlignCenter)
-        self._logo.setPixmap(logo_symbol_pixmap(round(64 * self._zoom), _logo_v_color(self._theme)))
-        outer.addWidget(self._logo)
-        outer.addSpacing(10)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        # El dashboard nunca hace scroll horizontal: el contenido se comprime al
+        # ancho del viewport (las tarjetas se achican para entrar).
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        content = QWidget()
+        scroll.setWidget(content)
+        self._outer.addWidget(scroll)
 
-        self._brand = QLabel(APP_NAME)
-        self._brand.setObjectName("home_brand")
-        self._brand.setAlignment(Qt.AlignCenter)
-        self._sub = QLabel(self._empresa_nombre())
-        self._sub.setObjectName("home_brand_sub")
-        self._sub.setAlignment(Qt.AlignCenter)
-        outer.addWidget(self._brand)
-        outer.addWidget(self._sub)
-        outer.addSpacing(34)
+        col = QVBoxLayout(content)
+        col.setContentsMargins(round(34 * z), round(30 * z), round(34 * z), round(30 * z))
+        col.setSpacing(round(18 * z))
 
-        # Grid 2×2 centrado (no se estira a todo el ancho).
+        col.addLayout(self._header(pal, z))
+        col.addLayout(self._kpis(pal, z, m))
+        col.addLayout(self._bottom(pal, z, m))
+        col.addStretch()
+
+    def _header(self, pal, z) -> QHBoxLayout:
+        now = datetime.now()
         row = QHBoxLayout()
-        row.addStretch()
-        holder = QWidget()
-        grid = QGridLayout(holder)
-        grid.setSpacing(round(20 * self._zoom))
-        grid.setContentsMargins(0, 0, 0, 0)
-        for i, (key, title, subtitle, icon_name) in enumerate(_CARDS):
-            card = _HomeCard(key, title, subtitle, icon_name, self._zoom, pal)
-            card.clicked.connect(self.navigate.emit)
-            grid.addWidget(card, i // 2, i % 2)
-            self._cards.append(card)
-        row.addWidget(holder)
-        row.addStretch()
-        outer.addLayout(row)
+        row.setSpacing(round(10 * z))
 
-        outer.addStretch()
+        left = QVBoxLayout()
+        left.setSpacing(round(4 * z))
+        fecha = QLabel(_fecha_larga(now))
+        fecha.setProperty("role", "dash-date")
+        empresa = (self.db.get_datos_empresa().get("nombre") or "").strip() or "Vexa"
+        greet = QLabel(f"{_saludo(now)}, {empresa}.")
+        greet.setProperty("role", "dash-greeting")
+        left.addWidget(fecha)
+        left.addWidget(greet)
+        row.addLayout(left)
+        row.addStretch()
 
+        btn_et = self._cta("  Etiquetas", "tag", pal, z, lambda: self.navigate.emit("etiquetas"))
+        btn_fa = self._cta("  Nueva factura", "plus", pal, z, lambda: self.navigate.emit("documentos"))
+        row.addWidget(btn_et, alignment=Qt.AlignBottom)
+        row.addWidget(btn_fa, alignment=Qt.AlignBottom)
+        return row
+
+    def _cta(self, text, icon, pal, z, slot) -> QPushButton:
+        b = QPushButton(text)
+        b.setIcon(svg_icon(icon, round(16 * z), pal["accent_text"]))
+        b.setCursor(Qt.PointingHandCursor)
+        b.clicked.connect(slot)
+        return b
+
+    def _kpis(self, pal, z, m) -> QHBoxLayout:
+        row = QHBoxLayout()
+        row.setSpacing(round(16 * z))
+        row.addWidget(self._hero_card(pal, z, str(m["fac_mes"]),
+                                      f"en {_MESES[datetime.now().month - 1]}"))
+        row.addWidget(self._kpi_card(pal, z, "file-text", "Facturas",
+                                     str(m["fac_total"]), "emitidas"))
+        row.addWidget(self._kpi_card(pal, z, "users", "Clientes",
+                                     str(m["clientes"]), "en cartera"))
+        row.addWidget(self._kpi_card(pal, z, "layers", "Productos",
+                                     str(m["productos"]), "en catálogo"))
+        return row
+
+    def _hero_card(self, pal, z, value, sub) -> QFrame:
+        card = QFrame()
+        card.setObjectName("dash_hero")
+        card.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        lay = QVBoxLayout(card)
+        lay.setContentsMargins(round(20 * z), round(20 * z), round(20 * z), round(20 * z))
+        lay.setSpacing(round(4 * z))
+        cap = QLabel("FACTURAS ESTE MES")
+        cap.setProperty("role", "hero-cap")
+        val = QLabel(value)
+        val.setProperty("role", "hero-value")
+        s = QLabel(sub)
+        s.setProperty("role", "hero-sub")
+        lay.addWidget(cap)
+        lay.addWidget(val)
+        lay.addWidget(s)
+        return card
+
+    def _kpi_card(self, pal, z, icon, cap, value, sub) -> QFrame:
+        card = QFrame()
+        card.setObjectName("dash_kpi")
+        card.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        lay = QVBoxLayout(card)
+        lay.setContentsMargins(round(20 * z), round(20 * z), round(20 * z), round(20 * z))
+        lay.setSpacing(round(4 * z))
+        head = QHBoxLayout()
+        head.setSpacing(round(8 * z))
+        ico = QLabel()
+        ico.setPixmap(svg_pixmap(icon, round(16 * z), pal["muted1"]))
+        c = QLabel(cap.upper())
+        c.setProperty("role", "kpi-cap")
+        head.addWidget(ico)
+        head.addWidget(c)
+        head.addStretch()
+        val = QLabel(value)
+        val.setProperty("role", "kpi-value")
+        s = QLabel(sub)
+        s.setProperty("role", "kpi-sub")
+        lay.addLayout(head)
+        lay.addWidget(val)
+        lay.addWidget(s)
+        return card
+
+    def _bottom(self, pal, z, m) -> QHBoxLayout:
+        row = QHBoxLayout()
+        row.setSpacing(round(16 * z))
+        row.addWidget(self._recientes(pal, z, m["recientes"]), 17)
+        right = QVBoxLayout()
+        right.setSpacing(round(16 * z))
+        right.addWidget(self._accesos(pal, z))
+        right.addWidget(self._promo(pal, z))
+        right.addStretch()
+        wrap = QWidget()
+        wrap.setStyleSheet("background: transparent;")
+        wrap.setLayout(right)
+        row.addWidget(wrap, 10)
+        return row
+
+    def _recientes(self, pal, z, facturas) -> QFrame:
+        card = QFrame()
+        card.setObjectName("dash_panel")
+        lay = QVBoxLayout(card)
+        lay.setContentsMargins(round(22 * z), round(18 * z), round(22 * z), round(18 * z))
+        lay.setSpacing(round(10 * z))
+
+        head = QHBoxLayout()
+        title = QLabel("Facturas recientes")
+        title.setProperty("role", "panel-title")
+        link = QLabel("Ver todas →")
+        link.setProperty("role", "panel-link")
+        link.setCursor(Qt.PointingHandCursor)
+        link.mouseReleaseEvent = lambda e: self.navigate.emit("documentos")
+        head.addWidget(title)
+        head.addStretch()
+        head.addWidget(link)
+        lay.addLayout(head)
+
+        cols = self._rec_row(z, "NÚMERO", "CLIENTE", "TOTAL", role="col-head")
+        lay.addLayout(cols)
+
+        if not facturas:
+            empty = QLabel("Todavía no emitiste facturas.")
+            empty.setProperty("role", "rec-empty")
+            lay.addWidget(empty)
+        for f in facturas:
+            sep = QFrame()
+            sep.setObjectName("dash_row_sep")
+            sep.setFixedHeight(1)
+            lay.addWidget(sep)
+            num = f"FA-{f.get('ejercicio')}-{f.get('numero') or ''}"
+            cli = f.get("cliente_nombre") or "—"
+            tot = fmt_ar(f.get("total") or 0)
+            lay.addLayout(self._rec_row(z, num, cli, tot))
+        lay.addStretch()
+        return card
+
+    def _rec_row(self, z, num, cli, tot, role=None) -> QGridLayout:
+        g = QGridLayout()
+        g.setContentsMargins(0, round(3 * z), 0, round(3 * z))
+        g.setColumnMinimumWidth(0, round(96 * z))
+        g.setColumnStretch(1, 1)
+        g.setColumnMinimumWidth(2, round(96 * z))
+        a = QLabel(num); b = QLabel(cli); c = QLabel(tot)
+        c.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        if role:
+            for lb in (a, b, c):
+                lb.setProperty("role", role)
+        else:
+            a.setProperty("role", "rec-num")
+            b.setProperty("role", "rec-cli")
+            c.setProperty("role", "rec-total")
+        g.addWidget(a, 0, 0)
+        g.addWidget(b, 0, 1)
+        g.addWidget(c, 0, 2)
+        return g
+
+    def _accesos(self, pal, z) -> QFrame:
+        card = QFrame()
+        card.setObjectName("dash_panel")
+        lay = QVBoxLayout(card)
+        lay.setContentsMargins(round(20 * z), round(18 * z), round(20 * z), round(18 * z))
+        lay.setSpacing(round(12 * z))
+        title = QLabel("Accesos rápidos")
+        title.setProperty("role", "panel-title")
+        lay.addWidget(title)
+
+        grid = QGridLayout()
+        grid.setSpacing(round(10 * z))
+        acc = [
+            ("Nueva factura", "plus", "documentos"),
+            ("Imprimir etiquetas", "tag", "etiquetas"),
+            ("Nuevo cliente", "users", "clientes"),
+            ("Nuevo producto", "layers", "conceptos"),
+        ]
+        for i, (label, icon, key) in enumerate(acc):
+            grid.addWidget(self._quick(pal, z, label, icon, key), i // 2, i % 2)
+        lay.addLayout(grid)
+        return card
+
+    def _quick(self, pal, z, label, icon, key) -> QPushButton:
+        b = QPushButton(f"  {label}")
+        b.setObjectName("dash_quick")
+        b.setIcon(svg_icon(icon, round(18 * z), pal["accent"]))
+        b.setCursor(Qt.PointingHandCursor)
+        b.clicked.connect(lambda: self.navigate.emit(key))
+        return b
+
+    def _promo(self, pal, z) -> QFrame:
+        card = QFrame()
+        card.setObjectName("dash_promo")
+        lay = QVBoxLayout(card)
+        lay.setContentsMargins(round(20 * z), round(18 * z), round(20 * z), round(18 * z))
+        lay.setSpacing(round(8 * z))
+        head = QHBoxLayout()
+        head.setSpacing(round(10 * z))
+        ico = QLabel()
+        ico.setPixmap(svg_pixmap("tag", round(18 * z), pal["accent"]))
+        title = QLabel("Generador de etiquetas")
+        title.setProperty("role", "panel-title")
+        head.addWidget(ico)
+        head.addWidget(title)
+        head.addStretch()
+        lay.addLayout(head)
+        desc = QLabel("Armá la cola de impresión por código y talle, y generá las "
+                      "planchas A4 listas para imprimir.")
+        desc.setProperty("role", "home-sub")
+        desc.setWordWrap(True)
+        lay.addWidget(desc)
+        btn = QPushButton("Abrir generador →")
+        btn.setCursor(Qt.PointingHandCursor)
+        btn.clicked.connect(lambda: self.navigate.emit("etiquetas"))
+        lay.addWidget(btn, alignment=Qt.AlignLeft)
+        return card
+
+    # ---------------------------------------------------------------- API
     def refresh(self) -> None:
-        self._sub.setText(self._empresa_nombre())
+        self._build()
 
     def set_theme_zoom(self, theme: str, zoom: float) -> None:
         self._theme = theme
         self._zoom = zoom
-        pal = get_palette(theme)
-        self._logo.setPixmap(logo_symbol_pixmap(round(64 * zoom), _logo_v_color(theme)))
-        for card in self._cards:
-            card.set_theme_zoom(pal, zoom)
-
-    def _empresa_nombre(self) -> str:
-        nombre = (self.db.get_datos_empresa().get("nombre") or "").upper()
-        return nombre or "MI EMPRESA"
+        self._build()

@@ -230,13 +230,13 @@ QLabel[role="card-subtitle"] {{
 QLabel[role="placeholder-title"] {{
     font-size: 18px;
     font-weight: 600;
-    color: {muted2};
+    color: {subtext};
     background: transparent;
 }}
 
 QLabel[role="placeholder-sub"] {{
     font-size: 13px;
-    color: {line};
+    color: {muted1};
     background: transparent;
 }}
 
@@ -331,6 +331,111 @@ QLabel[role="home-sub"] {{
     color: {subtext};
     background: transparent;
 }}
+
+/* =====================================================================
+   DASHBOARD (sección Inicio): saludo + KPIs + facturas recientes + accesos
+   ===================================================================== */
+QLabel[role="dash-date"] {{
+    font-size: 13px;
+    font-weight: 700;
+    color: {muted1};
+    letter-spacing: 0.3px;
+    background: transparent;
+}}
+
+QLabel[role="dash-greeting"] {{
+    font-size: 30px;
+    font-weight: 800;
+    color: {text};
+    background: transparent;
+}}
+
+/* Tarjeta KPI destacada (gradiente azul). */
+QFrame#dash_hero {{
+    background-color: qlineargradient(x1:0, y1:0, x2:0.6, y2:1,
+        stop:0 {accent_hover}, stop:1 {accent_pressed});
+    border: none;
+    border-radius: 16px;
+}}
+QFrame#dash_hero QLabel {{ background: transparent; color: {accent_text}; }}
+QLabel[role="hero-cap"] {{
+    font-size: 12px; font-weight: 700; letter-spacing: 0.5px;
+    color: {accent_text};
+}}
+QLabel[role="hero-value"] {{
+    font-size: 30px; font-weight: 800; color: {accent_text};
+}}
+QLabel[role="hero-sub"] {{
+    font-size: 12px; font-weight: 600; color: {accent_text};
+}}
+
+/* Tarjeta KPI neutra. */
+QFrame#dash_kpi {{
+    background-color: {surface};
+    border: 1px solid {line};
+    border-radius: 16px;
+}}
+QFrame#dash_kpi QLabel {{ background: transparent; }}
+QLabel[role="kpi-cap"] {{
+    font-size: 12px; font-weight: 700; letter-spacing: 0.4px;
+    color: {muted1};
+}}
+QLabel[role="kpi-value"] {{
+    font-size: 30px; font-weight: 800; color: {text};
+}}
+QLabel[role="kpi-sub"] {{
+    font-size: 12px; font-weight: 600; color: {muted1};
+}}
+
+/* Paneles inferiores (facturas recientes / accesos). */
+QFrame#dash_panel {{
+    background-color: {surface};
+    border: 1px solid {line};
+    border-radius: 16px;
+}}
+QFrame#dash_panel QLabel {{ background: transparent; }}
+QLabel[role="panel-title"] {{
+    font-size: 16px; font-weight: 800; color: {text};
+    background: transparent;
+}}
+QLabel[role="panel-link"] {{
+    font-size: 13px; font-weight: 700; color: {accent};
+    background: transparent;
+}}
+QLabel[role="col-head"] {{
+    font-size: 11px; font-weight: 800; color: {muted1};
+    letter-spacing: 0.5px; background: transparent;
+}}
+QLabel[role="rec-num"] {{ font-weight: 800; color: {accent}; background: transparent; }}
+QLabel[role="rec-cli"] {{ color: {subtext}; font-weight: 600; background: transparent; }}
+QLabel[role="rec-total"] {{ font-weight: 700; color: {text}; background: transparent; }}
+QLabel[role="rec-empty"] {{ color: {muted1}; background: transparent; }}
+QFrame#dash_row_sep {{ background-color: {line}; border: none; max-height: 1px; }}
+
+/* Botón de acceso rápido (ícono arriba + texto), fondo tenue. */
+QPushButton#dash_quick {{
+    background-color: {base};
+    color: {text};
+    border: 1px solid {line};
+    border-radius: 12px;
+    text-align: left;
+    padding: 14px;
+    font-size: 13px;
+    font-weight: 700;
+    min-height: 56px;
+}}
+QPushButton#dash_quick:hover {{
+    border-color: {accent};
+    background-color: rgba({accent_rgb}, 0.06);
+}}
+
+/* Tarjeta promo del generador de etiquetas. */
+QFrame#dash_promo {{
+    background-color: rgba({accent_rgb}, 0.06);
+    border: 1px solid rgba({accent_rgb}, 0.22);
+    border-radius: 16px;
+}}
+QFrame#dash_promo QLabel {{ background: transparent; }}
 
 /* Marca de la sidebar: clickeable para volver al inicio. */
 QWidget#brand_click {{
