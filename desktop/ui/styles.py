@@ -437,6 +437,110 @@ QFrame#dash_promo {{
 }}
 QFrame#dash_promo QLabel {{ background: transparent; }}
 
+/* =====================================================================
+   ETIQUETAS (generador): pasos, lista de productos, cola
+   ===================================================================== */
+QLabel[role="step-title"] {{
+    font-size: 11px;
+    font-weight: 800;
+    color: {muted1};
+    letter-spacing: 0.7px;
+    background: transparent;
+    padding-bottom: 8px;
+    border-bottom: 1px solid {line};
+}}
+
+QListWidget#prod_list, QListWidget#queue_list {{
+    background-color: {surface};
+    border: 1px solid {line};
+    border-radius: 10px;
+    outline: none;
+    padding: 4px;
+}}
+QListWidget#prod_list::item {{
+    padding: 8px 10px;
+    border-radius: 7px;
+    color: {text};
+}}
+QListWidget#prod_list::item:hover {{
+    background-color: rgba({accent_rgb}, 0.07);
+}}
+QListWidget#prod_list::item:selected {{
+    background-color: rgba({accent_rgb}, 0.14);
+    color: {accent};
+}}
+
+/* Recuadro con el producto elegido. */
+QFrame#etq_selected {{
+    background-color: rgba({accent_rgb}, 0.06);
+    border: 1px solid rgba({accent_rgb}, 0.22);
+    border-radius: 10px;
+}}
+QFrame#etq_selected QLabel {{ background: transparent; }}
+QLabel[role="etq-code"] {{
+    font-size: 12px; font-weight: 800; color: {accent}; background: transparent;
+}}
+QLabel[role="etq-name"] {{
+    font-size: 14px; font-weight: 700; color: {text}; background: transparent;
+}}
+QLabel[role="etq-type"] {{
+    font-size: 11px; color: {subtext}; background: transparent;
+}}
+
+/* Fila de talle+cantidad. */
+QFrame#etq_row {{
+    background-color: {base};
+    border: 1px solid {line};
+    border-radius: 8px;
+}}
+QFrame#etq_row QLabel {{ background: transparent; }}
+
+/* Ítem de la cola: chip de código + nombre/talle + cantidad. */
+QFrame#queue_item {{
+    background-color: {surface};
+    border: 1px solid {line};
+    border-radius: 9px;
+}}
+QFrame#queue_item QLabel {{ background: transparent; }}
+QLabel#etq_chip {{
+    background-color: {accent};
+    color: {accent_text};
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 800;
+}}
+QLabel[role="qi-label"] {{ font-size: 12px; font-weight: 700; color: {text}; background: transparent; }}
+QLabel[role="qi-detail"] {{ font-size: 11px; color: {subtext}; background: transparent; }}
+QLabel[role="qi-qty"] {{
+    font-size: 12px; font-weight: 800; color: {accent};
+    background-color: rgba({accent_rgb}, 0.12);
+    border-radius: 5px; padding: 2px 8px;
+}}
+
+/* Resumen y aviso de la cola. */
+QFrame#etq_summary {{
+    background-color: {base};
+    border: 1px solid {line};
+    border-radius: 10px;
+}}
+QFrame#etq_summary QLabel {{ background: transparent; color: {subtext}; font-size: 12px; }}
+QLabel[role="sum-strong"] {{ font-weight: 800; color: {text}; font-size: 13px; background: transparent; }}
+QFrame#etq_warn {{
+    background-color: rgba({warn_rgb}, 0.14);
+    border: 1px solid rgba({warn_rgb}, 0.4);
+    border-radius: 9px;
+}}
+QFrame#etq_warn QLabel {{ background: transparent; color: {warn}; font-size: 12px; }}
+
+QLabel[role="empty-hint"] {{
+    color: {muted1}; font-size: 13px; background: transparent;
+}}
+
+/* Contenedor sin fondo propio. Se targetea por objectName para NO pisar el
+   fondo de los hijos (un `background: transparent` puesto inline sobre el widget
+   se filtra a los QPushButton adentro y les borra el color de acento). */
+QWidget#plain_box {{ background: transparent; }}
+
 /* Marca de la sidebar: clickeable para volver al inicio. */
 QWidget#brand_click {{
     background: transparent;
@@ -971,6 +1075,7 @@ _PALETTES = {
         "danger": "#f2708c",
         "danger_rgb": "242, 112, 140",
         "warn": "#eab24a",
+        "warn_rgb": "234, 178, 74",
         "disabled_bg": "#24273a",
     },
     "light": {
@@ -994,6 +1099,7 @@ _PALETTES = {
         "danger": "#d20f39",
         "danger_rgb": "210, 15, 57",
         "warn": "#df8e1d",
+        "warn_rgb": "223, 142, 29",
         "disabled_bg": "#eceef3",
     },
 }

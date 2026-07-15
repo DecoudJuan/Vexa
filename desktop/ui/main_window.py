@@ -15,6 +15,7 @@ from ui.anim import fade_in
 from ui.clientes import ClientesWidget
 from ui.conceptos import ConceptosWidget
 from ui.documentos import DocumentosWidget
+from ui.etiquetas import EtiquetasWidget
 from ui.configuracion import ConfiguracionWidget
 from vexa_core.version import VERSION, APP_NAME
 
@@ -28,25 +29,6 @@ _NAV_ITEMS = [
     ("etiquetas",     "Etiquetas",     "tag"),
     ("configuracion", "Configuración", "settings"),
 ]
-
-
-class _PlaceholderPage(QWidget):
-    """Sección aún no implementada (ej. Etiquetas): título + subtítulo centrados.
-    Se reemplazará por el generador real en su propia tarea."""
-
-    def __init__(self, titulo: str, subtitulo: str, parent=None):
-        super().__init__(parent)
-        lay = QVBoxLayout(self)
-        lay.setAlignment(Qt.AlignCenter)
-        lay.setSpacing(8)
-        t = QLabel(titulo)
-        t.setProperty("role", "placeholder-title")
-        t.setAlignment(Qt.AlignCenter)
-        s = QLabel(subtitulo)
-        s.setProperty("role", "placeholder-sub")
-        s.setAlignment(Qt.AlignCenter)
-        lay.addWidget(t)
-        lay.addWidget(s)
 
 
 class _NavButton(QPushButton):
@@ -125,9 +107,7 @@ class MainWindow(QMainWindow):
         self._add_page("clientes", ClientesWidget(self.db))
         self._add_page("conceptos", ConceptosWidget(self.db))
         self._add_page("documentos", DocumentosWidget(self.db))
-        self._add_page("etiquetas",
-                       _PlaceholderPage("Etiquetas",
-                                        "El generador de etiquetas llega en la próxima actualización."))
+        self._add_page("etiquetas", EtiquetasWidget(self.db))
         self._add_page("configuracion",
                        ConfiguracionWidget(self.db, on_empresa_changed=self.actualizar_marca))
 

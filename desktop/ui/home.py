@@ -226,7 +226,7 @@ class HomeWidget(QWidget):
         right.addWidget(self._promo(pal, z))
         right.addStretch()
         wrap = QWidget()
-        wrap.setStyleSheet("background: transparent;")
+        wrap.setObjectName("plain_box")
         wrap.setLayout(right)
         row.addWidget(wrap, 10)
         return row
