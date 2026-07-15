@@ -28,52 +28,47 @@ ejecución la app **no depende de Access** ni de ningún driver ODBC.
 
 ## Estructura del proyecto
 
+Monorepo: un **core compartido** (`vexa_core`, sin Qt) + una app de **escritorio**
+(PySide6) y, más adelante, una **mobile** (Flet). Cada UI importa `vexa_core`.
+
 ```
-facturacion/
-├── README.md
-├── .gitignore
-├── app/                          # ← código de la aplicación
-│   ├── main.py                   # punto de entrada: crea QApplication, DB y ventana
-│   ├── version.py                # VERSION única (mostrada en UI y usada al empaquetar)
-│   ├── requirements.txt          # dependencias de ejecución
-│   ├── requirements-build.txt    # dependencias solo para buildear/migrar
-│   │
-│   ├── database/                 # capa de datos (sin dependencias de Qt)
-│   │   ├── models.py             # modelos SQLAlchemy 2.0 (el esquema)
-│   │   ├── db.py                 # DatabaseManager: acceso a datos vía ORM (Session)
-│   │   └── migration.py          # importador único desde Access legacy (.mdb)
-│   │
-│   ├── ui/                       # capa de presentación (todo lo que toca Qt)
-│   │   ├── main_window.py        # ventana principal: sidebar, navegación, zoom/tema, arranque
-│   │   ├── home.py               # pantalla de inicio (landing) con tarjetas de acceso
-│   │   ├── onboarding.py         # asistente de primera ejecución (datos de empresa)
-│   │   ├── base_page.py          # ListPage: base común de las pantallas de listado
-│   │   ├── clientes.py           # ABM de clientes (+ CUIT/CUIL, saldos)
-│   │   ├── conceptos.py          # ABM de productos (código y talle) + importación de listas
-│   │   ├── documentos.py         # listado y alta/edición de documentos (facturas…)
-│   │   ├── configuracion.py      # datos de empresa, IVA, formas de pago, apariencia
-│   │   ├── modal.py              # BaseModal: diálogo/tarjeta reutilizable de la app
-│   │   ├── widgets.py            # widgets chicos compartidos (NoScrollComboBox, fila…)
-│   │   ├── anim.py               # helpers de animación (indicador de solapas, fade)
-│   │   ├── styles.py             # stylesheet (QSS) y paletas de color por tema
-│   │   └── icons.py              # íconos SVG inline renderizados a QIcon/QPixmap
-│   │
-│   ├── utils/                    # helpers puros, reutilizables y sin estado de UI
-│   │   ├── helpers.py            # formato ($/fecha), parseo de código y talle de producto…
-│   │   ├── pdf_generator.py      # armado de PDF de documentos (ReportLab)
-│   │   ├── excel_import.py       # lectura de listas de precios en Excel
-│   │   └── resources.py          # resolución de rutas de assets (dev y PyInstaller)
-│   │
-│   ├── fiscal/                   # facturación electrónica AFIP (sin Qt), enchufable
-│   │   ├── provider.py           # interfaz FiscalProvider + NoFiscalProvider + get_provider
-│   │   ├── afip.py               # WSAA (firma CMS) + WSFEv1 (CAE) vía zeep
-│   │   └── qr.py                 # URL del QR AFIP (RG 4291) — función pura
-│   │
-│   ├── assets/                   # ícono e imagen de la app (icon.ico, logo.png)
-│   └── packaging/                # config de empaquetado (.spec, installer.iss)
+Vexa/
+├── README.md   ROADMAP.md   .gitignore
+│
+├── vexa_core/                    # ← paquete compartido, SIN dependencias de UI (pip install -e ./vexa_core)
+│   ├── pyproject.toml            # deps del core (+ extras: [afip], [migrate])
+│   └── vexa_core/
+│       ├── version.py            # VERSION única (mostrada en UI y usada al empaquetar)
+│       ├── database/             # capa de datos
+│       │   ├── models.py         # modelos SQLAlchemy 2.0 (el esquema)
+│       │   ├── db.py             # DatabaseManager: acceso a datos vía ORM (Session)
+│       │   └── migration.py      # importador único desde Access legacy (.mdb)
+│       ├── utils/                # helpers puros sin estado de UI
+│       │   ├── helpers.py        # formato ($/fecha), parseo de código y talle…
+│       │   ├── pdf_generator.py  # armado de PDF de documentos (ReportLab)
+│       │   └── excel_import.py   # lectura de listas de precios en Excel
+│       └── fiscal/               # facturación electrónica AFIP, enchufable
+│           ├── provider.py       # FiscalProvider + NoFiscalProvider + get_provider
+│           ├── afip.py           # WSAA (firma CMS) + WSFEv1 (CAE) vía zeep
+│           └── qr.py             # URL del QR AFIP (RG 4291) — función pura
+│
+├── desktop/                      # ← app de ESCRITORIO (PySide6)
+│   ├── main.py                   # punto de entrada: QApplication, DB y ventana
+│   ├── resources.py              # resolución de rutas de assets (dev y PyInstaller)
+│   ├── requirements.txt          # PySide6 + -e ./vexa_core[afip]
+│   ├── requirements-build.txt    # pyinstaller (+ core con extras)
+│   ├── assets/                   # íconos e imágenes de la app
+│   ├── packaging/                # config de empaquetado (.spec, installer.iss)
+│   └── ui/                       # capa de presentación (todo lo que toca Qt)
+│       ├── main_window.py  home.py  onboarding.py  base_page.py
+│       ├── clientes.py  conceptos.py  documentos.py  configuracion.py
+│       ├── modal.py  widgets.py  anim.py  styles.py  icons.py
+│
+├── mobile/                       # ← app MOBILE Flet (Fase 6.2, aún no creada)
 │
 ├── Distribucion/                 # paquete final para el usuario (ignorado en git)
 └── "Modelo Actual - Access"/     # app Access legacy (DATOS REALES — ignorado en git)
+```
 ```
 
 ---
@@ -119,12 +114,13 @@ reaplica en caliente; los tamaños fijos en píxeles que Qt no recalcula solo
 
 Requiere **Python 3.10+** (se usan anotaciones `str | None`).
 
+Todo se corre **desde la raíz del repo** (para que `-e ./vexa_core` resuelva bien):
+
 ```bash
-cd app
 python -m venv .venv
 .venv\Scripts\activate            # Windows (PowerShell/CMD)
-pip install -r requirements.txt
-python main.py
+pip install -r desktop/requirements.txt   # instala el core (-e ./vexa_core) + PySide6
+python desktop/main.py
 ```
 
 En el primer arranque se crea la base vacía en `~/Facturacion/data.db`.
@@ -134,9 +130,8 @@ En el primer arranque se crea la base vacía en `~/Facturacion/data.db`.
 Solo la primera vez, para poblar SQLite con los datos históricos del `.mdb`:
 
 ```bash
-cd app
-pip install -r requirements-build.txt   # incluye access_parser
-python -m database.migration --source "C:\ruta\a\datos.mdb" [--force]
+pip install -e ./vexa_core[migrate]   # incluye access_parser
+python -m vexa_core.database.migration --source "C:\ruta\a\datos.mdb" [--force]
 ```
 
 Este script **no** se incluye en el ejecutable final: es una herramienta de
@@ -146,16 +141,18 @@ desarrollo.
 
 ## Build del ejecutable (Windows)
 
-Se empaqueta con PyInstaller usando el `.spec` de `app/packaging/`:
+Se empaqueta con PyInstaller usando el `.spec` de `desktop/packaging/` (requiere el
+core instalado en editable):
 
 ```bash
-cd app
-pip install -r requirements-build.txt
-pyinstaller packaging/facturacion.spec
+pip install -r desktop/requirements-build.txt
+pip install -e ./vexa_core[afip,migrate]
+cd desktop/packaging
+pyinstaller --noconfirm --clean facturacion.spec
 ```
 
-El resultado queda en `app/packaging/dist/`. El instalador de Windows se arma
-con Inno Setup a partir de `app/packaging/installer.iss`.
+El resultado queda en `desktop/packaging/dist/`. El instalador de Windows se arma
+con Inno Setup a partir de `desktop/packaging/installer.iss`.
 
 > La app se corre desde el `.exe` generado (vía acceso directo). Tras cambios de
 > código hay que **rebuildear** para verlos reflejados en el ejecutable.
@@ -218,7 +215,7 @@ es gratis y se hace una sola vez.
 
 > Notas: la clave `.key` debe quedar **sin contraseña**; el CUIT del certificado
 > tiene que ser el **mismo** que el de *Datos de la empresa*. La arquitectura es
-> enchufable (`app/fiscal/`), así que el resto de la app no depende de AFIP: sin
+> enchufable (`vexa_core/fiscal/`), así que el resto de la app no depende de AFIP: sin
 > configurar, los documentos salen como no fiscales, igual que antes.
 
 ## Roadmap

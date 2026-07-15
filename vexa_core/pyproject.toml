@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vexa_core"
+version = "2.6.1"
+description = "Núcleo compartido de Vexa (datos, PDF, fiscal) — sin dependencias de UI."
+requires-python = ">=3.10"
+dependencies = [
+    "SQLAlchemy>=2.0",
+    "reportlab>=4.1.0",
+    "openpyxl>=3.1.0",
+    "Pillow>=10.0",
+]
+
+# Facturación electrónica AFIP (opcional): se importa perezosamente en fiscal/.
+[project.optional-dependencies]
+afip = ["zeep>=4.2", "cryptography>=42.0"]
+# Migración única desde Access (herramienta de dev, no va en runtime).
+migrate = ["access_parser>=0.0.6"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["vexa_core*"]

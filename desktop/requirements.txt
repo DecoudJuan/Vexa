@@ -1,0 +1,6 @@
+# App de escritorio (PySide6). Instalar desde la RAÍZ del repo:
+#   pip install -r desktop/requirements.txt
+# Trae el core compartido en editable + AFIP (zeep/cryptography) + reportlab/
+# openpyxl/SQLAlchemy/Pillow como dependencias de vexa_core.
+-e ./vexa_core[afip]
+PySide6>=6.6.0

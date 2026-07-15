@@ -27,12 +27,19 @@ Distribucion/
 *.pdf
 documentosPDF/
 
-# --- Artefactos de build (PyInstaller) ---------------------------------------
-app/packaging/build/
-app/packaging/dist/
+# --- Artefactos de build (PyInstaller / Flet / paquetes) ---------------------
+desktop/packaging/build/
+desktop/packaging/dist/
 build/
 dist/
 *.manifest
+# Paquetes de release (app compilada) y APKs de la mobile
+Vexa-*.zip
+*.apk
+*.aab
+
+# Notas / roadmaps locales (no se suben a GitHub)
+*.local.md
 
 # --- Python ------------------------------------------------------------------
 __pycache__/
