@@ -2,9 +2,9 @@ import sqlite3
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem,
-    QLineEdit, QPushButton, QLabel, QDialog, QComboBox, QTextEdit,
+    QLineEdit, QPushButton, QLabel, QDialog, QTextEdit,
     QMessageBox, QHeaderView, QAbstractItemView,
-    QSizePolicy, QCompleter,
+    QSizePolicy,
 )
 from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QDoubleValidator, QColor, QBrush
@@ -13,9 +13,9 @@ from ui.icons import svg_icon
 from ui.styles import get_palette
 from ui.base_page import ListPage
 from ui.modal import BaseModal, modal_colors
-from ui.widgets import avatar, NoScrollComboBox
+from ui.widgets import avatar, NoScrollComboBox, provincia_combo
 from utils.helpers import (
-    leer_zoom, leer_tema, valor_valido, fmt_ar, parse_float, PROVINCIAS_AR,
+    leer_zoom, leer_tema, valor_valido, fmt_ar, parse_float,
     CONDICIONES_IVA, TELEFONO_EJEMPLO,
 )
 
@@ -326,20 +326,7 @@ class ClienteDialog(BaseModal):
         c.addLayout(self._row2(self._labeled("C.P.", self._cp),
                                self._labeled("LOCALIDAD", self._localidad)))
 
-        self._provincia = NoScrollComboBox()
-        self._provincia.setObjectName("field")
-        self._provincia.setEditable(True)
-        self._provincia.setInsertPolicy(QComboBox.NoInsert)
-        self._provincia.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
-        self._provincia.addItem("")
-        for prov in PROVINCIAS_AR:
-            self._provincia.addItem(prov)
-        self._provincia.setCurrentIndex(0)
-        self._provincia.lineEdit().setPlaceholderText("Elegí o escribí la provincia...")
-        prov_comp = QCompleter(PROVINCIAS_AR)
-        prov_comp.setCaseSensitivity(Qt.CaseInsensitive)
-        prov_comp.setFilterMode(Qt.MatchContains)
-        self._provincia.setCompleter(prov_comp)
+        self._provincia = provincia_combo(object_name="field")
         c.addLayout(self._labeled("PROVINCIA", self._provincia))
 
         self._telefono1 = QLineEdit()

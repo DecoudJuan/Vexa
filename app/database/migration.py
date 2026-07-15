@@ -119,7 +119,7 @@ def run_migration(access_path: str, sqlite_path: str | None = None, force: bool 
         src = AccessParser(access_path)
         tablas_esperadas = {
             "Clientes", "Conceptos", "DatosEmpresa", "Factura", "FormaPago",
-            "Iva", "Lineas", "Recibos", "Remesas", "Suplidos",
+            "Iva", "Lineas", "Suplidos",
         }
         tablas_reales = set(src.catalog.keys())
         extra = tablas_reales - tablas_esperadas - {
@@ -131,7 +131,7 @@ def run_migration(access_path: str, sqlite_path: str | None = None, force: bool 
         # Borrado + recarga completa (migración idempotente, no incremental).
         conn.execute("BEGIN")
         for tabla in (
-            "recibos", "suplidos", "lineas", "facturas", "remesas",
+            "suplidos", "lineas", "facturas",
             "conceptos", "clientes", "forma_pago", "iva",
         ):
             conn.execute(f"DELETE FROM {tabla}")
@@ -262,26 +262,6 @@ def run_migration(access_path: str, sqlite_path: str | None = None, force: bool 
             )
             concepto_map[legacy_id] = cur.lastrowid
         report.add("conceptos", n)
-
-        # -------------------------------------------------------------------- Remesas
-        remesa_map: dict[int, int] = {}
-        rem_data = src.parse_table("Remesas")
-        n = len(rem_data.get("remesas_id", []))
-        for i in range(n):
-            legacy_id = rem_data["remesas_id"][i]
-            cur = conn.execute(
-                """INSERT INTO remesas (descripcion, fecha, fecha_cargo, fecha_vto, legacy_id)
-                   VALUES (?, ?, ?, ?, ?)""",
-                (
-                    _none_if_blank(rem_data["remesas_descripcion"][i]),
-                    _none_if_blank(rem_data["remesas_fecha"][i]) or "2000-01-01",
-                    _none_if_blank(rem_data["remesas_cargo"][i]),
-                    _none_if_blank(rem_data["remesas_vto"][i]),
-                    legacy_id,
-                ),
-            )
-            remesa_map[legacy_id] = cur.lastrowid
-        report.add("remesas", n)
 
         # ------------------------------------------------------------------- Factura
         fact_data = src.parse_table("Factura")
@@ -414,19 +394,6 @@ def run_migration(access_path: str, sqlite_path: str | None = None, force: bool 
             )
             migradas += 1
         report.add("suplidos", migradas)
-
-        # -------------------------------------------------------------------- Recibos
-        rec_data = src.parse_table("Recibos")
-        n = len(rec_data.get("recibos_id", []))
-        migradas = 0
-        for i in range(n):
-            remesa_legacy = rec_data["recibos_remesa"][i]
-            conn.execute(
-                "INSERT INTO recibos (remesa_id, legacy_id) VALUES (?, ?)",
-                (remesa_map.get(remesa_legacy), rec_data["recibos_id"][i]),
-            )
-            migradas += 1
-        report.add("recibos", migradas)
 
         conn.execute(
             """INSERT INTO configuracion (clave, valor) VALUES ('migration_completed_at', datetime('now'))

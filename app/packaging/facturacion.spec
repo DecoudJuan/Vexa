@@ -11,6 +11,7 @@ datas = [
     ("../assets/vexa_logo.png", "assets"),
     ("../assets/vexa_icon.png", "assets"),
     ("../assets/vexa_icon.ico", "assets"),
+    ("../assets/vexa_symbol.png", "assets"),
     ("../assets/chevron.png", "assets"),
 ]
 # zeep (SOAP AFIP, Fase 4): sus WSDL/plantillas y su metadata de versión, que

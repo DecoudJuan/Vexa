@@ -19,10 +19,13 @@ from PySide6.QtWidgets import (
     QDialog, QFrame, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QWidget,
     QGraphicsDropShadowEffect, QScrollArea, QApplication,
 )
-from PySide6.QtCore import Qt, QPoint, QRect
+from PySide6.QtCore import (
+    Qt, QPoint, QRect, QPropertyAnimation, QEasingCurve, QParallelAnimationGroup,
+)
 from PySide6.QtGui import QColor
 
 from ui.icons import svg_icon, svg_pixmap
+from utils.resources import resource_path
 
 _PX_RE = re.compile(r"(\d+)px")
 
@@ -104,9 +107,11 @@ QLabel { background: transparent; }
 }
 #modal_body QComboBox#field QLineEdit { background: transparent; border: none; padding: 0; color: %INK%; }
 #modal_body QComboBox::drop-down, #modal_body QDateEdit::drop-down {
-    border: none; background: transparent; width: 22px;
+    border: none; background: transparent; width: 24px;
 }
-#modal_body QComboBox::down-arrow, #modal_body QDateEdit::down-arrow { image: none; width: 0px; height: 0px; }
+#modal_body QComboBox::down-arrow, #modal_body QDateEdit::down-arrow {
+    image: url(%CHEVRON%); width: 13px; height: 13px;
+}
 #modal_body QComboBox QAbstractItemView {
     background: %CARD%; color: %INK%; border: 1px solid %BORDER%; border-radius: 8px;
     selection-background-color: %LIST_SEL%; selection-color: %INK%; outline: none; padding: 4px;
@@ -182,6 +187,7 @@ def build_modal_css(theme: str = "dark") -> str:
     css = _MODAL_TEMPLATE
     for key, value in modal_colors(theme).items():
         css = css.replace("%" + key.upper() + "%", value)
+    css = css.replace("%CHEVRON%", resource_path("assets/chevron.png").as_posix())
     return css
 
 
@@ -201,10 +207,13 @@ class BaseModal(QDialog):
         self.setModal(True)
         self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
         self.setAttribute(Qt.WA_TranslucentBackground)
-        self.setFixedWidth(self._S(width))
+        # Tamaño responsivo: el px de diseño (× zoom) es el objetivo, pero nunca
+        # más que un % de la pantalla disponible, así entra en cualquier monitor
+        # (notebooks, pantallas chicas) sin salirse ni recortarse.
+        avail = QApplication.primaryScreen().availableGeometry()
+        self.setFixedWidth(min(self._S(width), int(avail.width() * 0.94)))
         if scroll:
-            avail = QApplication.primaryScreen().availableGeometry()
-            self.setFixedHeight(min(self._S(height or 720), avail.height() - self._S(40)))
+            self.setFixedHeight(min(self._S(height or 720), int(avail.height() * 0.92)))
 
         self._build_chrome(title, subtitle, icon)
         css = build_modal_css(theme) + self.extra_css()
@@ -362,3 +371,29 @@ class BaseModal(QDialog):
             if geo.top() < avail.top():
                 geo.moveTop(avail.top())
             self.move(geo.topLeft())
+            self._animate_open(geo.topLeft())
+
+    def _animate_open(self, final_pos: QPoint) -> None:
+        """Aparición del modal: fade + un leve deslizamiento hacia arriba."""
+        offset = self._S(14)
+        start_pos = QPoint(final_pos.x(), final_pos.y() + offset)
+        self.setWindowOpacity(0.0)
+        self.move(start_pos)
+
+        fade = QPropertyAnimation(self, b"windowOpacity", self)
+        fade.setDuration(190)
+        fade.setStartValue(0.0)
+        fade.setEndValue(1.0)
+        fade.setEasingCurve(QEasingCurve.OutCubic)
+
+        slide = QPropertyAnimation(self, b"pos", self)
+        slide.setDuration(220)
+        slide.setStartValue(start_pos)
+        slide.setEndValue(final_pos)
+        slide.setEasingCurve(QEasingCurve.OutCubic)
+
+        group = QParallelAnimationGroup(self)
+        group.addAnimation(fade)
+        group.addAnimation(slide)
+        group.start()
+        self._open_anim = group  # evita que lo recolecte el GC

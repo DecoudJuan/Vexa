@@ -10,15 +10,14 @@ los datos (ver run_onboarding + main.py). La vinculación con AFIP es opcional
 from PySide6.QtWidgets import (
     QDialog, QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QLineEdit,
     QCheckBox, QPushButton, QStackedWidget, QScrollArea, QMessageBox,
-    QSizePolicy, QApplication, QComboBox,
+    QSizePolicy, QApplication,
 )
-from PySide6.QtWidgets import QCompleter
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QPixmap
 
-from ui.widgets import NoScrollComboBox
+from ui.widgets import NoScrollComboBox, provincia_combo
 from utils.helpers import (
-    CONDICIONES_IVA, MONEDAS, PROVINCIAS_AR, set_moneda, leer_zoom,
+    CONDICIONES_IVA, MONEDAS, set_moneda, leer_zoom,
     formatear_cuit, TELEFONO_EJEMPLO, unir_direccion,
 )
 from utils.resources import resource_path
@@ -140,23 +139,6 @@ class OnboardingWindow(QDialog):
         line.setText(fmt(line.text()))
         line.setCursorPosition(len(line.text()))
 
-    def _provincia_combo(self) -> NoScrollComboBox:
-        combo = NoScrollComboBox()
-        combo.setEditable(True)
-        combo.setInsertPolicy(QComboBox.NoInsert)
-        combo.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
-        combo.addItem("")
-        for prov in PROVINCIAS_AR:
-            combo.addItem(prov)
-        combo.setCurrentIndex(0)
-        combo.lineEdit().setPlaceholderText("Elegí o escribí la provincia…")
-        comp = QCompleter(PROVINCIAS_AR)
-        comp.setCaseSensitivity(Qt.CaseInsensitive)
-        comp.setFilterMode(Qt.MatchContains)
-        comp.setCompletionMode(QCompleter.PopupCompletion)
-        combo.setCompleter(comp)
-        return combo
-
     # ------------------------------------------------------------ formulario
     def _labeled(self, texto: str, widget: QWidget) -> QWidget:
         box = QWidget()
@@ -215,7 +197,7 @@ class OnboardingWindow(QDialog):
         self._numero = QLineEdit()
         self._numero.setPlaceholderText("1234")
         self._localidad = QLineEdit()
-        self._provincia = self._provincia_combo()
+        self._provincia = provincia_combo()
         self._telefono = QLineEdit()
         self._telefono.setPlaceholderText(TELEFONO_EJEMPLO)
         self._email = QLineEdit()

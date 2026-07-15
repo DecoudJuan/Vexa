@@ -18,7 +18,7 @@ QWidget {{
 }}
 
 /* =====================================================================
-   TABS (ej. Facturas / Presupuestos / Albaranes / Pedidos / Abonos)
+   TABS (ej. Facturas / Presupuestos / Pedidos)
    Se estilan explícitamente porque el look nativo de Windows para pestañas
    no tiene suficiente contraste con nuestra paleta (se veían casi
    invisibles en modo claro).
@@ -48,7 +48,16 @@ QTabBar::tab:hover {{
 
 QTabBar::tab:selected {{
     color: {accent};
-    border-bottom: 2px solid {accent};
+    /* El subrayado lo dibuja un indicador que se desliza (ui/anim.TabUnderline),
+       no un borde estático, para animar el cambio de solapa. */
+    border-bottom: 2px solid transparent;
+}}
+
+/* Indicador deslizante bajo la solapa activa. */
+QFrame#tab_underline {{
+    background-color: {accent};
+    border: none;
+    border-radius: 1px;
 }}
 
 /* =====================================================================
@@ -97,14 +106,23 @@ QPushButton#nav_button {{
 }}
 
 QPushButton#nav_button:hover {{
-    background-color: {base};
+    background-color: rgba({accent_rgb}, 0.06);
     color: {text};
 }}
 
 QPushButton#nav_button:checked {{
-    background-color: rgba({accent_rgb}, 0.12);
+    /* El resaltado del ítem activo lo dibuja un indicador que se desliza
+       (ver MainWindow._nav_indicator); acá sólo el color/negrita del texto. */
+    background-color: transparent;
     color: {accent};
     font-weight: 600;
+}}
+
+/* Indicador deslizante del ítem activo de la sidebar. */
+QFrame#nav_indicator {{
+    background-color: rgba({accent_rgb}, 0.12);
+    border: none;
+    border-radius: 8px;
 }}
 
 /* =====================================================================
@@ -161,18 +179,6 @@ QScrollArea {{
 
 QScrollArea > QWidget > QWidget {{
     background: transparent;
-}}
-
-/* =====================================================================
-   CONVERSION BANNER (Documentos: "generar factura desde presupuesto", etc.)
-   ===================================================================== */
-QLabel#conversion_banner {{
-    background-color: rgba({accent_rgb}, 0.12);
-    border: 1px solid rgba({accent_rgb}, 0.4);
-    border-radius: 8px;
-    padding: 10px 14px;
-    color: {text};
-    font-weight: 600;
 }}
 
 /* =====================================================================
@@ -234,6 +240,108 @@ QLabel[role="placeholder-sub"] {{
     background: transparent;
 }}
 
+/* Etiqueta de campo (arriba del input, estilo formulario moderno). */
+QLabel[role="field-label"] {{
+    font-size: 11px;
+    font-weight: 600;
+    color: {subtext};
+    background: transparent;
+}}
+
+/* =====================================================================
+   SECCIONES DE FORMULARIO (Configuración): banda con ícono + título
+   ===================================================================== */
+QFrame#form_section {{
+    background-color: {surface};
+    border: 1px solid {line};
+    border-radius: 12px;
+}}
+
+QFrame#section_head {{
+    background-color: rgba({accent_rgb}, 0.07);
+    border: none;
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+}}
+
+QLabel[role="section-title"] {{
+    font-size: 13px;
+    font-weight: 700;
+    color: {accent};
+    background: transparent;
+}}
+
+/* Barra de búsqueda ancha de las listas (ícono adentro, a la izquierda). */
+QLineEdit#search_input {{
+    background-color: {surface};
+    border: 1px solid {line};
+    border-radius: 10px;
+    padding: 10px 14px;
+    min-height: 22px;
+    font-size: 13.5px;
+}}
+QLineEdit#search_input:focus {{
+    border-color: {accent};
+}}
+
+/* =====================================================================
+   HOME / LANDING (tarjetas de acceso a las secciones)
+   ===================================================================== */
+QLabel#home_brand {{
+    font-size: 30px;
+    font-weight: 800;
+    color: {accent};
+    letter-spacing: 0.5px;
+    background: transparent;
+}}
+
+QLabel#home_brand_sub {{
+    font-size: 12px;
+    color: {subtext};
+    letter-spacing: 3px;
+    background: transparent;
+}}
+
+QFrame#home_card {{
+    background-color: {surface};
+    border: 1px solid {line};
+    border-radius: 16px;
+}}
+
+QFrame#home_card:hover {{
+    border-color: {accent};
+    background-color: rgba({accent_rgb}, 0.05);
+}}
+
+QLabel#home_icon_chip {{
+    background-color: rgba({accent_rgb}, 0.12);
+    border: none;
+    border-radius: 18px;
+}}
+
+QLabel[role="home-title"] {{
+    font-size: 16px;
+    font-weight: 700;
+    color: {text};
+    background: transparent;
+}}
+
+QLabel[role="home-sub"] {{
+    font-size: 12px;
+    color: {subtext};
+    background: transparent;
+}}
+
+/* Marca de la sidebar: clickeable para volver al inicio. */
+QWidget#brand_click {{
+    background: transparent;
+    border-radius: 8px;
+}}
+
+QWidget#brand_click:hover {{
+    background-color: rgba({accent_rgb}, 0.08);
+}}
+
 /* =====================================================================
    METRIC CARDS
    ===================================================================== */
@@ -276,11 +384,15 @@ QTableWidget::item:alternate {{
    además está seleccionada, gana la regla declarada más abajo. Si :selected
    fuera la primera, la selección quedaba invisible en las filas alternadas
    (parecía que el click "no hacía nada" en esas filas). */
+/* Selección suave: relleno neutro (sin el azul saturado) y un contorno
+   horizontal continuo arriba/abajo. Sin border-left para no repetir una barra
+   vertical en cada celda (se veía como columnas segmentadas). */
 QTableWidget::item:selected,
 QTableWidget::item:alternate:selected {{
-    background-color: rgba({accent_rgb}, 0.14);
+    background-color: {row_sel};
     color: {text};
-    border-left: 3px solid {accent};
+    border-top: 1px solid {row_sel_bar};
+    border-bottom: 1px solid {row_sel_bar};
 }}
 
 QHeaderView {{
@@ -288,15 +400,22 @@ QHeaderView {{
     border: none;
 }}
 
+/* border-right: una fina línea divisoria entre columnas que además señala el
+   borde arrastrable para ensanchar/achicar cada columna. */
 QHeaderView::section {{
     background-color: {crust};
     color: {subtext};
     padding: 10px 12px;
     border: none;
     border-bottom: 1px solid {line};
+    border-right: 1px solid {line};
     font-weight: 700;
     font-size: 10px;
     letter-spacing: 0.5px;
+}}
+
+QHeaderView::section:last {{
+    border-right: none;
 }}
 
 /* =====================================================================
@@ -741,12 +860,11 @@ _PALETTES = {
         "accent_rgb": "137, 180, 250",
         "select_bg": "#34406a",
         "select_tx": "#cdd6f4",
+        "row_sel": "#333a54",
+        "row_sel_bar": "#4a5379",
         "danger": "#f38ba8",
         "danger_rgb": "243, 139, 168",
         "warn": "#f9e2af",
-        "warn_rgb": "249, 226, 175",
-        "ok": "#a6e3a1",
-        "ok_rgb": "166, 227, 161",
         "disabled_bg": "#24273a",
     },
     "light": {
@@ -765,12 +883,11 @@ _PALETTES = {
         "accent_rgb": "30, 102, 245",
         "select_bg": "#dbe6fd",
         "select_tx": "#3c3f58",
+        "row_sel": "#d7dfee",
+        "row_sel_bar": "#b3c0d8",
         "danger": "#d20f39",
         "danger_rgb": "210, 15, 57",
         "warn": "#df8e1d",
-        "warn_rgb": "223, 142, 29",
-        "ok": "#40a02b",
-        "ok_rgb": "64, 160, 43",
         "disabled_bg": "#dce0e8",
     },
 }
@@ -855,7 +972,3 @@ def build_qpalette(theme: str = "dark"):
     for role in (QPalette.Text, QPalette.WindowText, QPalette.ButtonText):
         pal.setColor(QPalette.Disabled, role, c(p["muted2"]))
     return pal
-
-
-# Compatibilidad con código existente que importaba el estilo oscuro fijo.
-APP_STYLE = build_style("dark", 1.0)

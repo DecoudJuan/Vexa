@@ -19,8 +19,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from database.models import (
-    Base, DatosEmpresa, Iva, FormaPago, Cliente, ClienteCuit, Concepto,
-    Factura, Linea, Suplido, Remesa, Recibo, Configuracion, TIPOS_DOCUMENTO,
+    Base, DatosEmpresa, FormaPago, Cliente, ClienteCuit, Concepto,
+    Factura, Linea, Suplido, Configuracion, TIPOS_DOCUMENTO,
 )
 
 # Carpeta de datos: por defecto ~/Facturacion, pero se puede apuntar a otra
@@ -216,58 +216,12 @@ class DatabaseManager:
             for c in campos:
                 setattr(obj, c, data.get(c))
 
-    # ----------------------------------------------------------------------- iva
-
-    def get_all_iva(self, solo_activos: bool = False) -> list[dict]:
-        with self._session() as s:
-            stmt = select(Iva)
-            if solo_activos:
-                stmt = stmt.where(Iva.activo == 1)
-            stmt = stmt.order_by(Iva.tipo.desc())
-            return [_as_dict(o) for o in s.execute(stmt).scalars()]
-
-    def create_iva(self, data: dict) -> int:
-        with self._session() as s:
-            obj = Iva(tipo=data["tipo"], recargo=data["recargo"], activo=data["activo"])
-            s.add(obj)
-            s.flush()
-            return obj.id
-
-    def update_iva(self, iva_id: int, data: dict) -> None:
-        with self._session() as s:
-            s.execute(update(Iva).where(Iva.id == iva_id).values(
-                tipo=data["tipo"], recargo=data["recargo"], activo=data["activo"]))
-
-    def delete_iva(self, iva_id: int) -> None:
-        with self._session() as s:
-            s.execute(delete(Iva).where(Iva.id == iva_id))
-
     # ------------------------------------------------------------------ forma_pago
 
     def get_all_forma_pago(self) -> list[dict]:
         with self._session() as s:
             stmt = select(FormaPago).order_by(FormaPago.tipo.collate("NOCASE"))
             return [_as_dict(o) for o in s.execute(stmt).scalars()]
-
-    def create_forma_pago(self, data: dict) -> int:
-        with self._session() as s:
-            obj = FormaPago(
-                tipo=data["tipo"], genera_recibo=data["genera_recibo"],
-                vto1=data["vto1"], vto2=data["vto2"], vto3=data["vto3"],
-            )
-            s.add(obj)
-            s.flush()
-            return obj.id
-
-    def update_forma_pago(self, forma_pago_id: int, data: dict) -> None:
-        with self._session() as s:
-            s.execute(update(FormaPago).where(FormaPago.id == forma_pago_id).values(
-                tipo=data["tipo"], genera_recibo=data["genera_recibo"],
-                vto1=data["vto1"], vto2=data["vto2"], vto3=data["vto3"]))
-
-    def delete_forma_pago(self, forma_pago_id: int) -> None:
-        with self._session() as s:
-            s.execute(delete(FormaPago).where(FormaPago.id == forma_pago_id))
 
     # --------------------------------------------------------------------- clientes
 
@@ -375,32 +329,6 @@ class DatabaseManager:
                                   | Concepto.talle.like(like))
             stmt = stmt.order_by(*order_by)
             return [_as_dict(o) for o in s.execute(stmt).scalars()]
-
-    def create_concepto(self, data: dict) -> int:
-        with self._session() as s:
-            obj = Concepto(nombre=data.get("nombre"),
-                           codigo=data.get("codigo") or "",
-                           talle=data.get("talle") or "",
-                           pvp=data.get("pvp") or 0)
-            s.add(obj)
-            s.flush()
-            return obj.id
-
-    def update_concepto(self, concepto_id: int, data: dict) -> None:
-        with self._session() as s:
-            obj = s.get(Concepto, concepto_id)
-            obj.nombre = data.get("nombre")
-            obj.codigo = data.get("codigo") or ""
-            obj.talle = data.get("talle") or ""
-            obj.pvp = data.get("pvp") or 0
-
-    def delete_concepto(self, concepto_id: int) -> None:
-        with self._session() as s:
-            obj = s.get(Concepto, concepto_id)
-            if obj is None:
-                return
-            self._snapshot_concepto_en_lineas(s, obj)
-            s.delete(obj)
 
     @staticmethod
     def _snapshot_concepto_en_lineas(s, obj) -> None:
@@ -676,89 +604,8 @@ class DatabaseManager:
             factura.lineas = self._nuevas_lineas(lineas)
             factura.suplidos = self._nuevos_suplidos(suplidos)
 
-    def update_factura_estado(self, factura_id: int, estado: str) -> None:
-        with self._session() as s:
-            s.execute(update(Factura).where(Factura.id == factura_id).values(estado=estado))
-
     def delete_factura(self, factura_id: int) -> None:
         with self._session() as s:
             obj = s.get(Factura, factura_id)
             if obj is not None:
                 s.delete(obj)
-
-    # --------------------------------------------------------------- remesas / recibos
-
-    def get_all_remesas(self) -> list[dict]:
-        with self._session() as s:
-            n_recibos = (select(func.count()).select_from(Recibo)
-                         .where(Recibo.remesa_id == Remesa.id).scalar_subquery())
-            total = (select(func.coalesce(func.sum(Recibo.importe), 0))
-                     .where(Recibo.remesa_id == Remesa.id).scalar_subquery())
-            stmt = (select(Remesa, n_recibos.label("n_recibos"), total.label("total"))
-                    .order_by(Remesa.fecha.desc(), Remesa.id.desc()))
-            return [{**_as_dict(r), "n_recibos": nr, "total": tot}
-                    for r, nr, tot in s.execute(stmt)]
-
-    def get_recibos_pendientes(self) -> list[dict]:
-        with self._session() as s:
-            stmt = (select(Recibo,
-                           Factura.numero.label("factura_numero"),
-                           Factura.tipo.label("factura_tipo"),
-                           Cliente.nombre.label("cliente_nombre"))
-                    .join(Factura, Recibo.factura_id == Factura.id)
-                    .join(Cliente, Factura.cliente_id == Cliente.id)
-                    .where(Recibo.estado == "pendiente", Recibo.remesa_id.is_(None))
-                    .order_by(Cliente.nombre.collate("NOCASE")))
-            return [{**_as_dict(re), "factura_numero": fn, "factura_tipo": ft,
-                     "cliente_nombre": cn}
-                    for re, fn, ft, cn in s.execute(stmt)]
-
-    def get_recibos_de_remesa(self, remesa_id: int) -> list[dict]:
-        with self._session() as s:
-            stmt = (select(Recibo,
-                           Factura.numero.label("factura_numero"),
-                           Factura.tipo.label("factura_tipo"),
-                           Cliente.nombre.label("cliente_nombre"),
-                           Cliente.ccc1, Cliente.ccc2, Cliente.ccc3, Cliente.ccc4)
-                    .join(Factura, Recibo.factura_id == Factura.id)
-                    .join(Cliente, Factura.cliente_id == Cliente.id)
-                    .where(Recibo.remesa_id == remesa_id)
-                    .order_by(Cliente.nombre.collate("NOCASE")))
-            out = []
-            for re, fn, ft, cn, c1, c2, c3, c4 in s.execute(stmt):
-                out.append({**_as_dict(re), "factura_numero": fn, "factura_tipo": ft,
-                            "cliente_nombre": cn, "ccc1": c1, "ccc2": c2,
-                            "ccc3": c3, "ccc4": c4})
-            return out
-
-    def create_recibo(self, factura_id: int, importe: float) -> int:
-        with self._session() as s:
-            obj = Recibo(factura_id=factura_id, importe=importe)
-            s.add(obj)
-            s.flush()
-            return obj.id
-
-    def create_remesa(self, recibo_ids: list[int], data: dict) -> int:
-        with self._session() as s:
-            remesa = Remesa(descripcion=data.get("descripcion"), fecha=data.get("fecha"),
-                            fecha_cargo=data.get("fecha_cargo"), fecha_vto=data.get("fecha_vto"))
-            s.add(remesa)
-            s.flush()
-            if recibo_ids:
-                s.execute(update(Recibo).where(Recibo.id.in_(recibo_ids))
-                          .values(remesa_id=remesa.id))
-            return remesa.id
-
-    # ------------------------------------------------------------------ dashboard
-
-    def get_resumen(self, ejercicio: int) -> dict:
-        with self._session() as s:
-            totales = s.execute(
-                select(Factura.tipo,
-                       func.count().label("cantidad"),
-                       func.coalesce(func.sum(Factura.total), 0).label("total"))
-                .where(Factura.ejercicio == ejercicio)
-                .group_by(Factura.tipo)
-            ).mappings().all()
-            n_clientes = s.execute(select(func.count()).select_from(Cliente)).scalar()
-            return {"por_tipo": [dict(m) for m in totales], "n_clientes": n_clientes}

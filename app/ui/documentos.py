@@ -9,32 +9,26 @@ from PySide6.QtCore import Qt, QDate
 from PySide6.QtGui import QDoubleValidator
 
 from ui.icons import svg_icon
+from ui.anim import TabUnderline
 from ui.base_page import ListPage
 from ui.modal import BaseModal, modal_colors
 from ui.widgets import NoScrollComboBox
 from utils.helpers import (
     fmt_ar, parse_float, leer_zoom, leer_tema, etiqueta_concepto, abrir_archivo,
-    fmt_talle, ordenar_talles,
 )
 from utils.pdf_generator import generar_pdf_documento
 
-# FA=Factura, PR=Presupuesto, AL=Albarán, PE=Pedido, AB=Abono (nota de crédito)
+# FA=Factura, PR=Presupuesto, PE=Pedido. La app apunta a facturar: no hay
+# albaranes ni abonos (notas de crédito).
 DOCUMENT_TYPES = {
-    "FA": {"label": "Factura", "plural": "Facturas", "prefijo": "FA",
-           "show_suplidos": True, "convierte_a": ["AB"]},
-    "PR": {"label": "Presupuesto", "plural": "Presupuestos", "prefijo": "PR",
-           "show_suplidos": False, "convierte_a": ["FA"]},
-    "AL": {"label": "Albarán", "plural": "Albaranes", "prefijo": "AL",
-           "show_suplidos": False, "convierte_a": ["FA"]},
-    "PE": {"label": "Pedido", "plural": "Pedidos", "prefijo": "PE",
-           "show_suplidos": False, "convierte_a": ["AL", "FA"]},
-    "AB": {"label": "Abono", "plural": "Abonos", "prefijo": "AB",
-           "show_suplidos": False, "convierte_a": []},
+    "FA": {"label": "Factura", "plural": "Facturas", "prefijo": "FA"},
+    "PR": {"label": "Presupuesto", "plural": "Presupuestos", "prefijo": "PR"},
+    "PE": {"label": "Pedido", "plural": "Pedidos", "prefijo": "PE"},
 }
 
 
 class DocumentosWidget(QWidget):
-    """Aloja una pestaña por cada tipo de documento (Factura/Presupuesto/Albarán/Pedido/Abono)."""
+    """Aloja una pestaña por cada tipo de documento (Factura/Presupuesto/Pedido)."""
 
     def __init__(self, db, parent=None):
         super().__init__(parent)
@@ -49,6 +43,7 @@ class DocumentosWidget(QWidget):
             widget = DocumentListWidget(self.db, tipo, parent=self)
             self._lists[tipo] = widget
             self._tabs.addTab(widget, cfg["plural"])
+        TabUnderline(self._tabs)
         self._tabs.currentChanged.connect(self._on_tab_changed)
         layout.addWidget(self._tabs)
 
@@ -93,9 +88,8 @@ class DocumentListWidget(ListPage):
         self._btn_pdf = self._boton("  Ver PDF", "file-text", "text", "btn_secondary",
                                     self._on_pdf, needs_selection=True)
         widgets = [self._btn_edit, self._btn_pdf]
-        # Autorización electrónica solo para comprobantes fiscales (factura y
-        # nota de crédito/abono).
-        if self.tipo in ("FA", "AB"):
+        # Autorización electrónica solo para la factura (único comprobante fiscal).
+        if self.tipo == "FA":
             self._btn_afip = self._boton("  Autorizar en AFIP", "check", "text",
                                          "btn_secondary", self._on_autorizar,
                                          needs_selection=True)
@@ -174,7 +168,7 @@ class DocumentListWidget(ListPage):
 
     def _fill_row(self, row: int, d: dict) -> None:
         numero = f"{self.cfg['prefijo']}-{d.get('ejercicio')}-{d.get('numero') or ''}"
-        self._table.setItem(row, 0, self._cell(numero))
+        self._table.setItem(row, 0, self._cell(numero, accent=True))
         self._table.setItem(row, 1, self._cell((d.get("fecha") or "")[:10]))
         self._table.setItem(row, 2, self._cell(d.get("cliente_nombre") or ""))
         self._table.setItem(row, 3, self._cell(fmt_ar(d.get("total") or 0), Qt.AlignRight | Qt.AlignVCenter))
@@ -272,21 +266,19 @@ class DocumentListWidget(ListPage):
 # =====================================================================
 
 # Anchos (en px a zoom 1.0) de las columnas fijas de la tabla de líneas.
-_COL_W = {"talle": 78, "cant": 68, "pvp": 104, "imp": 108, "del": 34}
+_COL_W = {"cant": 68, "pvp": 104, "imp": 108, "del": 34}
 
 
 class DocumentoDialog(BaseModal):
-    """Alta/edición de un documento (cabecera + líneas), y generación de un
-    documento nuevo a partir de otro (origen) para 'convertir presupuesto en
-    factura', etc. Reutiliza el chrome (cabecera/pie/arrastre/centrado) de
-    BaseModal; acá vive solo el cuerpo propio (líneas + totales)."""
+    """Alta/edición de un documento (cabecera + líneas). Reutiliza el chrome
+    (cabecera/pie/arrastre/centrado) de BaseModal; acá vive solo el cuerpo
+    propio (líneas + totales)."""
 
-    def __init__(self, db, tipo: str, factura_id: int | None = None, origen: dict | None = None, parent=None):
+    def __init__(self, db, tipo: str, factura_id: int | None = None, parent=None):
         self.db = db
         self.tipo = tipo
         self.cfg = DOCUMENT_TYPES[tipo]
         self.factura_id = factura_id
-        self.origen = origen
         # Productos agrupados (uno por nombre+código con sus variantes de talle)
         # y mapa inverso variante_id -> (índice_producto, talle) para reabrir
         # líneas de facturas existentes.
@@ -295,31 +287,29 @@ class DocumentoDialog(BaseModal):
         for pi, p in enumerate(self._productos):
             for v in p["variantes"]:
                 self._variante_por_id[v["id"]] = (pi, v["talle"])
-        self._lineas: list[dict] = []          # {row, prod, talle, cant, pvp, importe}
+        self._lineas: list[dict] = []          # {row, prod, cant, pvp, importe}
         # Campos legacy que ya no se editan pero se preservan al guardar.
         self._legacy_iva = 0
         self._legacy_retencion = 0
         self._legacy_pedido_cliente = None
         self._ultimo_total = 0.0
-        self._ultimo_subtotal = 0.0
 
         titulo, sub = self._titulos()
         super().__init__(titulo, sub, icon="file-invoice", width=860,
                          zoom=leer_zoom(db), theme=leer_tema(db),
                          scale_css=True, parent=parent)
-        # Modal grande: ancho fijo y alto generoso pero que siempre entre en la
-        # pantalla. La lista de productos (elástica) se lleva el alto sobrante.
+        # Modal grande: apunta al tamaño de diseño pero se limita a un % de la
+        # pantalla para entrar en cualquier monitor. La lista de productos
+        # (elástica) se lleva el alto sobrante.
         avail = QApplication.primaryScreen().availableGeometry()
-        self.setFixedWidth(min(self._S(860), avail.width() - self._S(40)))
-        self.setFixedHeight(min(self._S(900), avail.height() - self._S(56)))
+        self.setFixedWidth(min(self._S(860), int(avail.width() * 0.94)))
+        self.setFixedHeight(min(self._S(900), int(avail.height() * 0.92)))
 
         self._build_body()
         self.set_primary_action("Guardar", self._accept)
 
         if factura_id:
             self._cargar_existente(factura_id)
-        elif origen:
-            self._cargar_desde_origen(origen)
         else:
             self._crear_fila_linea()
             self._sugerir_numero()
@@ -327,12 +317,7 @@ class DocumentoDialog(BaseModal):
         self._recalcular()
 
     def _titulos(self) -> tuple[str, str]:
-        if self.origen and not self.factura_id:
-            oc = DOCUMENT_TYPES[self.origen["tipo"]]
-            titulo = f"Nuevo/a {self.cfg['label'].lower()}"
-            sub = (f"Desde {oc['prefijo']}-{self.origen.get('ejercicio')}-"
-                   f"{self.origen.get('numero')} · el original no se modifica")
-        elif self.factura_id:
+        if self.factura_id:
             titulo = f"Editar {self.cfg['label'].lower()}"
             sub = "Modificá los datos del comprobante"
         else:
@@ -364,6 +349,10 @@ class DocumentoDialog(BaseModal):
         comp.setFilterMode(Qt.MatchContains)
         self._cliente.setCompleter(comp)
         self._cliente.currentIndexChanged.connect(self._on_cliente_changed)
+        # Si se escribe el nombre exacto sin elegirlo del popup, engancharlo al
+        # ítem al salir del campo (si no coincide, queda como texto para crear).
+        self._cliente.lineEdit().editingFinished.connect(
+            lambda: self._snap_a_item(self._cliente))
         v.addWidget(self._cliente)
 
         # ---- DOCUMENTO + FECHA (etiquetas en una fila, campos en la siguiente)
@@ -462,11 +451,6 @@ class DocumentoDialog(BaseModal):
         prod = QLabel("PRODUCTO")
         prod.setObjectName("col_head")
         hl.addWidget(prod, 1)
-        talle_h = QLabel("TALLE")
-        talle_h.setObjectName("col_head")
-        talle_h.setFixedWidth(self._S(_COL_W["talle"]))
-        talle_h.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-        hl.addWidget(talle_h)
         hl.addWidget(col("CANT.", "cant"))
         hl.addWidget(col("PRECIO UNIT.", "pvp"))
         hl.addWidget(col("IMPORTE", "imp"))
@@ -575,7 +559,8 @@ class DocumentoDialog(BaseModal):
         combo.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
         combo.addItem("", None)
         for pi, p in enumerate(self._productos):
-            # Etiqueta "nombre (codigo)" sin talle; el talle se elige aparte.
+            # Etiqueta "nombre (codigo)" sin talle: en la factura el producto va
+            # por nombre, sin discriminar talle.
             combo.addItem(etiqueta_concepto(p["nombre"], p.get("codigo")), pi)
         combo.lineEdit().setPlaceholderText("Nombre del producto...")
         combo.lineEdit().setCursorPosition(0)
@@ -583,11 +568,6 @@ class DocumentoDialog(BaseModal):
         comp.setCaseSensitivity(Qt.CaseInsensitive)
         comp.setFilterMode(Qt.MatchContains)
         combo.setCompleter(comp)
-
-        # Selector de talle (dependiente del producto).
-        talle = NoScrollComboBox()
-        talle.setObjectName("line_combo")
-        talle.setFixedWidth(self._S(_COL_W["talle"]))
 
         cant = QLineEdit(f"{cantidad:g}")
         cant.setObjectName("cell_input")
@@ -613,19 +593,20 @@ class DocumentoDialog(BaseModal):
         btn_del.setCursor(Qt.PointingHandCursor)
 
         rl.addWidget(combo, 1)
-        rl.addWidget(talle)
         rl.addWidget(cant)
         rl.addWidget(pvp_w)
         rl.addWidget(importe)
         rl.addWidget(btn_del)
 
-        entry = {"row": row, "prod": combo, "talle": talle, "cant": cant,
+        entry = {"row": row, "prod": combo, "cant": cant,
                  "pvp": pvp_w, "importe": importe}
         self._lineas.append(entry)
 
         combo.currentIndexChanged.connect(lambda _=None, e=entry: self._on_producto_changed(e))
+        # Nombre escrito a mano (sin elegir del popup): al salir del campo lo
+        # enganchamos al producto que coincide para tomar su precio.
+        combo.lineEdit().editingFinished.connect(lambda e=entry: self._snap_a_item(e["prod"]))
         combo.editTextChanged.connect(lambda _=None: self._recalcular())
-        talle.currentIndexChanged.connect(lambda _=None, e=entry: self._on_talle_changed(e))
         cant.textChanged.connect(self._recalcular)
         pvp_w.textChanged.connect(self._recalcular)
         btn_del.clicked.connect(lambda _=None, e=entry: self._quitar_fila(e))
@@ -634,20 +615,18 @@ class DocumentoDialog(BaseModal):
         self._lineas_layout.insertWidget(self._lineas_layout.count() - 1, row)
 
         # Selección inicial (línea nueva vacía, o carga de una factura existente).
+        # El talle de la variante no se usa acá: en la factura el producto va por
+        # nombre, sin discriminar talle.
         if concepto_id is not None and concepto_id in self._variante_por_id:
-            pi, tl = self._variante_por_id[concepto_id]
+            pi, _tl = self._variante_por_id[concepto_id]
             combo.blockSignals(True)
             combo.setCurrentIndex(combo.findData(pi))
             combo.lineEdit().setCursorPosition(0)
             combo.blockSignals(False)
-            self._poblar_talles(entry, sel_talle=tl)
         elif concepto_libre:
             combo.blockSignals(True)
             combo.setEditText(concepto_libre)
             combo.blockSignals(False)
-            self._poblar_talles(entry)
-        else:
-            self._poblar_talles(entry)
         # El precio de la línea es el guardado (puede diferir del actual).
         pvp_w.setText(f"{pvp:.2f}")
 
@@ -664,42 +643,14 @@ class DocumentoDialog(BaseModal):
             return self._productos[pi]
         return None
 
-    def _poblar_talles(self, entry, sel_talle=None) -> None:
-        """Llena el combo de talle con las variantes del producto elegido. Sin
-        talles (producto único) queda deshabilitado mostrando '—' pero igual
-        guarda el id de la variante."""
-        ct = entry["talle"]
-        ct.blockSignals(True)
-        ct.clear()
-        p = self._producto_de(entry)
-        por_talle = {v["talle"]: v for v in (p["variantes"] if p else [])}
-        talles = ordenar_talles(por_talle.keys())
-        if talles:
-            ct.setEnabled(True)
-            for i, t in enumerate(talles):
-                v = por_talle[t]
-                ct.addItem(fmt_talle(t), v["id"])
-                ct.setItemData(i, v["pvp"], Qt.UserRole + 1)
-            ct.setCurrentIndex(talles.index(sel_talle) if sel_talle in talles else 0)
-        else:
-            ct.setEnabled(False)
-            v0 = p["variantes"][0] if p else None
-            ct.addItem("—", v0["id"] if v0 else None)
-            if v0:
-                ct.setItemData(0, v0["pvp"], Qt.UserRole + 1)
-        ct.blockSignals(False)
-
     def _aplicar_pvp(self, entry) -> None:
-        pvp = entry["talle"].currentData(Qt.UserRole + 1)
-        if pvp is not None:
-            entry["pvp"].setText(f"{float(pvp):.2f}")
+        # El talle no se discrimina en la factura: se toma el precio del
+        # producto (el máximo entre sus variantes, que casi siempre coinciden).
+        p = self._producto_de(entry)
+        if p is not None:
+            entry["pvp"].setText(f"{float(p.get('pvp') or 0):.2f}")
 
     def _on_producto_changed(self, entry) -> None:
-        self._poblar_talles(entry)
-        self._aplicar_pvp(entry)
-        self._recalcular()
-
-    def _on_talle_changed(self, entry) -> None:
         self._aplicar_pvp(entry)
         self._recalcular()
 
@@ -709,9 +660,10 @@ class DocumentoDialog(BaseModal):
         out = []
         for e in self._lineas:
             p = self._producto_de(e)
-            # Con producto elegido, el id de la variante lo da el combo de talle;
-            # si no, es una línea de texto libre.
-            concepto_id = e["talle"].currentData() if p else None
+            # En la factura el producto va por nombre, sin discriminar talle: se
+            # guarda una variante representativa (la primera) sólo para enlazar
+            # con el concepto. Si no hay producto, es una línea de texto libre.
+            concepto_id = p["ids"][0] if p and p.get("ids") else None
             texto = e["prod"].currentText().strip()
             if not texto and concepto_id is None:
                 continue
@@ -739,7 +691,6 @@ class DocumentoDialog(BaseModal):
         self._lbl_bonif_val.setText(f"−{fmt_ar(bonificacion)}" if aplica else "—")
         self._lbl_total.setText(fmt_ar(total))
         self._ultimo_total = total
-        self._ultimo_subtotal = subtotal
 
     # ------------------------------------------------------------- carga
 
@@ -794,42 +745,40 @@ class DocumentoDialog(BaseModal):
         if not self._lineas:
             self._crear_fila_linea()
 
-    def _cargar_desde_origen(self, origen: dict) -> None:
-        idx = self._cliente.findData(origen["cliente_id"])
-        self._cliente.setCurrentIndex(max(idx, 0))
-        self._comentarios.setPlainText(origen.get("comentarios") or "")
-        self._bonif_input.setText(
-            f"{float(origen.get('bonificacion') or 0):g}" if origen.get("aplica_bonificacion") else "0"
-        )
-        fp_idx = self._forma_pago.findData(origen.get("forma_pago_id"))
-        self._forma_pago.setCurrentIndex(max(fp_idx, 0))
-        self._sugerir_numero()
-
-        for ln in self.db.get_lineas(origen["id"]):
-            self._crear_fila_linea(
-                concepto_id=ln.get("concepto_id"),
-                concepto_libre=ln.get("concepto_libre") or "",
-                cantidad=ln.get("cantidad") or 1.0,
-                pvp=ln.get("pvp") or 0.0,
-            )
-        if not self._lineas:
-            self._crear_fila_linea()
-
-        self._origen_tipo = origen.get("tipo")
-        self._origen_numero = origen.get("numero")
-
     # ------------------------------------------------------------ guardar
 
+    def _snap_a_item(self, combo) -> None:
+        """Si se tipeó el texto exacto de un ítem sin elegirlo del popup, el
+        combo editable queda con índice sin fijar (texto libre) y se pierde su
+        dato asociado (id de cliente / variante de producto). Lo enganchamos al
+        ítem que coincide para que valga como una selección real; si no coincide
+        con ninguno, se deja el texto tal cual."""
+        if combo.currentData() is not None:
+            return
+        txt = combo.currentText().strip()
+        if not txt:
+            return
+        idx = combo.findText(txt, Qt.MatchFixedString)
+        if idx > 0:
+            combo.setCurrentIndex(idx)
+
     def _accept(self) -> None:
+        # Enganchar textos escritos a mano (cliente y productos) a su ítem real
+        # antes de leer, así una selección tipeada vale igual que una elegida
+        # (en el producto esto además toma su precio de lista).
+        self._snap_a_item(self._cliente)
+        for e in self._lineas:
+            self._snap_a_item(e["prod"])
+
         cliente_id = self._cliente.currentData()
         if cliente_id is None:
-            # El usuario pudo tipear un nombre exacto sin elegirlo del popup.
+            # No coincide con ningún cliente: se crea al vuelo con lo escrito,
+            # así se puede facturar a un cliente nuevo sin cargarlo aparte antes.
             txt = self._cliente.currentText().strip()
-            idx = self._cliente.findText(txt, Qt.MatchFixedString) if txt else -1
-            if idx > 0:
-                cliente_id = self._cliente.itemData(idx)
+            if txt:
+                cliente_id = self.db.create_cliente({"nombre": txt})
         if cliente_id is None:
-            QMessageBox.warning(self, "Campo requerido", "Elegí un cliente.")
+            QMessageBox.warning(self, "Campo requerido", "Escribí o elegí un cliente.")
             return
         lineas = self._leer_lineas()
         if not lineas:
@@ -853,8 +802,8 @@ class DocumentoDialog(BaseModal):
             "aplica_bonificacion": 1 if pct > 0 else 0,
             "forma_pago_id": self._forma_pago.currentData(),
             "comentarios": self._comentarios.toPlainText().strip() or None,
-            "origen_tipo": getattr(self, "_origen_tipo", None),
-            "origen_numero": getattr(self, "_origen_numero", None),
+            "origen_tipo": None,
+            "origen_numero": None,
             "iva": self._legacy_iva,
             "retencion": self._legacy_retencion,
             "pedido_cliente": self._legacy_pedido_cliente,

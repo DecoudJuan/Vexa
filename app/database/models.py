@@ -14,8 +14,8 @@ from sqlalchemy import (
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 # Tipos de documento soportados por la tabla polimórfica `facturas`.
-# FA=Factura, PR=Presupuesto, AL=Albarán, PE=Pedido, AB=Abono (nota de crédito)
-TIPOS_DOCUMENTO = ("FA", "PR", "AL", "PE", "AB")
+# FA=Factura, PR=Presupuesto, PE=Pedido.
+TIPOS_DOCUMENTO = ("FA", "PR", "PE")
 
 _NOW = text("(datetime('now'))")
 
@@ -146,7 +146,10 @@ class Concepto(Base):
 class Factura(Base):
     __tablename__ = "facturas"
     __table_args__ = (
-        CheckConstraint("tipo IN ('FA','PR','AL','PE','AB')", name="ck_facturas_tipo"),
+        CheckConstraint(
+            "tipo IN (" + ", ".join(f"'{t}'" for t in TIPOS_DOCUMENTO) + ")",
+            name="ck_facturas_tipo",
+        ),
         CheckConstraint(
             "estado IN ('abierto','facturado','cobrado','anulado')",
             name="ck_facturas_estado",
@@ -245,39 +248,6 @@ class Suplido(Base):
     )
     concepto: Mapped[str | None] = mapped_column(Text)
     importe: Mapped[float] = mapped_column(Float, nullable=False, server_default=text("0"))
-    legacy_id: Mapped[int | None] = mapped_column(Integer, unique=True)
-
-
-class Remesa(Base):
-    __tablename__ = "remesas"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    descripcion: Mapped[str | None] = mapped_column(Text)
-    fecha: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("(date('now'))"))
-    fecha_cargo: Mapped[str | None] = mapped_column(Text)
-    fecha_vto: Mapped[str | None] = mapped_column(Text)
-    legacy_id: Mapped[int | None] = mapped_column(Integer, unique=True)
-    created_at: Mapped[str | None] = mapped_column(Text, server_default=_NOW)
-
-
-class Recibo(Base):
-    __tablename__ = "recibos"
-    __table_args__ = (
-        CheckConstraint(
-            "estado IN ('pendiente','cobrado','devuelto')", name="ck_recibos_estado"
-        ),
-        Index("idx_recibos_remesa", "remesa_id"),
-    )
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    remesa_id: Mapped[int | None] = mapped_column(
-        ForeignKey("remesas.id", ondelete="SET NULL")
-    )
-    factura_id: Mapped[int | None] = mapped_column(
-        ForeignKey("facturas.id", ondelete="SET NULL")
-    )
-    importe: Mapped[float] = mapped_column(Float, nullable=False, server_default=text("0"))
-    estado: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'pendiente'"))
     legacy_id: Mapped[int | None] = mapped_column(Integer, unique=True)
 
 

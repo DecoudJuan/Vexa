@@ -57,6 +57,7 @@ def main() -> None:
 
     window = MainWindow(db)
     window.show()
+    window.play_intro()
 
     sys.exit(app.exec())
 

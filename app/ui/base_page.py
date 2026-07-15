@@ -24,8 +24,9 @@ from PySide6.QtWidgets import (
     QTableWidget, QTableWidgetItem, QAbstractItemView, QMessageBox,
 )
 from PySide6.QtCore import Qt, QSize
+from PySide6.QtGui import QColor
 
-from ui.icons import svg_icon, svg_pixmap
+from ui.icons import svg_icon
 from ui.styles import get_palette
 from utils.helpers import leer_zoom, leer_tema
 
@@ -90,17 +91,14 @@ class ListPage(QWidget):
 
     def _build_search(self) -> QHBoxLayout:
         row = QHBoxLayout()
-        row.setSpacing(8)
-        self._search_icon_lbl = QLabel()
-        self._search_icon_lbl.setPixmap(svg_pixmap("search", 16, self._pal["muted2"]))
-        self._search_icon_lbl.setFixedSize(round(16 * self._zoom), round(16 * self._zoom))
         self._search = QLineEdit()
+        self._search.setObjectName("search_input")
         self._search.setPlaceholderText(self.SEARCH_PLACEHOLDER)
-        self._search.setMaximumWidth(round(self.SEARCH_MAXW * self._zoom))
+        # Ícono de lupa dentro del campo, a la izquierda (look moderno).
+        self._search_action = self._search.addAction(
+            svg_icon("search", 16, self._pal["muted2"]), QLineEdit.LeadingPosition)
         self._search.textChanged.connect(lambda _: self.refresh())
-        row.addWidget(self._search_icon_lbl)
         row.addWidget(self._search)
-        row.addStretch()
         return row
 
     def _build_table(self) -> QTableWidget:
@@ -152,9 +150,15 @@ class ListPage(QWidget):
             self._action_buttons.append(btn)
         return btn
 
-    def _cell(self, text: str, align=Qt.AlignLeft | Qt.AlignVCenter) -> QTableWidgetItem:
+    def _cell(self, text: str, align=Qt.AlignLeft | Qt.AlignVCenter,
+              accent=False) -> QTableWidgetItem:
         item = QTableWidgetItem(text)
         item.setTextAlignment(align)
+        if accent:   # identificador destacado (estilo enlace) en la 1ª columna
+            item.setForeground(QColor(self._pal["accent"]))
+            f = item.font()
+            f.setBold(True)
+            item.setFont(f)
         return item
 
     def _confirmar(self, mensaje: str, titulo: str = "Confirmar eliminación") -> bool:
@@ -191,9 +195,7 @@ class ListPage(QWidget):
     def set_theme_zoom(self, theme: str, zoom: float) -> None:
         self._zoom = zoom
         self._pal = get_palette(theme)
-        self._search_icon_lbl.setFixedSize(round(16 * zoom), round(16 * zoom))
-        self._search_icon_lbl.setPixmap(svg_pixmap("search", 16, self._pal["muted2"]))
-        self._search.setMaximumWidth(round(self.SEARCH_MAXW * zoom))
+        self._search_action.setIcon(svg_icon("search", 16, self._pal["muted2"]))
         for btn, icon, size, color_key in self._theme_icons:
             btn.setIcon(svg_icon(icon, size, self._pal[color_key]))
         self._resize_columns(self._table.horizontalHeader())
