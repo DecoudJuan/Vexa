@@ -44,22 +44,23 @@ facturacion/
 │   │   └── migration.py          # importador único desde Access legacy (.mdb)
 │   │
 │   ├── ui/                       # capa de presentación (todo lo que toca Qt)
-│   │   ├── main_window.py        # ventana principal: sidebar, navegación, zoom/tema
+│   │   ├── main_window.py        # ventana principal: sidebar, navegación, zoom/tema, arranque
+│   │   ├── home.py               # pantalla de inicio (landing) con tarjetas de acceso
 │   │   ├── onboarding.py         # asistente de primera ejecución (datos de empresa)
 │   │   ├── base_page.py          # ListPage: base común de las pantallas de listado
 │   │   ├── clientes.py           # ABM de clientes (+ CUIT/CUIL, saldos)
 │   │   ├── conceptos.py          # ABM de productos (código y talle) + importación de listas
 │   │   ├── documentos.py         # listado y alta/edición de documentos (facturas…)
-│   │   ├── cobros.py             # recibos y remesas
 │   │   ├── configuracion.py      # datos de empresa, IVA, formas de pago, apariencia
 │   │   ├── modal.py              # BaseModal: diálogo/tarjeta reutilizable de la app
 │   │   ├── widgets.py            # widgets chicos compartidos (NoScrollComboBox, fila…)
+│   │   ├── anim.py               # helpers de animación (indicador de solapas, fade)
 │   │   ├── styles.py             # stylesheet (QSS) y paletas de color por tema
 │   │   └── icons.py              # íconos SVG inline renderizados a QIcon/QPixmap
 │   │
 │   ├── utils/                    # helpers puros, reutilizables y sin estado de UI
 │   │   ├── helpers.py            # formato ($/fecha), parseo de código y talle de producto…
-│   │   ├── pdf_generator.py      # armado de PDF de documentos y remesas (ReportLab)
+│   │   ├── pdf_generator.py      # armado de PDF de documentos (ReportLab)
 │   │   ├── excel_import.py       # lectura de listas de precios en Excel
 │   │   └── resources.py          # resolución de rutas de assets (dev y PyInstaller)
 │   │
@@ -108,9 +109,9 @@ reaplica en caliente; los tamaños fijos en píxeles que Qt no recalcula solo
   `create_all` de los modelos y aplica migraciones incrementales de columnas
   nuevas sobre bases ya existentes (compatibilidad hacia atrás).
 - Modo **WAL** y `foreign_keys=ON` vía listener del engine.
-- Entidades principales: `clientes`, `conceptos` (productos), `facturas`
-  (tabla polimórfica por `tipo`: FA/PR/AL/PE/AB), `lineas`, `forma_pago`, `iva`,
-  `remesas`/`recibos` y `configuracion`.
+- Entidades principales: `datos_empresa`, `clientes` (+ `cliente_cuit`),
+  `conceptos` (productos), `facturas` (tabla polimórfica por `tipo`: FA/PR/PE),
+  `lineas`, `suplidos`, `forma_pago`, `iva` y `configuracion`.
 
 ---
 

@@ -94,10 +94,21 @@ Llevar la app (hoy funcional para uso interno, **licencia de escritorio**) a un
       homologación** antes de producción.
 - [ ] Futuro: certificados `.pfx`, percepciones/otros tributos, monedas ≠ ARS.
 
-## Fase 5 — Pulido de bugs + UX/UI  ← PRÓXIMA
+## Fase 5 — Pulido de bugs + UX/UI  ← EN CURSO (rama `fase5-ui`)
 Fase dedicada a la experiencia de uso, a abrir después de liberar la Fase 4.
+- [x] **Pantalla de inicio** (`ui/home.py`): al abrir, tarjetas de acceso a las 4
+      secciones con íconos grandes; la barra lateral aparece recién al elegir una
+      (y se vuelve al inicio tocando el logo/marca). Logo de marca (símbolo V)
+      adaptable al tema en sidebar e inicio.
+- [x] **Animaciones** (`ui/anim.py` + integración): arranque con la V que se
+      desplaza al lugar del logo revelando las tarjetas; slide-in de la barra
+      lateral; indicador deslizante del ítem activo (sidebar) y de las solapas
+      (Configuración/Documentos); fade al cambiar de sección; apertura de modales
+      con fade + deslizamiento.
+- [x] Consistencia de datos/docs: `CHECK` de `facturas.tipo` derivado de
+      `TIPOS_DOCUMENTO`; README al día con el código.
 - [ ] Corrección de bugs reportados en el uso real.
-- [ ] Mejoras de UI/UX generales (consistencia visual, flujos, accesibilidad).
+- [ ] Más mejoras de UI/UX (accesibilidad, flujos).
 - Ya adelantado en v2.4.0 (entra con Fase 4): teléfono libre con código de país/área
       (placeholder `+54 9 11 5555-5555`), domicilio separado en Calle/Número (empresa),
       vista previa del import agrupada por producto (talles juntos), popups/QMessageBox
