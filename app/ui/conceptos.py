@@ -225,6 +225,8 @@ class ProductoDialog(BaseModal):
             self._talles.setText(", ".join(producto.get("talles") or []))
             self._pvp.setText(f"{float(producto.get('pvp') or 0):.2f}")
 
+        self.enable_unsaved_guard()
+
     def _accept(self) -> None:
         nombre = self._nombre.text().strip()
         if not nombre:

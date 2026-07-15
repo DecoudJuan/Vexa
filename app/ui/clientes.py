@@ -280,6 +280,7 @@ class ClienteDialog(BaseModal):
         self.set_primary_action("Guardar cambios" if cliente else "Crear cliente", self._accept)
         if cliente:
             self._populate(cliente)
+        self.enable_unsaved_guard()
 
     def _labeled(self, text: str, widget) -> QVBoxLayout:
         box = QVBoxLayout()
