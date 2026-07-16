@@ -4,12 +4,13 @@ from PySide6.QtWidgets import (
     QFileDialog,
 )
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QDoubleValidator, QColor, QBrush
+from PySide6.QtGui import QColor, QBrush
 
 from ui.icons import svg_pixmap
 from ui.base_page import ListPage
 from ui.modal import BaseModal
 from ui.import_dialog import ImportDialog
+from ui.widgets import num_validator
 from vexa_core.utils.helpers import leer_tema, fmt_ar, parse_float
 
 _SEARCH_MAXW, _ROW_H = 400, 40
@@ -208,7 +209,7 @@ class ProductoDialog(BaseModal):
         self._pvp = QLineEdit()
         self._pvp.setObjectName("field")
         self._pvp.setPlaceholderText("0,00")
-        self._pvp.setValidator(QDoubleValidator(0.0, 99_999_999.0, 2))
+        self._pvp.setValidator(num_validator(0.0, 99_999_999.0, 2))
         prow.addWidget(unit)
         prow.addWidget(self._pvp, 1)
         self.content.addLayout(prow)

@@ -6,13 +6,12 @@ from PySide6.QtWidgets import (
     QScrollArea, QApplication,
 )
 from PySide6.QtCore import Qt, QDate
-from PySide6.QtGui import QDoubleValidator
 
 from ui.icons import svg_icon
 from ui.anim import TabUnderline
 from ui.base_page import ListPage
 from ui.modal import BaseModal, modal_colors
-from ui.widgets import NoScrollComboBox
+from ui.widgets import NoScrollComboBox, num_validator
 from vexa_core.utils.helpers import (
     fmt_ar, parse_float, leer_zoom, leer_tema, etiqueta_concepto, abrir_archivo,
 )
@@ -497,7 +496,7 @@ class DocumentoDialog(BaseModal):
         self._bonif_input.setObjectName("bonif_input")
         self._bonif_input.setFixedWidth(self._S(66))
         self._bonif_input.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        self._bonif_input.setValidator(QDoubleValidator(0.0, 100.0, 2))
+        self._bonif_input.setValidator(num_validator(0.0, 100.0, 2))
         self._bonif_input.textChanged.connect(self._recalcular)
         pct = QLabel("%")
         pct.setObjectName("card_pct")
@@ -575,13 +574,13 @@ class DocumentoDialog(BaseModal):
         cant.setObjectName("cell_input")
         cant.setFixedWidth(self._S(_COL_W["cant"]))
         cant.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        cant.setValidator(QDoubleValidator(0.0, 1e9, 3))
+        cant.setValidator(num_validator(0.0, 1e9, 3))
 
         pvp_w = QLineEdit(f"{pvp:.2f}")
         pvp_w.setObjectName("cell_input")
         pvp_w.setFixedWidth(self._S(_COL_W["pvp"]))
         pvp_w.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        pvp_w.setValidator(QDoubleValidator(0.0, 1e12, 2))
+        pvp_w.setValidator(num_validator(0.0, 1e12, 2))
 
         importe = QLabel(fmt_ar(0))
         importe.setObjectName("cell_importe")

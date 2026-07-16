@@ -14,8 +14,6 @@ datas = [
     ("../assets/vexa_symbol.png", "assets"),
     ("../assets/vexa_symbol.ico", "assets"),
     ("../assets/chevron.png", "assets"),
-    ("../assets/arrow_up.png", "assets"),
-    ("../assets/arrow_down.png", "assets"),
 ]
 # zeep (SOAP AFIP, Fase 4): sus WSDL/plantillas y su metadata de versión, que
 # PyInstaller no descubre solo (los carga por importlib en runtime).

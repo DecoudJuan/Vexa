@@ -338,7 +338,7 @@ class EtiquetasWidget(QWidget):
         btn_del.setIcon(svg_icon("x", 15, pal["danger"]))
         btn_del.setFixedSize(self._S(28), self._S(28))
         btn_del.setCursor(Qt.PointingHandCursor)
-        row.addWidget(btn_del, alignment=Qt.AlignBottom)
+        row.addWidget(btn_del, alignment=Qt.AlignVCenter)
 
         entry = {"frame": frame, "combo": combo, "spin": spin}
         btn_del.clicked.connect(lambda: self._remove_talle_row(entry))

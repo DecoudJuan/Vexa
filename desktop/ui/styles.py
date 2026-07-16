@@ -350,10 +350,9 @@ QLabel[role="dash-greeting"] {{
     background: transparent;
 }}
 
-/* Tarjeta KPI destacada (gradiente azul). */
+/* Tarjeta KPI destacada (azul liso, sin degradé). */
 QFrame#dash_hero {{
-    background-color: qlineargradient(x1:0, y1:0, x2:0.6, y2:1,
-        stop:0 {accent_hover}, stop:1 {accent_pressed});
+    background-color: {accent};
     border: none;
     border-radius: 16px;
 }}
@@ -803,42 +802,20 @@ QSpinBox:focus, QDoubleSpinBox:focus {{
     border-color: {accent};
 }}
 
-QSpinBox::up-button, QDoubleSpinBox::up-button {{
-    subcontrol-origin: border;
-    subcontrol-position: top right;
-    width: 22px;
-    height: 17px;
-    border-left: 1px solid {line};
-    border-bottom: 1px solid {line};
-    border-top-right-radius: 7px;
-    background-color: {line};
-}}
-
+/* Sin botones de subir/bajar: campo numérico limpio (la cantidad se escribe).
+   Ocultarlos por completo evita las cajitas grises que quedaban "rotas". */
+QSpinBox::up-button, QDoubleSpinBox::up-button,
 QSpinBox::down-button, QDoubleSpinBox::down-button {{
-    subcontrol-origin: border;
-    subcontrol-position: bottom right;
-    width: 22px;
-    height: 17px;
-    border-left: 1px solid {line};
-    border-bottom-right-radius: 7px;
-    background-color: {line};
+    width: 0px;
+    height: 0px;
+    border: none;
 }}
 
-QSpinBox::up-button:hover, QDoubleSpinBox::up-button:hover,
-QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover {{
-    background-color: {muted2};
-}}
-
-QSpinBox::up-arrow, QDoubleSpinBox::up-arrow {{
-    image: url({arrow_up});
-    width: 9px;
-    height: 9px;
-}}
-
+QSpinBox::up-arrow, QDoubleSpinBox::up-arrow,
 QSpinBox::down-arrow, QDoubleSpinBox::down-arrow {{
-    image: url({arrow_down});
-    width: 9px;
-    height: 9px;
+    image: none;
+    width: 0px;
+    height: 0px;
 }}
 
 /* =====================================================================
@@ -1167,10 +1144,7 @@ def build_style(theme: str = "dark", zoom: float = 1.0) -> str:
     para que el texto más grande siga entrando bien en botones/campos."""
     palette = _PALETTES.get(theme, _PALETTES["dark"])
     chevron = resource_path("assets/chevron.png").as_posix()
-    arrow_up = resource_path("assets/arrow_up.png").as_posix()
-    arrow_down = resource_path("assets/arrow_down.png").as_posix()
-    css = _TEMPLATE.format(**palette, chevron=chevron,
-                           arrow_up=arrow_up, arrow_down=arrow_down)
+    css = _TEMPLATE.format(**palette, chevron=chevron)
     if zoom and abs(zoom - 1.0) > 1e-6:
         css = _PROP_RE.sub(
             lambda m: m.group(1) + m.group(2) + _scale_px_numbers(m.group(3), zoom) + m.group(4),
