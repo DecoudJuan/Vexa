@@ -7,6 +7,19 @@ Este documento se mantiene al día a medida que se avanza.
 Llevar la app (hoy funcional para uso interno, **licencia de escritorio**) a un
 **facturador vendible a cualquier negocio**.
 
+## Lo que queda (resumen 2026-07-15)
+Estado del rework de escritorio: **completo** (6.0b solo Facturas, 6.1b Etiquetas,
+6.1c rework visual). Lo pendiente:
+- **Escritorio — Fase 5 (pulido, en curso)**: corrección de bugs de uso real y ajustes
+  finos de UX/UI (colores, selección de fila, etc.).
+- **Escritorio — Transversal**: licenciamiento/activación + empaquetado por marca
+  (nombre/ícono/publisher configurables) para vender white-label.
+- **Gated por AFIP (Fase 4)**: test en vivo contra homologación/producción (necesita
+  certificado + punto de venta habilitado). Futuro: `.pfx`, percepciones, monedas ≠ ARS.
+- **Mobile — DIFERIDO por decisión del usuario** (se retoma después): Fase 6.2 (app
+  Android en Flet, offline) y 6.3 (AFIP en mobile). El core `vexa_core` ya está listo
+  para reusar.
+
 ## Base (hecho)
 - [x] Sin dependencia de Access en runtime: arranca con base vacía y permite
       crear clientes/productos/documentos desde cero.
