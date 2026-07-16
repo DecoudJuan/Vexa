@@ -2,13 +2,12 @@ from datetime import date
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton, QLabel, QDialog, QComboBox, QTextEdit, QMessageBox, QDateEdit, QHeaderView, QFrame,
-    QTabWidget, QSizePolicy, QCompleter,
+    QSizePolicy, QCompleter,
     QScrollArea, QApplication,
 )
 from PySide6.QtCore import Qt, QDate
 
 from ui.icons import svg_icon
-from ui.anim import TabUnderline
 from ui.base_page import ListPage
 from ui.modal import BaseModal, modal_colors
 from ui.widgets import NoScrollComboBox, num_validator
@@ -17,55 +16,38 @@ from vexa_core.utils.helpers import (
 )
 from vexa_core.utils.pdf_generator import generar_pdf_documento
 
-# FA=Factura, PR=Presupuesto, PE=Pedido. La app apunta a facturar: no hay
-# albaranes ni abonos (notas de crédito).
+# La app es SÓLO para facturar: no hay presupuestos, pedidos, albaranes ni
+# abonos. Queda un único tipo de documento (la factura).
 DOCUMENT_TYPES = {
     "FA": {"label": "Factura", "plural": "Facturas", "prefijo": "FA"},
-    "PR": {"label": "Presupuesto", "plural": "Presupuestos", "prefijo": "PR"},
-    "PE": {"label": "Pedido", "plural": "Pedidos", "prefijo": "PE"},
 }
 
 
 class DocumentosWidget(QWidget):
-    """Aloja una pestaña por cada tipo de documento (Factura/Presupuesto/Pedido)."""
+    """Sección Facturas: la lista de facturas (sin pestañas, único tipo)."""
 
     def __init__(self, db, parent=None):
         super().__init__(parent)
         self.db = db
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-
-        self._tabs = QTabWidget()
-        self._tabs.setDocumentMode(True)
-        self._lists: dict[str, DocumentListWidget] = {}
-        for tipo, cfg in DOCUMENT_TYPES.items():
-            widget = DocumentListWidget(self.db, tipo, parent=self)
-            self._lists[tipo] = widget
-            self._tabs.addTab(widget, cfg["plural"])
-        TabUnderline(self._tabs)
-        self._tabs.currentChanged.connect(self._on_tab_changed)
-        layout.addWidget(self._tabs)
-
-    def _on_tab_changed(self, index: int) -> None:
-        widget = self._tabs.widget(index)
-        if isinstance(widget, DocumentListWidget):
-            widget.refresh()
+        self._lista = DocumentListWidget(self.db, "FA", parent=self)
+        layout.addWidget(self._lista)
 
     def refresh(self) -> None:
-        widget = self._tabs.currentWidget()
-        if isinstance(widget, DocumentListWidget):
-            widget.refresh()
+        self._lista.refresh()
 
     def set_theme_zoom(self, theme: str, zoom: float) -> None:
-        for widget in self._lists.values():
-            widget.set_theme_zoom(theme, zoom)
+        self._lista.set_theme_zoom(theme, zoom)
 
 
 class DocumentListWidget(ListPage):
     SEARCH_PLACEHOLDER = "Buscar por número o cliente..."
     SEARCH_MAXW = 360
-    COLUMNS = ["Número", "Fecha", "Cliente", "Total", "Origen"]
+    COLUMNS = ["Número", "Fecha", "Cliente", "Total"]
     ROW_H = 42
+
+    SUBTITULO = "Comprobantes emitidos"
 
     def __init__(self, db, tipo: str, parent=None):
         self.tipo = tipo
@@ -74,12 +56,9 @@ class DocumentListWidget(ListPage):
         super().__init__(db, parent)
 
     def _header_buttons(self) -> list:
-        self._btn_nuevo = self._boton(f"  Nuevo/a {self.cfg['label'].lower()}", "plus",
+        self._btn_nuevo = self._boton("  Nueva factura", "plus",
                                       "accent_text", slot=self._on_nuevo, size=15)
         return [self._btn_nuevo]
-
-    def _build_below_header(self):
-        return self._build_summary()
 
     def _action_widgets(self) -> list:
         self._btn_edit = self._boton("  Editar", "edit", "text", "btn_secondary",
@@ -100,7 +79,7 @@ class DocumentListWidget(ListPage):
 
     def _configure_columns(self, hh) -> None:
         hh.setSectionResizeMode(2, QHeaderView.Stretch)
-        for col in (0, 1, 3, 4):
+        for col in (0, 1, 3):
             hh.setSectionResizeMode(col, QHeaderView.Interactive)
         self._resize_columns(hh)
 
@@ -110,73 +89,16 @@ class DocumentListWidget(ListPage):
     def _query(self, search):
         return self.db.get_facturas(tipo=self.tipo, search=search)
 
-    def _pre_render(self, items) -> None:
-        self._update_summary(items)
-
-    # ---- resumen del período (KPIs) --------------------------------
-    def _build_summary(self) -> QWidget:
-        wrap = QWidget()
-        wrap.setStyleSheet("background: transparent;")
-        h = QHBoxLayout(wrap)
-        h.setContentsMargins(0, 0, 0, 0)
-        h.setSpacing(12)
-        c1, self._kpi_fact_title, self._kpi_fact, self._kpi_fact_sub = self._kpi_card()
-        c2, self._kpi_docs_title, self._kpi_docs, self._kpi_docs_sub = self._kpi_card()
-        for card in (c1, c2):
-            h.addWidget(card)
-        h.addStretch()
-        return wrap
-
-    def _kpi_card(self):
-        card = QFrame()
-        card.setObjectName("metric_card")
-        v = QVBoxLayout(card)
-        v.setContentsMargins(15, 12, 15, 12)
-        v.setSpacing(2)
-        k = QLabel()
-        k.setProperty("role", "kpi-title")
-        val = QLabel("—")
-        val.setProperty("role", "kpi-value")
-        sub = QLabel("")
-        sub.setProperty("role", "kpi-sub")
-        v.addWidget(k)
-        v.addWidget(val)
-        v.addWidget(sub)
-        return card, k, val, sub
-
-    def _update_summary(self, docs: list[dict]) -> None:
-        total = sum(d.get("total") or 0 for d in docs)
-        n = len(docs)
-
-        p = self._pal
-        st_title = f"color:{p['muted1']}; font-size:11px; font-weight:700; letter-spacing:0.06em; background:transparent;"
-        st_val = f"color:{p['text']}; font-size:21px; font-weight:800; background:transparent;"
-        st_sub = f"color:{p['muted1']}; font-size:11px; background:transparent;"
-
-        pairs = [
-            (self._kpi_fact_title, self._kpi_fact, self._kpi_fact_sub, "TOTAL EMITIDO", fmt_ar(total), f"{n} {self.cfg['plural'].lower()}"),
-            (self._kpi_docs_title, self._kpi_docs, self._kpi_docs_sub, self.cfg["plural"].upper(), str(n), "en total"),
-        ]
-        for title_lbl, val_lbl, sub_lbl, titulo, val_txt, sub_txt in pairs:
-            title_lbl.setText(titulo)
-            title_lbl.setStyleSheet(st_title)
-            val_lbl.setText(val_txt)
-            val_lbl.setStyleSheet(st_val)
-            sub_lbl.setText(sub_txt)
-            sub_lbl.setStyleSheet(st_sub)
-
     def _fill_row(self, row: int, d: dict) -> None:
         numero = f"{self.cfg['prefijo']}-{d.get('ejercicio')}-{d.get('numero') or ''}"
         self._table.setItem(row, 0, self._cell(numero, accent=True))
         self._table.setItem(row, 1, self._cell((d.get("fecha") or "")[:10]))
         self._table.setItem(row, 2, self._cell(d.get("cliente_nombre") or ""))
         self._table.setItem(row, 3, self._cell(fmt_ar(d.get("total") or 0), Qt.AlignRight | Qt.AlignVCenter))
-        origen = f"{d['origen_tipo']} {d.get('origen_numero') or ''}" if d.get("origen_tipo") else "—"
-        self._table.setItem(row, 4, self._cell(origen, Qt.AlignCenter))
 
     def _count_text(self, total: int) -> str:
         pl = "s" if total != 1 else ""
-        return f"{total} documento{pl}"
+        return f"{total} factura{pl}"
 
     def _on_nuevo(self) -> None:
         dlg = DocumentoDialog(self.db, self.tipo, parent=self)

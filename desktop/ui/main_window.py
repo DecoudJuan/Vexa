@@ -25,7 +25,7 @@ _NAV_ITEMS = [
     ("inicio",        "Inicio",        "home"),
     ("clientes",      "Clientes",      "users"),
     ("conceptos",     "Productos",     "layers"),
-    ("documentos",    "Documentos",    "file-text"),
+    ("documentos",    "Facturas",      "file-text"),
     ("etiquetas",     "Etiquetas",     "tag"),
     ("configuracion", "Configuración", "settings"),
 ]
