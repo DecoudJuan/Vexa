@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QFrame,
     QLineEdit, QListWidget, QListWidgetItem, QTableWidget, QTableWidgetItem,
     QHeaderView, QAbstractItemView, QSpinBox, QPushButton, QMessageBox,
+    QScrollArea,
 )
 from PySide6.QtGui import QColor
 from PySide6.QtCore import Qt
@@ -153,12 +154,22 @@ class EtiquetasWidget(QWidget):
         sb.addWidget(self._sel_type)
         body.addWidget(self._selected_box)
 
+        # Las filas de talle van en un área con scroll: al agregar muchas, se
+        # desliza en vez de comprimirse (antes se aplastaban e ilegibles).
         self._rows_holder = QWidget()
         self._rows_holder.setObjectName("plain_box")
         self._rows_lay = QVBoxLayout(self._rows_holder)
         self._rows_lay.setContentsMargins(0, 0, 0, 0)
         self._rows_lay.setSpacing(self._S(8))
-        body.addWidget(self._rows_holder)
+        self._rows_lay.addStretch()  # mantiene las filas arriba cuando hay pocas
+
+        rows_scroll = QScrollArea()
+        rows_scroll.setObjectName("plain_box")
+        rows_scroll.setWidgetResizable(True)
+        rows_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        rows_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        rows_scroll.setWidget(self._rows_holder)
+        body.addWidget(rows_scroll, 1)
 
         self._btn_add_row = QPushButton("  Agregar otro talle")
         self._btn_add_row.setObjectName("btn_secondary")
@@ -166,8 +177,6 @@ class EtiquetasWidget(QWidget):
         self._btn_add_row.setCursor(Qt.PointingHandCursor)
         self._btn_add_row.clicked.connect(lambda: self._add_talle_row())
         body.addWidget(self._btn_add_row)
-
-        body.addStretch()
 
         self._btn_add_queue = QPushButton("  Agregar a la cola  →")
         self._btn_add_queue.setIcon(svg_icon("plus", 15, get_palette(self._theme)["accent_text"]))
@@ -343,7 +352,8 @@ class EtiquetasWidget(QWidget):
         entry = {"frame": frame, "combo": combo, "spin": spin}
         btn_del.clicked.connect(lambda: self._remove_talle_row(entry))
         self._talle_rows.append(entry)
-        self._rows_lay.addWidget(frame)
+        # Insertar antes del stretch final (última posición del layout).
+        self._rows_lay.insertWidget(self._rows_lay.count() - 1, frame)
         self._update_row_delete_buttons()
 
     def _remove_talle_row(self, entry: dict) -> None:

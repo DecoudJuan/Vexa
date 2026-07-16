@@ -6,7 +6,7 @@ al confirmar, hace el upsert de conceptos."""
 
 from PySide6.QtWidgets import (
     QLabel, QGridLayout, QWidget, QVBoxLayout, QHBoxLayout, QTableWidget,
-    QTableWidgetItem, QHeaderView, QAbstractItemView, QMessageBox, QSizePolicy,
+    QTableWidgetItem, QHeaderView, QAbstractItemView, QSizePolicy,
     QPushButton, QInputDialog, QCheckBox,
 )
 from PySide6.QtCore import Qt
@@ -140,7 +140,7 @@ class ImportDialog(BaseModal):
         try:
             self._headers, self._filas = excel_import.leer_hoja(self.path, hoja)
         except Exception as exc:
-            QMessageBox.critical(self, "Error al leer el archivo", str(exc))
+            self._error("Error al leer el archivo", str(exc))
             self._headers, self._filas = [], []
         # Repoblar las opciones de cada combo con los encabezados de la hoja.
         for combo in self._combos.values():
@@ -201,8 +201,8 @@ class ImportDialog(BaseModal):
 
     def _guardar_perfil(self) -> None:
         if self._combos["nombre"].currentData() == -1 or self._combos["precio"].currentData() == -1:
-            QMessageBox.warning(self, "Faltan columnas",
-                                "Asigná al menos Nombre y Precio antes de guardar el perfil.")
+            self._warn("Faltan columnas",
+                       "Asigná al menos Nombre y Precio antes de guardar el perfil.")
             return
         sugerido = self._perfil_combo.currentData() or ""
         nombre, ok = QInputDialog.getText(
@@ -221,8 +221,7 @@ class ImportDialog(BaseModal):
         nombre = self._perfil_combo.currentData()
         if not nombre:
             return
-        if QMessageBox.question(self, "Eliminar perfil",
-                                f"¿Eliminar el perfil «{nombre}»?") != QMessageBox.Yes:
+        if not self._question("Eliminar perfil", f"¿Eliminar el perfil «{nombre}»?"):
             return
         self.db.delete_perfil_import(nombre)
         self._recargar_perfiles()
@@ -268,20 +267,19 @@ class ImportDialog(BaseModal):
 
     def _accept(self) -> None:
         if self._combos["nombre"].currentData() == -1 or self._combos["precio"].currentData() == -1:
-            QMessageBox.warning(self, "Faltan columnas",
-                                "Asigná al menos las columnas de Nombre y Precio.")
+            self._warn("Faltan columnas",
+                       "Asigná al menos las columnas de Nombre y Precio.")
             return
         items = excel_import.filas_a_items(self._filas, self._mapeo())
         if not items:
-            QMessageBox.warning(self, "Sin datos",
-                                "No se detectaron productos con el mapeo actual.")
+            self._warn("Sin datos",
+                       "No se detectaron productos con el mapeo actual.")
             return
         if self._reemplazar.isChecked():
-            if QMessageBox.question(
-                    self, "Reemplazar catálogo",
+            if not self._question(
+                    "Reemplazar catálogo",
                     "Se va a vaciar el catálogo actual y cargar solo estos productos.\n"
-                    "Las facturas existentes conservan su detalle. ¿Continuar?"
-            ) != QMessageBox.Yes:
+                    "Las facturas existentes conservan su detalle. ¿Continuar?"):
                 return
             self.db.clear_conceptos()
         self.resumen = self.db.upsert_conceptos(items)

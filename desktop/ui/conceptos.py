@@ -231,12 +231,12 @@ class ProductoDialog(BaseModal):
     def _accept(self) -> None:
         nombre = self._nombre.text().strip()
         if not nombre:
-            QMessageBox.warning(self, "Campo requerido", "El nombre es obligatorio.")
+            self._warn("Campo requerido", "El nombre es obligatorio.")
             return
         pvp = parse_float(self._pvp.text())
         if pvp <= 0:
-            QMessageBox.warning(self, "Falta el precio",
-                                "El precio debe ser mayor que 0. Un producto no puede quedar sin precio.")
+            self._warn("Falta el precio",
+                       "El precio debe ser mayor que 0. Un producto no puede quedar sin precio.")
             self._pvp.setFocus()
             return
         talles = [t.strip() for t in self._talles.text().split(",") if t.strip()]

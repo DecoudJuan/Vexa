@@ -147,9 +147,9 @@ class HomeWidget(QWidget):
         row.addLayout(left)
         row.addStretch()
 
-        btn_et = self._cta("  Etiquetas", "tag", pal, z, lambda: self.navigate.emit("etiquetas"))
+        # Sólo "Nueva factura": Etiquetas ya está en el sidebar, en los accesos
+        # rápidos y en la tarjeta promo, así que acá sería un botón duplicado.
         btn_fa = self._cta("  Nueva factura", "plus", pal, z, lambda: self.navigate.emit("documentos"))
-        row.addWidget(btn_et, alignment=Qt.AlignBottom)
         row.addWidget(btn_fa, alignment=Qt.AlignBottom)
         return row
 

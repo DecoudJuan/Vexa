@@ -701,11 +701,11 @@ class DocumentoDialog(BaseModal):
             if txt:
                 cliente_id = self.db.create_cliente({"nombre": txt})
         if cliente_id is None:
-            QMessageBox.warning(self, "Campo requerido", "Escribí o elegí un cliente.")
+            self._warn("Campo requerido", "Escribí o elegí un cliente.")
             return
         lineas = self._leer_lineas()
         if not lineas:
-            QMessageBox.warning(self, "Documento vacío", "Agregá al menos una línea.")
+            self._warn("Documento vacío", "Agregá al menos una línea.")
             return
 
         try:
