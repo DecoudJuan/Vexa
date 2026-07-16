@@ -265,8 +265,21 @@ class OnboardingWindow(QDialog):
     def _accept(self) -> None:
         nombre = self._nombre.text().strip()
         if not nombre:
-            QMessageBox.warning(self, "Falta el nombre",
-                                "Ingresá el nombre o razón social de la empresa.")
+            # El onboarding tiene su propio QSS claro; sin estilo propio el
+            # QMessageBox salía con texto ilegible. Se le da la misma paleta.
+            box = QMessageBox(self)
+            box.setWindowTitle("Falta el nombre")
+            box.setIcon(QMessageBox.Warning)
+            box.setText("Ingresá el nombre o razón social de la empresa.")
+            box.setStyleSheet(
+                "QMessageBox { background: #ffffff; }"
+                f"QMessageBox QLabel {{ color: {_INK}; background: transparent; }}"
+                f"QMessageBox QPushButton {{ background: #ffffff; color: {_INK};"
+                " border: 1px solid #d0d5dd; border-radius: 8px;"
+                " padding: 6px 16px; min-width: 88px; }"
+                "QMessageBox QPushButton:hover { background: #f0f2f7; }"
+            )
+            box.exec()
             self._stack.setCurrentIndex(1)
             self._nombre.setFocus()
             return

@@ -403,7 +403,7 @@ class ClienteDialog(BaseModal):
     def _accept(self) -> None:
         nombre = self._nombre.text().strip()
         if not nombre:
-            QMessageBox.warning(self, "Campo requerido", "El nombre del cliente es obligatorio.")
+            self._warn("Campo requerido", "El nombre del cliente es obligatorio.")
             self._nombre.setFocus()
             return
 

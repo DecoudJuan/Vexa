@@ -28,7 +28,7 @@ from PySide6.QtGui import QColor
 
 from ui.icons import svg_icon
 from ui.styles import get_palette
-from ui.anim import RowHighlight
+from ui.anim import AnimatedTable
 from vexa_core.utils.helpers import leer_zoom, leer_tema
 
 
@@ -65,7 +65,6 @@ class ListPage(QWidget):
             layout.addWidget(extra)
         layout.addLayout(self._build_search())
         self._table = self._build_table()
-        self._row_highlight = RowHighlight(self._table, self._pal)
         layout.addWidget(self._table)
         layout.addLayout(self._build_actions())
         self._update_actions()
@@ -104,7 +103,8 @@ class ListPage(QWidget):
         return row
 
     def _build_table(self) -> QTableWidget:
-        table = QTableWidget()
+        table = AnimatedTable()
+        table.set_highlight_color(self._pal["row_sel_bar"])
         # Asignado ya acá (además de en _build_ui) para que _configure_columns
         # pueda tocar self._table (ej. alinear un header) durante el armado.
         self._table = table
@@ -113,11 +113,12 @@ class ListPage(QWidget):
         table.setSelectionBehavior(QAbstractItemView.SelectRows)
         table.setSelectionMode(QAbstractItemView.SingleSelection)
         table.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        table.setAlternatingRowColors(True)
+        # Sin filas alternadas (zebra): su fondo opaco taparía el resaltado que
+        # AnimatedTable dibuja por detrás; además el mock usa filas limpias.
+        table.setAlternatingRowColors(False)
         table.setWordWrap(False)
         table.verticalHeader().setVisible(False)
         table.setShowGrid(False)
-        table.setFocusPolicy(Qt.ClickFocus)
         table.doubleClicked.connect(self._on_editar)
         table.selectionModel().selectionChanged.connect(self._update_actions)
         self._configure_columns(table.horizontalHeader())
@@ -201,8 +202,7 @@ class ListPage(QWidget):
         for btn, icon, size, color_key in self._theme_icons:
             btn.setIcon(svg_icon(icon, size, self._pal[color_key]))
         self._resize_columns(self._table.horizontalHeader())
-        if hasattr(self, "_row_highlight"):
-            self._row_highlight.set_palette(self._pal)
+        self._table.set_highlight_color(self._pal["row_sel_bar"])
 
     # -------------------------------------------- ganchos por defecto
     def _header_buttons(self) -> list:

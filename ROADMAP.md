@@ -7,6 +7,19 @@ Este documento se mantiene al día a medida que se avanza.
 Llevar la app (hoy funcional para uso interno, **licencia de escritorio**) a un
 **facturador vendible a cualquier negocio**.
 
+## Lo que queda (resumen 2026-07-15)
+Estado del rework de escritorio: **completo** (6.0b solo Facturas, 6.1b Etiquetas,
+6.1c rework visual). Lo pendiente:
+- **Escritorio — Fase 5 (pulido, en curso)**: corrección de bugs de uso real y ajustes
+  finos de UX/UI (colores, selección de fila, etc.).
+- **Escritorio — Transversal**: licenciamiento/activación + empaquetado por marca
+  (nombre/ícono/publisher configurables) para vender white-label.
+- **Gated por AFIP (Fase 4)**: test en vivo contra homologación/producción (necesita
+  certificado + punto de venta habilitado). Futuro: `.pfx`, percepciones, monedas ≠ ARS.
+- **Mobile — DIFERIDO por decisión del usuario** (se retoma después): Fase 6.2 (app
+  Android en Flet, offline) y 6.3 (AFIP en mobile). El core `vexa_core` ya está listo
+  para reusar.
+
 ## Base (hecho)
 - [x] Sin dependencia de Access en runtime: arranca con base vacía y permite
       crear clientes/productos/documentos desde cero.
@@ -129,18 +142,34 @@ Qt-free y reutilizable. Repo pasa a monorepo y se renombra a **`Vexa`**.
 
 - [x] **Pre-paso**: quitar la leyenda "DOCUMENTO NO VÁLIDO COMO FACTURA" del PDF
       (`utils/pdf_generator.py`).
-- [~] **Fase 6.1 — Monorepo + `vexa_core`**: extraer el core (`database`/`utils`/
-      `fiscal`/`version`) a un paquete instalable **`vexa_core`** (pip install -e);
-      mover la UI de escritorio a `desktop/`; reescribir imports a `vexa_core.*`;
-      actualizar `.spec`/`installer.iss`. **Verificar que el escritorio queda intacto**
-      (correr fuente + rebuild exe). Refactor sin features → release patch (v2.6.1).
+- [x] **Fase 6.1 — Monorepo + `vexa_core`** (liberado v2.6.1): core extraído a
+      `vexa_core` (paquete instalable); UI de escritorio en `desktop/`; imports a
+      `vexa_core.*`; `.spec`/`installer.iss` actualizados; escritorio verificado.
+
+- [x] **Fase 6.0b — Reducir a solo Facturas (escritorio)**: `TIPOS_DOCUMENTO=("FA",)`;
+      Documentos pasa a **"Facturas"** (sin solapas PR/PE, sin resumen KPI ni columna
+      Origen). (Mobile hereda el core; su UI se hace en la fase mobile.)
+
+- [x] **Fase 6.1b — Nueva sección "Etiquetas" (escritorio)**: generador con
+      **catálogo = productos de Vexa** (buscar producto → talles + cantidad → cola →
+      hoja A4 de 14 etiquetas, se abre para imprimir). Core en `vexa_core/utils/etiquetas.py`
+      (agnóstico de plataforma, para reusar en mobile). En la sidebar tras Facturas.
+      (Grilla de inicio / pestaña mobile: cuando se haga la fase mobile.)
+
+- [x] **Fase 6.1c — Rework visual del ESCRITORIO** (diseño "Vexa Rework"): paleta nueva
+      (azul liso `#2f5bea`, **sin degradés**), **Inicio tipo dashboard** (saludo + KPIs +
+      facturas recientes + accesos), **sidebar siempre visible** con Inicio como ítem del nav,
+      fuente del sistema (Segoe UI). Detalle en `desktop-rework.local.md`.
+
 - [ ] **Fase 6.2 — Mobile offline (Flet)**: carpeta `mobile/` que consume `vexa_core`.
-      Spike técnico (Flet + DB + generar/abrir PDF en dispositivo real; validar reportlab,
-      plan B fpdf2+qrcode). UI responsive con paridad de funcionalidad **menos AFIP**
-      (documentos no fiscales, comportamiento por defecto de `NoFiscalProvider`):
-      Home/Clientes/Productos/Documentos/Configuración/Onboarding. Adaptaciones Android
-      (compartir PDF vía share intent, `FilePicker`, `FACTURACION_DATA_DIR` → storage de
-      la app). Empaquetar `flet build apk` (Flutter+JDK17+Android SDK) y entregar APK.
+      Diseño acordado (mockup navegable, ver `mobile-roadmap.local.md`): **barra inferior
+      estilo Clash Royale** con Clientes/Productos/Etiquetas/Facturas (ítem activo
+      elevado); **Configuración** = ruedita arriba a la derecha (con switch claro/oscuro
+      adentro); **splash** de la V con fade → abre directo en **Etiquetas**; **animaciones
+      direccionales** al cambiar de pestaña; **Clientes** sin saldo/chips (solo el cliente);
+      **azul estático** (sin degradés). Spike técnico (Flet + DB + PDF en dispositivo;
+      validar reportlab, plan B fpdf2+qrcode). Adaptaciones Android (compartir PDF, 
+      `FilePicker`, `FACTURACION_DATA_DIR` → storage). `flet build apk` y entregar APK.
 - [ ] **Fase 6.3 — AFIP en mobile**: `cryptography`+`lxml`+`zeep` en el build; reactivar
       "Autorizar en AFIP" y solapa AFIP (cert/key vía FilePicker); QR fiscal + CAE.
 

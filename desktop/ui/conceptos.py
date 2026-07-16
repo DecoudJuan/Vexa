@@ -4,12 +4,13 @@ from PySide6.QtWidgets import (
     QFileDialog,
 )
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QDoubleValidator, QColor, QBrush
+from PySide6.QtGui import QColor, QBrush
 
 from ui.icons import svg_pixmap
 from ui.base_page import ListPage
 from ui.modal import BaseModal
 from ui.import_dialog import ImportDialog
+from ui.widgets import num_validator
 from vexa_core.utils.helpers import leer_tema, fmt_ar, parse_float
 
 _SEARCH_MAXW, _ROW_H = 400, 40
@@ -24,7 +25,7 @@ class ConceptosWidget(ListPage):
     SEARCH_MAXW = _SEARCH_MAXW
     COLUMNS = ["Código", "Talle", "Nombre", "Precio"]
     ROW_H = _ROW_H
-    _order = "nombre"   # 'nombre' | 'codigo' (clic en el encabezado)
+    _order = "codigo"   # 'nombre' | 'codigo' (clic en el encabezado); por defecto por código asc
 
     def _header_buttons(self) -> list:
         self._btn_importar = self._boton("  Importar lista de precios", "file-plus",
@@ -200,7 +201,7 @@ class ProductoDialog(BaseModal):
         self._talles.setPlaceholderText("Separados por coma. Ej. 1, 2, 3, 4 (vacío = sin talle)")
         self.content.addWidget(self._talles)
 
-        self.content.addWidget(self.section_label("PRECIO", "dollar-sign"))
+        self.content.addWidget(self.section_label("PRECIO *", "dollar-sign"))
         prow = QHBoxLayout()
         prow.setSpacing(self._S(8))
         unit = QLabel("$")
@@ -208,7 +209,7 @@ class ProductoDialog(BaseModal):
         self._pvp = QLineEdit()
         self._pvp.setObjectName("field")
         self._pvp.setPlaceholderText("0,00")
-        self._pvp.setValidator(QDoubleValidator(0.0, 99_999_999.0, 2))
+        self._pvp.setValidator(num_validator(0.0, 99_999_999.0, 2))
         prow.addWidget(unit)
         prow.addWidget(self._pvp, 1)
         self.content.addLayout(prow)
@@ -230,12 +231,12 @@ class ProductoDialog(BaseModal):
     def _accept(self) -> None:
         nombre = self._nombre.text().strip()
         if not nombre:
-            QMessageBox.warning(self, "Campo requerido", "El nombre es obligatorio.")
+            self._warn("Campo requerido", "El nombre es obligatorio.")
             return
         pvp = parse_float(self._pvp.text())
         if pvp <= 0:
-            QMessageBox.warning(self, "Falta el precio",
-                                "El precio debe ser mayor que 0. Un producto no puede quedar sin precio.")
+            self._warn("Falta el precio",
+                       "El precio debe ser mayor que 0. Un producto no puede quedar sin precio.")
             self._pvp.setFocus()
             return
         talles = [t.strip() for t in self._talles.text().split(",") if t.strip()]

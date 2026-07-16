@@ -262,6 +262,64 @@ class BaseModal(QDialog):
     def _hay_cambios_sin_guardar(self) -> bool:
         return self._guard_unsaved and self._snapshot() != self._snap_inicial
 
+    def _style_msgbox(self, box: QMessageBox, min_btn: int = 88) -> None:
+        # Un QMessageBox hijo del modal hereda el QSS acotado del modal (fondo
+        # transparente, sin color de texto), que en Windows lo dejaba negro sobre
+        # negro. Se le da estilo propio con la paleta del modal (igual que el de
+        # "cambios sin guardar"). Ancho de botón mínimo pero elástico (crece con
+        # el texto) y padding escalado con el zoom.
+        f = box.font()
+        f.setPixelSize(self._S(13))
+        box.setFont(f)
+        mc = modal_colors(self._theme)
+        box.setStyleSheet(
+            f"QMessageBox {{ background-color: {mc['card']}; }}"
+            f"QMessageBox QLabel {{ color: {mc['ink']}; background: transparent; }}"
+            f"QMessageBox QPushButton {{ background-color: {mc['field']}; color: {mc['ink']};"
+            f" border: 1px solid {mc['border']}; border-radius: {self._S(8)}px;"
+            f" padding: {self._S(7)}px {self._S(16)}px; min-width: {self._S(min_btn)}px; }}"
+            f"QMessageBox QPushButton:hover {{ background-color: {mc['border']}; }}"
+        )
+
+    def _warn(self, titulo: str, texto: str) -> None:
+        box = QMessageBox(self)
+        box.setWindowTitle(titulo)
+        box.setIcon(QMessageBox.Warning)
+        box.setText(texto)
+        box.setStandardButtons(QMessageBox.Ok)
+        self._style_msgbox(box)
+        box.exec()
+
+    def _info(self, titulo: str, texto: str) -> None:
+        box = QMessageBox(self)
+        box.setWindowTitle(titulo)
+        box.setIcon(QMessageBox.Information)
+        box.setText(texto)
+        box.setStandardButtons(QMessageBox.Ok)
+        self._style_msgbox(box)
+        box.exec()
+
+    def _error(self, titulo: str, texto: str) -> None:
+        box = QMessageBox(self)
+        box.setWindowTitle(titulo)
+        box.setIcon(QMessageBox.Critical)
+        box.setText(texto)
+        box.setStandardButtons(QMessageBox.Ok)
+        self._style_msgbox(box)
+        box.exec()
+
+    def _question(self, titulo: str, texto: str) -> bool:
+        box = QMessageBox(self)
+        box.setWindowTitle(titulo)
+        box.setIcon(QMessageBox.Question)
+        box.setText(texto)
+        si = box.addButton("Sí", QMessageBox.YesRole)
+        box.addButton("No", QMessageBox.NoRole)
+        box.setDefaultButton(si)
+        self._style_msgbox(box)
+        box.exec()
+        return box.clickedButton() is si
+
     def reject(self) -> None:
         # Cerrar con cambios sin guardar pide confirmación (Escape, Cancelar y la
         # X del encabezado pasan por acá); guardar usa accept() y no lo dispara.
@@ -274,23 +332,8 @@ class BaseModal(QDialog):
             descartar = box.addButton("Descartar", QMessageBox.DestructiveRole)
             seguir = box.addButton("Seguir editando", QMessageBox.RejectRole)
             box.setDefaultButton(seguir)
-            # El QMessageBox hereda el QSS acotado del modal (fondo transparente,
-            # sin color de texto), que en Windows lo dejaba gris sobre negro.
-            # Se le da un estilo propio con la paleta del modal. Sin ancho fijo:
-            # el botón crece con el texto (así "Seguir editando" no se corta con
-            # el escalado de pantalla), y el padding se escala con el zoom.
-            f = box.font()
-            f.setPixelSize(self._S(13))
-            box.setFont(f)
-            mc = modal_colors(self._theme)
-            box.setStyleSheet(
-                f"QMessageBox {{ background-color: {mc['card']}; }}"
-                f"QMessageBox QLabel {{ color: {mc['ink']}; background: transparent; }}"
-                f"QMessageBox QPushButton {{ background-color: {mc['field']}; color: {mc['ink']};"
-                f" border: 1px solid {mc['border']}; border-radius: {self._S(8)}px;"
-                f" padding: {self._S(7)}px {self._S(16)}px; min-width: {self._S(150)}px; }}"
-                f"QMessageBox QPushButton:hover {{ background-color: {mc['border']}; }}"
-            )
+            # min_btn 150: "Seguir editando" no se corta con el escalado.
+            self._style_msgbox(box, min_btn=150)
             box.exec()
             if box.clickedButton() is not descartar:
                 return

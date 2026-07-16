@@ -230,13 +230,13 @@ QLabel[role="card-subtitle"] {{
 QLabel[role="placeholder-title"] {{
     font-size: 18px;
     font-weight: 600;
-    color: {muted2};
+    color: {subtext};
     background: transparent;
 }}
 
 QLabel[role="placeholder-sub"] {{
     font-size: 13px;
-    color: {line};
+    color: {muted1};
     background: transparent;
 }}
 
@@ -332,6 +332,239 @@ QLabel[role="home-sub"] {{
     background: transparent;
 }}
 
+/* =====================================================================
+   DASHBOARD (sección Inicio): saludo + KPIs + facturas recientes + accesos
+   ===================================================================== */
+QLabel[role="dash-date"] {{
+    font-size: 13px;
+    font-weight: 700;
+    color: {muted1};
+    letter-spacing: 0.3px;
+    background: transparent;
+}}
+
+QLabel[role="dash-greeting"] {{
+    font-size: 30px;
+    font-weight: 800;
+    color: {text};
+    background: transparent;
+}}
+
+/* Tarjeta KPI destacada (azul liso, sin degradé). */
+QFrame#dash_hero {{
+    background-color: {accent};
+    border: none;
+    border-radius: 16px;
+}}
+QFrame#dash_hero QLabel {{ background: transparent; color: {accent_text}; }}
+QLabel[role="hero-cap"] {{
+    font-size: 12px; font-weight: 700; letter-spacing: 0.5px;
+    color: {accent_text};
+}}
+QLabel[role="hero-value"] {{
+    font-size: 30px; font-weight: 800; color: {accent_text};
+}}
+QLabel[role="hero-sub"] {{
+    font-size: 12px; font-weight: 600; color: {accent_text};
+}}
+
+/* Tarjeta KPI neutra. */
+QFrame#dash_kpi {{
+    background-color: {surface};
+    border: 1px solid {line};
+    border-radius: 16px;
+}}
+QFrame#dash_kpi QLabel {{ background: transparent; }}
+QLabel[role="kpi-cap"] {{
+    font-size: 12px; font-weight: 700; letter-spacing: 0.4px;
+    color: {muted1};
+}}
+QLabel[role="kpi-value"] {{
+    font-size: 30px; font-weight: 800; color: {text};
+}}
+QLabel[role="kpi-sub"] {{
+    font-size: 12px; font-weight: 600; color: {muted1};
+}}
+
+/* Paneles inferiores (facturas recientes / accesos). */
+QFrame#dash_panel {{
+    background-color: {surface};
+    border: 1px solid {line};
+    border-radius: 16px;
+}}
+QFrame#dash_panel QLabel {{ background: transparent; }}
+QLabel[role="panel-title"] {{
+    font-size: 16px; font-weight: 800; color: {text};
+    background: transparent;
+}}
+QLabel[role="panel-link"] {{
+    font-size: 13px; font-weight: 700; color: {accent};
+    background: transparent;
+}}
+QLabel[role="col-head"] {{
+    font-size: 11px; font-weight: 800; color: {muted1};
+    letter-spacing: 0.5px; background: transparent;
+}}
+QLabel[role="rec-num"] {{ font-weight: 800; color: {accent}; background: transparent; }}
+QLabel[role="rec-cli"] {{ color: {subtext}; font-weight: 600; background: transparent; }}
+QLabel[role="rec-total"] {{ font-weight: 700; color: {text}; background: transparent; }}
+QLabel[role="rec-empty"] {{ color: {muted1}; background: transparent; }}
+QFrame#dash_row_sep {{ background-color: {line}; border: none; max-height: 1px; }}
+
+/* Botón de acceso rápido (ícono arriba + texto), fondo tenue. */
+QPushButton#dash_quick {{
+    background-color: {base};
+    color: {text};
+    border: 1px solid {line};
+    border-radius: 12px;
+    text-align: left;
+    padding: 14px;
+    font-size: 13px;
+    font-weight: 700;
+    min-height: 56px;
+}}
+QPushButton#dash_quick:hover {{
+    border-color: {accent};
+    background-color: rgba({accent_rgb}, 0.06);
+}}
+
+/* Tarjeta promo del generador de etiquetas. */
+QFrame#dash_promo {{
+    background-color: rgba({accent_rgb}, 0.06);
+    border: 1px solid rgba({accent_rgb}, 0.22);
+    border-radius: 16px;
+}}
+QFrame#dash_promo QLabel {{ background: transparent; }}
+
+/* =====================================================================
+   ETIQUETAS (generador): pasos, lista de productos, cola
+   ===================================================================== */
+QLabel[role="step-title"] {{
+    font-size: 11px;
+    font-weight: 800;
+    color: {muted1};
+    letter-spacing: 0.7px;
+    background: transparent;
+    padding-bottom: 8px;
+    border-bottom: 1px solid {line};
+}}
+
+QListWidget#queue_list {{
+    background-color: {surface};
+    border: 1px solid {line};
+    border-radius: 10px;
+    outline: none;
+    padding: 4px;
+}}
+
+/* La lista de productos es una QTableWidget (como Clientes/Productos/Facturas)
+   para compartir el mismo color de selección y la barra deslizante. */
+QTableWidget#prod_table {{
+    background-color: {surface};
+    border: 1px solid {line};
+    border-radius: 10px;
+    gridline-color: transparent;
+    outline: none;
+    selection-background-color: transparent;
+}}
+QTableWidget#prod_table::item {{
+    padding: 4px 8px;
+    border: none;
+    color: {text};
+    border-bottom: 1px solid {base};
+}}
+QTableWidget#prod_table::item:selected {{
+    background-color: transparent;
+    color: {text};
+}}
+
+/* Botón sólo-ícono (ej. la X para quitar), sin borde ni caja. */
+QPushButton#icon_btn {{
+    background-color: transparent;
+    border: none;
+    border-radius: 6px;
+    padding: 0px;
+    min-height: 0px;
+    min-width: 0px;
+}}
+QPushButton#icon_btn:hover {{
+    background-color: rgba({danger_rgb}, 0.14);
+}}
+QPushButton#icon_btn:disabled {{
+    background-color: transparent;
+}}
+
+/* Recuadro con el producto elegido. */
+QFrame#etq_selected {{
+    background-color: rgba({accent_rgb}, 0.06);
+    border: 1px solid rgba({accent_rgb}, 0.22);
+    border-radius: 10px;
+}}
+QFrame#etq_selected QLabel {{ background: transparent; }}
+QLabel[role="etq-code"] {{
+    font-size: 12px; font-weight: 800; color: {accent}; background: transparent;
+}}
+QLabel[role="etq-name"] {{
+    font-size: 14px; font-weight: 700; color: {text}; background: transparent;
+}}
+QLabel[role="etq-type"] {{
+    font-size: 11px; color: {subtext}; background: transparent;
+}}
+
+/* Fila de talle+cantidad. */
+QFrame#etq_row {{
+    background-color: {base};
+    border: 1px solid {line};
+    border-radius: 8px;
+}}
+QFrame#etq_row QLabel {{ background: transparent; }}
+
+/* Ítem de la cola: chip de código + nombre/talle + cantidad. */
+QFrame#queue_item {{
+    background-color: {surface};
+    border: 1px solid {line};
+    border-radius: 9px;
+}}
+QFrame#queue_item QLabel {{ background: transparent; }}
+QLabel#etq_chip {{
+    background-color: {accent};
+    color: {accent_text};
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 800;
+}}
+QLabel[role="qi-label"] {{ font-size: 12px; font-weight: 700; color: {text}; background: transparent; }}
+QLabel[role="qi-detail"] {{ font-size: 11px; color: {subtext}; background: transparent; }}
+QLabel[role="qi-qty"] {{
+    font-size: 12px; font-weight: 800; color: {accent};
+    background-color: rgba({accent_rgb}, 0.12);
+    border-radius: 5px; padding: 2px 8px;
+}}
+
+/* Resumen y aviso de la cola. */
+QFrame#etq_summary {{
+    background-color: {base};
+    border: 1px solid {line};
+    border-radius: 10px;
+}}
+QFrame#etq_summary QLabel {{ background: transparent; color: {subtext}; font-size: 12px; }}
+QLabel[role="sum-strong"] {{ font-weight: 800; color: {text}; font-size: 13px; background: transparent; }}
+QFrame#etq_warn {{
+    background-color: rgba({warn_rgb}, 0.14);
+    border: 1px solid rgba({warn_rgb}, 0.4);
+    border-radius: 9px;
+}}
+QFrame#etq_warn QLabel {{ background: transparent; color: {warn}; font-size: 12px; }}
+
+QLabel[role="empty-hint"] {{
+    color: {muted1}; font-size: 13px; background: transparent;
+}}
+
+/* Contenedor sin fondo propio. Se targetea por objectName para NO pisar el
+   fondo de los hijos (un `background: transparent` puesto inline sobre el widget
+   se filtra a los QPushButton adentro y les borra el color de acento). */
+QWidget#plain_box {{ background: transparent; }}
+
 /* Marca de la sidebar: clickeable para volver al inicio. */
 QWidget#brand_click {{
     background: transparent;
@@ -363,7 +596,7 @@ QFrame#chart_card {{
 QTableWidget {{
     background-color: {surface};
     border: 1px solid {line};
-    border-radius: 8px;
+    border-radius: 10px;
     gridline-color: transparent;
     outline: none;
     selection-background-color: transparent;
@@ -373,7 +606,6 @@ QTableWidget::item {{
     padding: 0px 12px;
     border: none;
     color: {text};
-    border-bottom: 1px solid {base};
 }}
 
 QTableWidget::item:alternate {{
@@ -384,15 +616,14 @@ QTableWidget::item:alternate {{
    además está seleccionada, gana la regla declarada más abajo. Si :selected
    fuera la primera, la selección quedaba invisible en las filas alternadas
    (parecía que el click "no hacía nada" en esas filas). */
-/* Selección suave: relleno neutro (sin el azul saturado) y un contorno
-   horizontal continuo arriba/abajo. Sin border-left para no repetir una barra
-   vertical en cada celda (se veía como columnas segmentadas). */
+/* Selección: el fondo celeste lo dibuja AnimatedTable DETRÁS del texto (mismo
+   tono suave al deslizar y en reposo, sin tapar el texto). Por eso acá el fondo
+   del item seleccionado es TRANSPARENTE: si lo pintáramos, taparía ese celeste
+   de atrás. Sólo se conserva el color del texto. */
 QTableWidget::item:selected,
 QTableWidget::item:alternate:selected {{
-    background-color: {row_sel};
+    background-color: transparent;
     color: {text};
-    border-top: 1px solid {row_sel_bar};
-    border-bottom: 1px solid {row_sel_bar};
 }}
 
 QHeaderView {{
@@ -416,6 +647,15 @@ QHeaderView::section {{
 
 QHeaderView::section:last {{
     border-right: none;
+}}
+
+/* Esquinas superiores redondeadas para que el borde redondeado de la lista se
+   vea también arriba (si no, el header cuadrado tapa las esquinas de la tabla). */
+QHeaderView::section:first {{
+    border-top-left-radius: 10px;
+}}
+QHeaderView::section:last {{
+    border-top-right-radius: 10px;
 }}
 
 /* =====================================================================
@@ -567,30 +807,13 @@ QSpinBox:focus, QDoubleSpinBox:focus {{
     border-color: {accent};
 }}
 
-QSpinBox::up-button, QDoubleSpinBox::up-button {{
-    subcontrol-origin: border;
-    subcontrol-position: top right;
-    width: 22px;
-    height: 17px;
-    border-left: 1px solid {line};
-    border-bottom: 1px solid {line};
-    border-top-right-radius: 7px;
-    background-color: {line};
-}}
-
+/* Sin botones de subir/bajar: campo numérico limpio (la cantidad se escribe).
+   Ocultarlos por completo evita las cajitas grises que quedaban "rotas". */
+QSpinBox::up-button, QDoubleSpinBox::up-button,
 QSpinBox::down-button, QDoubleSpinBox::down-button {{
-    subcontrol-origin: border;
-    subcontrol-position: bottom right;
-    width: 22px;
-    height: 17px;
-    border-left: 1px solid {line};
-    border-bottom-right-radius: 7px;
-    background-color: {line};
-}}
-
-QSpinBox::up-button:hover, QDoubleSpinBox::up-button:hover,
-QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover {{
-    background-color: {muted2};
+    width: 0px;
+    height: 0px;
+    border: none;
 }}
 
 QSpinBox::up-arrow, QDoubleSpinBox::up-arrow,
@@ -840,55 +1063,58 @@ QFormLayout QLabel {{
 }}
 """
 
-# Catppuccin Mocha (dark) / Catppuccin Latte (light) inspired palettes.
-# Every color used anywhere in the stylesheet is a named token here, so the
-# two themes are guaranteed to cover exactly the same selectors.
+# Paleta "Vexa Rework" (2026-07-15): azul plano #2f5bea sobre superficies casi
+# blancas en claro; derivada neutra con acento azul en oscuro. Cada color usado
+# en el stylesheet es un token nombrado acá, así ambos temas cubren exactamente
+# los mismos selectores.
 _PALETTES = {
     "dark": {
-        "base": "#1e1e2e",
-        "crust": "#11111b",
-        "surface": "#181825",
-        "line": "#313244",
-        "muted2": "#45475a",
-        "muted1": "#6c7086",
-        "subtext": "#a6adc8",
-        "text": "#cdd6f4",
-        "accent": "#89b4fa",
-        "accent_hover": "#b4d0ff",
-        "accent_pressed": "#74a8f5",
-        "accent_text": "#11111b",
-        "accent_rgb": "137, 180, 250",
-        "select_bg": "#34406a",
-        "select_tx": "#cdd6f4",
-        "row_sel": "#333a54",
-        "row_sel_bar": "#4a5379",
-        "danger": "#f38ba8",
-        "danger_rgb": "243, 139, 168",
-        "warn": "#f9e2af",
+        "base": "#171922",
+        "crust": "#1e2029",
+        "surface": "#20222e",
+        "line": "#2b2f3d",
+        "muted2": "#3b4052",
+        "muted1": "#6b7191",
+        "subtext": "#9aa2b1",
+        "text": "#e5e8ee",
+        "accent": "#5b8bff",
+        "accent_hover": "#74a0ff",
+        "accent_pressed": "#3b6bff",
+        "accent_text": "#0b1020",
+        "accent_rgb": "91, 139, 255",
+        "select_bg": "#2c3450",
+        "select_tx": "#e5e8ee",
+        "row_sel": "#232838",
+        "row_sel_bar": "#37436a",
+        "danger": "#f2708c",
+        "danger_rgb": "242, 112, 140",
+        "warn": "#eab24a",
+        "warn_rgb": "234, 178, 74",
         "disabled_bg": "#24273a",
     },
     "light": {
-        "base": "#eff1f5",
-        "crust": "#dce0e8",
+        "base": "#f4f5f8",
+        "crust": "#ffffff",
         "surface": "#ffffff",
-        "line": "#ccd0da",
-        "muted2": "#9ca0b0",
-        "muted1": "#6c6f85",
-        "subtext": "#5c5f77",
-        "text": "#3c3f58",
-        "accent": "#1e66f5",
-        "accent_hover": "#4885f7",
-        "accent_pressed": "#1755c9",
+        "line": "#e5e8ee",
+        "muted2": "#c3c9d3",
+        "muted1": "#8a92a2",
+        "subtext": "#6b7280",
+        "text": "#1f2430",
+        "accent": "#2f5bea",
+        "accent_hover": "#3b6bff",
+        "accent_pressed": "#1e40af",
         "accent_text": "#ffffff",
-        "accent_rgb": "30, 102, 245",
-        "select_bg": "#dbe6fd",
-        "select_tx": "#3c3f58",
-        "row_sel": "#d7dfee",
-        "row_sel_bar": "#b3c0d8",
+        "accent_rgb": "47, 91, 234",
+        "select_bg": "#dbe6ff",
+        "select_tx": "#1f2430",
+        "row_sel": "#eef3ff",
+        "row_sel_bar": "#b9cbff",
         "danger": "#d20f39",
         "danger_rgb": "210, 15, 57",
         "warn": "#df8e1d",
-        "disabled_bg": "#dce0e8",
+        "warn_rgb": "223, 142, 29",
+        "disabled_bg": "#eceef3",
     },
 }
 

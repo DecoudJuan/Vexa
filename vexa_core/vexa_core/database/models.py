@@ -14,8 +14,10 @@ from sqlalchemy import (
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 # Tipos de documento soportados por la tabla polimórfica `facturas`.
-# FA=Factura, PR=Presupuesto, PE=Pedido.
-TIPOS_DOCUMENTO = ("FA", "PR", "PE")
+# La app es SÓLO para facturar: no hay presupuestos (PR) ni pedidos (PE).
+# (En bases existentes el CHECK viejo puede seguir aceptando PR/PE: cambiar
+# esta tupla no altera constraints ya creadas, sólo las de bases nuevas.)
+TIPOS_DOCUMENTO = ("FA",)
 
 _NOW = text("(datetime('now'))")
 
