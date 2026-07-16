@@ -596,7 +596,7 @@ QFrame#chart_card {{
 QTableWidget {{
     background-color: {surface};
     border: 1px solid {line};
-    border-radius: 8px;
+    border-radius: 10px;
     gridline-color: transparent;
     outline: none;
     selection-background-color: transparent;
@@ -647,6 +647,15 @@ QHeaderView::section {{
 
 QHeaderView::section:last {{
     border-right: none;
+}}
+
+/* Esquinas superiores redondeadas para que el borde redondeado de la lista se
+   vea también arriba (si no, el header cuadrado tapa las esquinas de la tabla). */
+QHeaderView::section:first {{
+    border-top-left-radius: 10px;
+}}
+QHeaderView::section:last {{
+    border-top-right-radius: 10px;
 }}
 
 /* =====================================================================

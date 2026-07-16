@@ -183,9 +183,16 @@ class AnimatedTable(QTableWidget):
         old = self._row_rect(old_idx[0].row()) if old_idx else QRect()
         self._stop()
         if not old.isNull() and old != new:
+            # La banda arranca cubriendo old+new (unión) y se "retrae" hasta new.
+            # Así la fila nueva queda tapada por el celeste DESDE el primer frame
+            # (mismo repintado en que Qt dibujaría su selección violeta), y esa
+            # violeta nunca llega a verse. Igual hay movimiento (el celeste se
+            # desliza desde la fila anterior hacia la nueva).
+            start = old.united(new)
+            self._set_hl(start)
             self._hl_anim = QPropertyAnimation(self, b"highlightRect", self)
-            self._hl_anim.setDuration(240)
-            self._hl_anim.setStartValue(old)
+            self._hl_anim.setDuration(220)
+            self._hl_anim.setStartValue(start)
             self._hl_anim.setEndValue(new)
             self._hl_anim.setEasingCurve(QEasingCurve.OutCubic)
             self._hl_anim.start()
