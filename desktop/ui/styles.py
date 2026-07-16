@@ -450,24 +450,51 @@ QLabel[role="step-title"] {{
     border-bottom: 1px solid {line};
 }}
 
-QListWidget#prod_list, QListWidget#queue_list {{
+QListWidget#queue_list {{
     background-color: {surface};
     border: 1px solid {line};
     border-radius: 10px;
     outline: none;
     padding: 4px;
 }}
-QListWidget#prod_list::item {{
-    padding: 8px 10px;
-    border-radius: 7px;
+
+/* La lista de productos es una QTableWidget (como Clientes/Productos/Facturas)
+   para compartir el mismo color de selección y la barra deslizante. */
+QTableWidget#prod_table {{
+    background-color: {surface};
+    border: 1px solid {line};
+    border-radius: 10px;
+    gridline-color: transparent;
+    outline: none;
+    selection-background-color: transparent;
+}}
+QTableWidget#prod_table::item {{
+    padding: 4px 8px;
+    border: none;
     color: {text};
+    border-bottom: 1px solid {base};
 }}
-QListWidget#prod_list::item:hover {{
-    background-color: rgba({accent_rgb}, 0.07);
+QTableWidget#prod_table::item:selected {{
+    background-color: {row_sel};
+    color: {text};
+    border-top: 1px solid {row_sel_bar};
+    border-bottom: 1px solid {row_sel_bar};
 }}
-QListWidget#prod_list::item:selected {{
-    background-color: rgba({accent_rgb}, 0.14);
-    color: {accent};
+
+/* Botón sólo-ícono (ej. la X para quitar), sin borde ni caja. */
+QPushButton#icon_btn {{
+    background-color: transparent;
+    border: none;
+    border-radius: 6px;
+    padding: 0px;
+    min-height: 0px;
+    min-width: 0px;
+}}
+QPushButton#icon_btn:hover {{
+    background-color: rgba({danger_rgb}, 0.14);
+}}
+QPushButton#icon_btn:disabled {{
+    background-color: transparent;
 }}
 
 /* Recuadro con el producto elegido. */
@@ -802,11 +829,16 @@ QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover {{
     background-color: {muted2};
 }}
 
-QSpinBox::up-arrow, QDoubleSpinBox::up-arrow,
+QSpinBox::up-arrow, QDoubleSpinBox::up-arrow {{
+    image: url({arrow_up});
+    width: 9px;
+    height: 9px;
+}}
+
 QSpinBox::down-arrow, QDoubleSpinBox::down-arrow {{
-    image: none;
-    width: 0px;
-    height: 0px;
+    image: url({arrow_down});
+    width: 9px;
+    height: 9px;
 }}
 
 /* =====================================================================
@@ -1135,7 +1167,10 @@ def build_style(theme: str = "dark", zoom: float = 1.0) -> str:
     para que el texto más grande siga entrando bien en botones/campos."""
     palette = _PALETTES.get(theme, _PALETTES["dark"])
     chevron = resource_path("assets/chevron.png").as_posix()
-    css = _TEMPLATE.format(**palette, chevron=chevron)
+    arrow_up = resource_path("assets/arrow_up.png").as_posix()
+    arrow_down = resource_path("assets/arrow_down.png").as_posix()
+    css = _TEMPLATE.format(**palette, chevron=chevron,
+                           arrow_up=arrow_up, arrow_down=arrow_down)
     if zoom and abs(zoom - 1.0) > 1e-6:
         css = _PROP_RE.sub(
             lambda m: m.group(1) + m.group(2) + _scale_px_numbers(m.group(3), zoom) + m.group(4),

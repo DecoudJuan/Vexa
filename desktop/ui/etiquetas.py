@@ -10,12 +10,14 @@ con el futuro cliente mobile; acá sólo se arma la cola y se abre el archivo.""
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QFrame,
-    QLineEdit, QListWidget, QListWidgetItem, QSpinBox, QPushButton, QMessageBox,
-    QSizePolicy,
+    QLineEdit, QListWidget, QListWidgetItem, QTableWidget, QTableWidgetItem,
+    QHeaderView, QAbstractItemView, QSpinBox, QPushButton, QMessageBox,
 )
+from PySide6.QtGui import QColor
 from PySide6.QtCore import Qt
 
-from ui.icons import svg_icon, svg_pixmap
+from ui.icons import svg_icon
+from ui.anim import RowHighlight, fade_in
 from ui.styles import get_palette
 from ui.widgets import NoScrollComboBox
 from vexa_core.utils.helpers import (
@@ -95,10 +97,25 @@ class EtiquetasWidget(QWidget):
         self._search.textChanged.connect(lambda t: self._load_products(t))
         lay.addWidget(self._search)
 
-        self._prod_list = QListWidget()
-        self._prod_list.setObjectName("prod_list")
-        self._prod_list.itemClicked.connect(self._on_select_product)
-        lay.addWidget(self._prod_list, 1)
+        # Tabla (no lista) para compartir con el resto de la app el color de
+        # selección (row_sel) y la barra que se desliza entre filas (RowHighlight).
+        self._prod_table = QTableWidget(0, 2)
+        self._prod_table.setObjectName("prod_table")
+        self._prod_table.horizontalHeader().hide()
+        self._prod_table.verticalHeader().hide()
+        self._prod_table.setShowGrid(False)
+        self._prod_table.setWordWrap(True)
+        self._prod_table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self._prod_table.setSelectionMode(QAbstractItemView.SingleSelection)
+        self._prod_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self._prod_table.setFocusPolicy(Qt.NoFocus)
+        hh = self._prod_table.horizontalHeader()
+        hh.setSectionResizeMode(0, QHeaderView.Fixed)
+        hh.setSectionResizeMode(1, QHeaderView.Stretch)
+        self._prod_table.setColumnWidth(0, self._S(52))
+        self._prod_table.itemSelectionChanged.connect(self._on_select_product)
+        lay.addWidget(self._prod_table, 1)
+        self._row_hl = RowHighlight(self._prod_table, get_palette(self._theme))
         return card
 
     # ---------------------------------------------------------- col 2: configurar
@@ -226,20 +243,31 @@ class EtiquetasWidget(QWidget):
     # ---------------------------------------------------------------- productos
     def _load_products(self, search: str = "") -> None:
         self._productos = self.db.get_productos(search=search or None)
-        self._prod_list.clear()
-        for p in self._productos:
+        self._prod_table.blockSignals(True)
+        self._prod_table.clearContents()
+        self._prod_table.setRowCount(len(self._productos))
+        pal = get_palette(self._theme)
+        for row, p in enumerate(self._productos):
             cod = (p.get("codigo") or "").strip()
             nom = nombre_sin_talle(p.get("nombre")) or (p.get("nombre") or "")
-            txt = f"{cod}   {nom}" if cod else nom
-            item = QListWidgetItem(txt)
-            item.setData(Qt.UserRole, p)
-            self._prod_list.addItem(item)
+            cod_item = QTableWidgetItem(cod)
+            cod_item.setForeground(QColor(pal["accent"]))
+            cod_item.setData(Qt.UserRole, p)
+            nom_item = QTableWidgetItem(nom)
+            self._prod_table.setItem(row, 0, cod_item)
+            self._prod_table.setItem(row, 1, nom_item)
+        self._prod_table.resizeRowsToContents()
+        self._prod_table.blockSignals(False)
 
     def _talles_de(self, p: dict) -> list[str]:
         return [t for t in (p.get("talles") or []) if (t or "").strip()]
 
-    def _on_select_product(self, item: QListWidgetItem) -> None:
-        p = item.data(Qt.UserRole)
+    def _on_select_product(self) -> None:
+        row = self._prod_table.currentRow()
+        if row < 0:
+            return
+        cod_item = self._prod_table.item(row, 0)
+        p = cod_item.data(Qt.UserRole) if cod_item else None
         if not p:
             return
         self._selected = p
@@ -258,6 +286,9 @@ class EtiquetasWidget(QWidget):
 
         self._config_hint.hide()
         self._config_body.show()
+        # Aparece con un fade al cambiar de producto (mismo gesto que el resto
+        # de la app al cambiar de sección).
+        fade_in(self._config_body)
 
     # ---------------------------------------------------------------- filas talle
     def _clear_talle_rows(self) -> None:
@@ -303,9 +334,9 @@ class EtiquetasWidget(QWidget):
         row.addLayout(qbox)
 
         btn_del = QPushButton()
-        btn_del.setObjectName("btn_danger")
-        btn_del.setIcon(svg_icon("x", 14, pal["danger"]))
-        btn_del.setFixedWidth(self._S(38))
+        btn_del.setObjectName("icon_btn")
+        btn_del.setIcon(svg_icon("x", 15, pal["danger"]))
+        btn_del.setFixedSize(self._S(28), self._S(28))
         btn_del.setCursor(Qt.PointingHandCursor)
         row.addWidget(btn_del, alignment=Qt.AlignBottom)
 
@@ -396,9 +427,9 @@ class EtiquetasWidget(QWidget):
             h.addWidget(qty)
 
             btn = QPushButton()
-            btn.setObjectName("btn_danger")
-            btn.setIcon(svg_icon("x", 13, pal["danger"]))
-            btn.setFixedWidth(self._S(34))
+            btn.setObjectName("icon_btn")
+            btn.setIcon(svg_icon("x", 15, pal["danger"]))
+            btn.setFixedSize(self._S(28), self._S(28))
             btn.setCursor(Qt.PointingHandCursor)
             btn.clicked.connect(lambda _, i=it: self._remove_from_queue(i))
             h.addWidget(btn)
@@ -457,4 +488,8 @@ class EtiquetasWidget(QWidget):
         self._btn_add_queue.setIcon(svg_icon("plus", 15, pal["accent_text"]))
         self._btn_clear.setIcon(svg_icon("trash", 15, pal["danger"]))
         self._btn_generate.setIcon(svg_icon("file-text", 15, pal["accent_text"]))
+        self._row_hl.set_palette(pal)
+        self._prod_table.setColumnWidth(0, self._S(52))
+        # Recargar productos recolorea el código con el acento del tema nuevo.
+        self._load_products(self._search.text())
         self._render_queue()

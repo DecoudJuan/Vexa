@@ -27,7 +27,10 @@ _MARGIN = 10 * mm
 _GAP_X = 5 * mm
 _GAP_Y = 2 * mm
 _RADIUS = 4 * mm
+_PAD = 3 * mm  # margen interno de la etiqueta (para que el texto no toque el borde)
 _FONT = "Times-Bold"
+_MAX_FS = 23  # pt
+_MIN_FS = 8
 
 
 def etiqueta_lineas(codigo: str | None, nombre: str | None,
@@ -75,19 +78,39 @@ def expandir_cola(items: list[dict]) -> list[list[str]]:
     return labels
 
 
-def _font_size(lineas: list[str]) -> float:
-    """Tamaño de fuente (pt) según el largo de la línea más larga, para que el
-    texto entre en la etiqueta sin recortarse (misma escala que AdherNeo)."""
-    maxlen = max((len(l) for l in lineas), default=0)
-    if maxlen <= 8:
-        return 24
-    if maxlen <= 14:
-        return 22
-    if maxlen <= 20:
-        return 20
-    if maxlen <= 28:
-        return 18
-    return 16
+def _wrap(c, texto: str, max_w: float, size: float) -> list[str]:
+    """Parte `texto` en varias líneas para que cada una entre en `max_w` a ese
+    tamaño de fuente (corta por palabras)."""
+    palabras = texto.split()
+    lineas: list[str] = []
+    actual = ""
+    for p in palabras:
+        prueba = f"{actual} {p}".strip()
+        if not actual or c.stringWidth(prueba, _FONT, size) <= max_w:
+            actual = prueba
+        else:
+            lineas.append(actual)
+            actual = p
+    if actual:
+        lineas.append(actual)
+    return lineas or [texto]
+
+
+def _ajustar(c, lineas: list[str], max_w: float, max_h: float):
+    """Elige el mayor tamaño de fuente con el que el nombre (envuelto en varias
+    líneas si hace falta) + el talle entran en la caja, sin salirse ni a lo
+    ancho ni a lo alto. Devuelve (tamaño, lista_de_líneas_finales)."""
+    cabecera = lineas[0]
+    extra = lineas[1:]  # p.ej. "T: 1"
+    for size in range(_MAX_FS, _MIN_FS - 1, -1):
+        envuelto = _wrap(c, cabecera, max_w, size)
+        todas = envuelto + extra
+        if any(c.stringWidth(l, _FONT, size) > max_w for l in todas):
+            continue
+        if size * 1.22 * len(todas) <= max_h:
+            return size, todas
+    envuelto = _wrap(c, cabecera, max_w, _MIN_FS)
+    return _MIN_FS, envuelto + extra
 
 
 def _dibujar_celda(c, x: float, y: float, w: float, h: float,
@@ -105,16 +128,15 @@ def _dibujar_celda(c, x: float, y: float, w: float, h: float,
     c.setLineWidth(1.3)
     c.roundRect(x, y, w, h, _RADIUS, stroke=1, fill=0)
 
-    fs = _font_size(lineas)
-    leading = fs * 1.25
+    size, todas = _ajustar(c, lineas, w - 2 * _PAD, h - 2 * _PAD)
+    leading = size * 1.22
     cx = x + w / 2
-    # Centrado vertical del bloque de líneas dentro de la celda.
-    total_alto = leading * len(lineas)
-    top_baseline = y + h / 2 + total_alto / 2 - leading + fs * 0.3
+    total_alto = leading * len(todas)
+    # Baseline de la primera línea (bloque centrado verticalmente).
+    top_baseline = y + h / 2 + total_alto / 2 - leading + size * 0.28
+    c.setFont(_FONT, size)
     c.setFillColorRGB(0, 0, 0)
-    for i, linea in enumerate(lineas):
-        size = fs + 0.5 if i == 0 else fs
-        c.setFont(_FONT, size)
+    for i, linea in enumerate(todas):
         c.drawCentredString(cx, top_baseline - i * leading, linea)
 
 
