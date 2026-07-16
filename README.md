@@ -61,7 +61,7 @@ Vexa/
 │   ├── packaging/                # config de empaquetado (.spec, installer.iss)
 │   └── ui/                       # capa de presentación (todo lo que toca Qt)
 │       ├── main_window.py  home.py  onboarding.py  base_page.py
-│       ├── clientes.py  conceptos.py  documentos.py  configuracion.py
+│       ├── clientes.py  conceptos.py  documentos.py  etiquetas.py  configuracion.py
 │       ├── modal.py  widgets.py  anim.py  styles.py  icons.py
 │
 ├── mobile/                       # ← app MOBILE Flet (Fase 6.2, aún no creada)
