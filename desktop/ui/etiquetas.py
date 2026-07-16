@@ -168,6 +168,8 @@ class EtiquetasWidget(QWidget):
         rows_scroll.setWidgetResizable(True)
         rows_scroll.setFrameShape(QFrame.Shape.NoFrame)
         rows_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        # Barra vertical invisible (se scrollea con la rueda); pedido del usuario.
+        rows_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         rows_scroll.setWidget(self._rows_holder)
         body.addWidget(rows_scroll, 1)
 
@@ -233,7 +235,7 @@ class EtiquetasWidget(QWidget):
 
         btns = QHBoxLayout()
         btns.setSpacing(self._S(8))
-        self._btn_clear = QPushButton("  Limpiar cola")
+        self._btn_clear = QPushButton("  Limpiar")
         self._btn_clear.setObjectName("btn_danger")
         self._btn_clear.setIcon(svg_icon("trash", 15, get_palette(self._theme)["danger"]))
         self._btn_clear.setCursor(Qt.PointingHandCursor)
@@ -251,7 +253,7 @@ class EtiquetasWidget(QWidget):
 
     # ---------------------------------------------------------------- productos
     def _load_products(self, search: str = "") -> None:
-        self._productos = self.db.get_productos(search=search or None)
+        self._productos = self.db.get_productos(search=search or None, order="codigo")
         self._prod_table.blockSignals(True)
         self._prod_table.clearContents()
         self._prod_table.setRowCount(len(self._productos))

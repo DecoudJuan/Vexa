@@ -25,7 +25,7 @@ class ConceptosWidget(ListPage):
     SEARCH_MAXW = _SEARCH_MAXW
     COLUMNS = ["Código", "Talle", "Nombre", "Precio"]
     ROW_H = _ROW_H
-    _order = "nombre"   # 'nombre' | 'codigo' (clic en el encabezado)
+    _order = "codigo"   # 'nombre' | 'codigo' (clic en el encabezado); por defecto por código asc
 
     def _header_buttons(self) -> list:
         self._btn_importar = self._boton("  Importar lista de precios", "file-plus",
@@ -201,7 +201,7 @@ class ProductoDialog(BaseModal):
         self._talles.setPlaceholderText("Separados por coma. Ej. 1, 2, 3, 4 (vacío = sin talle)")
         self.content.addWidget(self._talles)
 
-        self.content.addWidget(self.section_label("PRECIO", "dollar-sign"))
+        self.content.addWidget(self.section_label("PRECIO *", "dollar-sign"))
         prow = QHBoxLayout()
         prow.setSpacing(self._S(8))
         unit = QLabel("$")

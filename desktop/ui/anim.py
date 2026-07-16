@@ -4,7 +4,6 @@ from PySide6.QtWidgets import (
     QFrame, QTabWidget, QTableWidget, QGraphicsOpacityEffect, QWidget,
 )
 from PySide6.QtCore import Qt, QEvent, QRect, QPropertyAnimation, QEasingCurve
-from PySide6.QtGui import QColor
 
 
 class TabUnderline(QFrame):
@@ -90,11 +89,13 @@ class RowHighlight(QFrame):
         table.selectionModel().selectionChanged.connect(self._on_selection_changed)
 
     def set_palette(self, pal: dict) -> None:
-        # Translúcido para que el texto se vea mientras el bar se desliza
-        # (en reposo el resaltado lo dibuja el CSS, sólido).
-        c = QColor(pal["row_sel"])
+        # Celeste SÓLIDO (mismo color que el resaltado en reposo del CSS): así el
+        # deslizamiento se ve claramente en celeste y no como un gris translúcido.
+        # Es opaco: al deslizarse tapa el texto sólo mientras pasa (transición),
+        # y al terminar se oculta dejando el resaltado del CSS (con el texto). El
+        # color coincide con el de reposo, así el traspaso es sin salto.
         self.setStyleSheet(
-            f"#row_highlight {{ background-color: rgba({c.red()},{c.green()},{c.blue()},0.5);"
+            f"#row_highlight {{ background-color: {pal['row_sel']};"
             f" border: none; border-radius: 6px; }}"
         )
 
@@ -127,7 +128,7 @@ class RowHighlight(QFrame):
         self.show()
         self.raise_()
         self._anim = QPropertyAnimation(self, b"geometry", self)
-        self._anim.setDuration(200)
+        self._anim.setDuration(260)
         self._anim.setStartValue(old_rect)
         self._anim.setEndValue(new_rect)
         self._anim.setEasingCurve(QEasingCurve.OutCubic)

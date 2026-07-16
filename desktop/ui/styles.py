@@ -476,8 +476,6 @@ QTableWidget#prod_table::item {{
 QTableWidget#prod_table::item:selected {{
     background-color: {row_sel};
     color: {text};
-    border-top: 1px solid {row_sel_bar};
-    border-bottom: 1px solid {row_sel_bar};
 }}
 
 /* Botón sólo-ícono (ej. la X para quitar), sin borde ni caja. */
@@ -619,15 +617,14 @@ QTableWidget::item:alternate {{
    además está seleccionada, gana la regla declarada más abajo. Si :selected
    fuera la primera, la selección quedaba invisible en las filas alternadas
    (parecía que el click "no hacía nada" en esas filas). */
-/* Selección suave: relleno neutro (sin el azul saturado) y un contorno
-   horizontal continuo arriba/abajo. Sin border-left para no repetir una barra
-   vertical en cada celda (se veía como columnas segmentadas). */
+/* Selección: relleno celeste liso, SIN bordes. Antes tenía un contorno
+   horizontal (border-top/bottom) que, en la primera fila, se pegaba al header y
+   parecía que la selección "subía" hasta él; el relleno solo se ve más limpio y
+   el deslizamiento lo dibuja el overlay (ui/anim.RowHighlight). */
 QTableWidget::item:selected,
 QTableWidget::item:alternate:selected {{
     background-color: {row_sel};
     color: {text};
-    border-top: 1px solid {row_sel_bar};
-    border-bottom: 1px solid {row_sel_bar};
 }}
 
 QHeaderView {{
