@@ -10,7 +10,7 @@ con el futuro cliente mobile; acá sólo se arma la cola y se abre el archivo.""
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QFrame,
-    QLineEdit, QListWidget, QListWidgetItem, QTableWidget, QTableWidgetItem,
+    QLineEdit, QListWidget, QListWidgetItem, QTableWidgetItem,
     QHeaderView, QAbstractItemView, QSpinBox, QPushButton, QMessageBox,
     QScrollArea,
 )
@@ -18,7 +18,7 @@ from PySide6.QtGui import QColor
 from PySide6.QtCore import Qt
 
 from ui.icons import svg_icon
-from ui.anim import RowHighlight, fade_in
+from ui.anim import AnimatedTable, fade_in
 from ui.styles import get_palette
 from ui.widgets import NoScrollComboBox
 from vexa_core.utils.helpers import (
@@ -98,9 +98,10 @@ class EtiquetasWidget(QWidget):
         self._search.textChanged.connect(lambda t: self._load_products(t))
         lay.addWidget(self._search)
 
-        # Tabla (no lista) para compartir con el resto de la app el color de
-        # selección (row_sel) y la barra que se desliza entre filas (RowHighlight).
-        self._prod_table = QTableWidget(0, 2)
+        # AnimatedTable (mismo componente que el resto de las listas): comparte
+        # el color de selección celeste y el deslizamiento detrás del texto.
+        self._prod_table = AnimatedTable(0, 2)
+        self._prod_table.set_highlight_color(get_palette(self._theme)["row_sel_bar"])
         self._prod_table.setObjectName("prod_table")
         self._prod_table.horizontalHeader().hide()
         self._prod_table.verticalHeader().hide()
@@ -116,7 +117,6 @@ class EtiquetasWidget(QWidget):
         self._prod_table.setColumnWidth(0, self._S(52))
         self._prod_table.itemSelectionChanged.connect(self._on_select_product)
         lay.addWidget(self._prod_table, 1)
-        self._row_hl = RowHighlight(self._prod_table, get_palette(self._theme))
         return card
 
     # ---------------------------------------------------------- col 2: configurar
@@ -500,7 +500,7 @@ class EtiquetasWidget(QWidget):
         self._btn_add_queue.setIcon(svg_icon("plus", 15, pal["accent_text"]))
         self._btn_clear.setIcon(svg_icon("trash", 15, pal["danger"]))
         self._btn_generate.setIcon(svg_icon("file-text", 15, pal["accent_text"]))
-        self._row_hl.set_palette(pal)
+        self._prod_table.set_highlight_color(pal["row_sel_bar"])
         self._prod_table.setColumnWidth(0, self._S(52))
         # Recargar productos recolorea el código con el acento del tema nuevo.
         self._load_products(self._search.text())

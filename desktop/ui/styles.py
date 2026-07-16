@@ -474,7 +474,7 @@ QTableWidget#prod_table::item {{
     border-bottom: 1px solid {base};
 }}
 QTableWidget#prod_table::item:selected {{
-    background-color: {row_sel};
+    background-color: transparent;
     color: {text};
 }}
 
@@ -606,7 +606,6 @@ QTableWidget::item {{
     padding: 0px 12px;
     border: none;
     color: {text};
-    border-bottom: 1px solid {base};
 }}
 
 QTableWidget::item:alternate {{
@@ -617,13 +616,13 @@ QTableWidget::item:alternate {{
    además está seleccionada, gana la regla declarada más abajo. Si :selected
    fuera la primera, la selección quedaba invisible en las filas alternadas
    (parecía que el click "no hacía nada" en esas filas). */
-/* Selección: relleno celeste liso, SIN bordes. Antes tenía un contorno
-   horizontal (border-top/bottom) que, en la primera fila, se pegaba al header y
-   parecía que la selección "subía" hasta él; el relleno solo se ve más limpio y
-   el deslizamiento lo dibuja el overlay (ui/anim.RowHighlight). */
+/* Selección: el fondo celeste lo dibuja AnimatedTable DETRÁS del texto (mismo
+   tono suave al deslizar y en reposo, sin tapar el texto). Por eso acá el fondo
+   del item seleccionado es TRANSPARENTE: si lo pintáramos, taparía ese celeste
+   de atrás. Sólo se conserva el color del texto. */
 QTableWidget::item:selected,
 QTableWidget::item:alternate:selected {{
-    background-color: {row_sel};
+    background-color: transparent;
     color: {text};
 }}
 
