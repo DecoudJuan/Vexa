@@ -28,26 +28,56 @@ class Onboarding:
         self.page = app.page
         self.db = app.db
         self._ctrls = {}   # key -> control del form (para leer al guardar)
+        self._paso = 0     # 0 = bienvenida, 1 = datos
 
     # --------------------------------------------------------------- arranque
     def start(self):
+        self._paso = 0
+        self._montar(animar=True)
+
+    def _montar(self, animar: bool):
+        """Arma la pantalla (top bar con toggle de tema + Stack bienvenida/form). Al cambiar
+        de tema se rellama con animar=False (rebuild en el paso actual, sin animación)."""
         t = self.app.t
         self.page.theme_mode = ft.ThemeMode.DARK if self.app.dark else ft.ThemeMode.LIGHT
         self.page.bgcolor = t["ground"]
-
-        self._welcome = ft.Container(
-            left=0, top=0, right=0, bottom=0, offset=ft.Offset(0, 0),
-            animate_offset=ft.Animation(360, ft.AnimationCurve.EASE_IN_OUT),
-            content=self._pantalla_bienvenida())
-        self._form = ft.Container(
-            left=0, top=0, right=0, bottom=0, offset=ft.Offset(1, 0),  # fuera, a la derecha
-            animate_offset=ft.Animation(360, ft.AnimationCurve.EASE_IN_OUT),
-            bgcolor=t["ground"], content=self._pantalla_form())
-
+        self._ctrls = {}
+        wx = 0 if self._paso == 0 else -1
+        fx = 1 if self._paso == 0 else 0
+        anim = ft.Animation(360, ft.AnimationCurve.EASE_IN_OUT)
+        self._welcome = ft.Container(left=0, top=0, right=0, bottom=0, offset=ft.Offset(wx, 0),
+                                     animate_offset=anim, content=self._pantalla_bienvenida())
+        self._form = ft.Container(left=0, top=0, right=0, bottom=0, offset=ft.Offset(fx, 0),
+                                  animate_offset=anim, bgcolor=t["ground"],
+                                  content=self._pantalla_form())
+        stack = ft.Stack([self._welcome, self._form], expand=True)
+        root = ft.Column([self._topbar(), ft.Container(stack, expand=True)], spacing=0, expand=True)
         self.page.controls[:] = [ft.Container(expand=True, bgcolor=t["ground"],
-                                              content=ft.Stack([self._welcome, self._form], expand=True))]
+                                              content=ft.SafeArea(root))]
         self.page.update()
-        self.page.run_task(self._animar_v)
+        if animar and self._paso == 0:
+            self.page.run_task(self._animar_v)
+
+    def _topbar(self) -> ft.Control:
+        t = self.app.t
+        # Logo INERTE (no navega en el onboarding) + toggle de tema a la derecha.
+        marca = ft.Row([v_logo(24, t["v_ink"], t["dot"]),
+                        ft.Text("Vexa", size=17, weight=ft.FontWeight.W_800, color=t["accent"])],
+                       spacing=8, tight=True, vertical_alignment=ft.CrossAxisAlignment.CENTER)
+        toggle = ft.Container(
+            width=38, height=38, border_radius=12, bgcolor=t["surface2"], border=BALL(1, t["line2"]),
+            alignment=ft.Alignment.CENTER, ink=True, on_click=lambda e: self._toggle_tema(),
+            tooltip="Cambiar tema",
+            content=ft.Icon(ft.Icons.LIGHT_MODE_OUTLINED if self.app.dark else ft.Icons.DARK_MODE_OUTLINED,
+                            size=20, color=t["muted"]))
+        return ft.Container(bgcolor=t["ground"], padding=PAD(18, 12, 18, 6),
+                            content=ft.Row([marca, ft.Container(expand=True), toggle],
+                                           vertical_alignment=ft.CrossAxisAlignment.CENTER))
+
+    def _toggle_tema(self):
+        self.app.dark = not self.app.dark
+        self.db.set_config("tema", "oscuro" if self.app.dark else "claro")
+        self._montar(animar=False)   # rebuild en el paso actual, con el tema nuevo
 
     async def _animar_v(self):
         import asyncio
@@ -89,11 +119,13 @@ class Onboarding:
 
     def _ir_a_form(self):
         # Slide: la bienvenida sale por la izquierda y el form entra desde la derecha.
+        self._paso = 1
         self._welcome.offset = ft.Offset(-1, 0)
         self._form.offset = ft.Offset(0, 0)
         self.page.update()
 
     def _volver_bienvenida(self):
+        self._paso = 0
         self._welcome.offset = ft.Offset(0, 0)
         self._form.offset = ft.Offset(1, 0)
         self.page.update()
