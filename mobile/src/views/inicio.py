@@ -42,9 +42,9 @@ class InicioView:
                 padding=PADS(14, 15),
                 content=ft.Column([
                     ft.Text(k.upper(), size=10, weight=ft.FontWeight.W_800, color=klr),
-                    ft.Text(v, size=26, weight=ft.FontWeight.W_800, color=fg),
+                    ft.Text(v, size=23, weight=ft.FontWeight.W_800, color=fg),
                     ft.Text(d, size=11, color=sub),
-                ], spacing=2, tight=True))
+                ], spacing=1, tight=True))
 
         kpis = ft.Column([
             ft.Row([kpi("Facturas este mes", fmt_cantidad_corta(n_mes), "este mes", destacado=True),
@@ -52,30 +52,6 @@ class InicioView:
             ft.Row([kpi("Clientes", fmt_cantidad_corta(n_cli), "en cartera"),
                     kpi("Productos", fmt_cantidad_corta(n_prod), "en catálogo")], spacing=10),
         ], spacing=10)
-
-        recientes = []
-        for f in facturas[:3]:
-            recientes.append(ft.Container(
-                padding=PADS(10, 0),
-                content=ft.Row([
-                    ft.Column([
-                        ft.Text(f"FA {f.get('numero', '')}", size=13.5, weight=ft.FontWeight.W_700,
-                                color=t["accent"]),
-                        ft.Text(f.get("cliente_nombre", "") or "", size=11.5, color=t["muted"],
-                                no_wrap=True),
-                    ], spacing=1, expand=True, tight=True),
-                    ft.Text(fmt_ar(f.get("total") or 0), size=13.5, weight=ft.FontWeight.W_800,
-                            color=t["ink"]),
-                ], vertical_alignment=ft.CrossAxisAlignment.CENTER)))
-        card_recientes = card(t, [
-            ft.Row([clabel(t, "FACTURAS RECIENTES"), ft.Container(expand=True),
-                    ft.Container(content=ft.Text("Ver todas →", size=12, weight=ft.FontWeight.W_700,
-                                                 color=t["accent"]),
-                                 on_click=lambda e: app.set_tab("facturas"), ink=True)],
-                   vertical_alignment=ft.CrossAxisAlignment.CENTER),
-            ft.Container(height=6),
-            *(recientes or [empty(t, "No hay facturas.")]),
-        ])
 
         def acceso(icon, texto, on_click):
             return ft.Container(
@@ -103,6 +79,6 @@ class InicioView:
         return ft.Column([
             ft.Text(fecha_txt, size=12, color=t["muted"]),
             ft.Text(titulo, size=24, weight=ft.FontWeight.W_800, color=t["ink"]),
-            ft.Container(height=14), kpis, ft.Container(height=14), card_recientes,
-            ft.Container(height=14), clabel(t, "ACCESOS RÁPIDOS"), ft.Container(height=8), accesos,
-        ], spacing=0, scroll=ft.ScrollMode.AUTO, expand=True)
+            ft.Container(height=12), kpis,
+            ft.Container(height=12), clabel(t, "ACCESOS RÁPIDOS"), ft.Container(height=8), accesos,
+        ], spacing=0, scroll=ft.ScrollMode.HIDDEN, expand=True)
