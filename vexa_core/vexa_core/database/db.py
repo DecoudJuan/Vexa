@@ -72,6 +72,7 @@ class DatabaseManager:
         "clientes": [
             ("bonificacion", "REAL DEFAULT 0"),
             ("condicion_iva", "TEXT"),
+            ("oculto", "INTEGER DEFAULT 0"),   # soft-delete: se oculta si tiene facturas
         ],
         "facturas": [
             ("bonificacion", "REAL DEFAULT 0"),
@@ -227,7 +228,8 @@ class DatabaseManager:
 
     def get_all_clientes(self, search: str | None = None) -> list[dict]:
         with self._session() as s:
-            stmt = select(Cliente)
+            stmt = select(Cliente).where(
+                (Cliente.oculto == 0) | (Cliente.oculto.is_(None)))   # no mostrar los ocultos
             if search:
                 like = f"%{search}%"
                 stmt = stmt.where(
@@ -281,16 +283,21 @@ class DatabaseManager:
                 setattr(obj, k, v)
 
     def delete_cliente(self, cliente_id: int) -> None:
+        """Elimina el cliente. Si tiene facturas (FK RESTRICT), NO se puede borrar la fila
+        sin perder el nombre en los comprobantes → se hace **soft-delete** (oculto=1): sale
+        de los listados pero la factura conserva el cliente. Sin facturas: borrado real."""
         with self._session() as s:
             obj = s.get(Cliente, cliente_id)
             if obj is None:
                 return
-            try:
+            n_facturas = s.execute(
+                select(func.count()).select_from(Factura).where(Factura.cliente_id == cliente_id)
+            ).scalar_one()
+            if n_facturas:
+                obj.oculto = 1                 # soft-delete: conserva el nombre en las facturas
+            else:
                 s.delete(obj)
                 s.flush()
-            except IntegrityError as e:
-                # Preserva el contrato con la UI (captura sqlite3.IntegrityError).
-                raise e.orig if e.orig else e
 
     # ------------------------------------------------------------ cliente_cuit
 

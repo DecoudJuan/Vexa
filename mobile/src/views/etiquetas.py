@@ -69,8 +69,10 @@ class EtiquetasView:
                 padding=PADS(10, 12), bgcolor=soft(t["accent"], 0.12) if sel else None,
                 border=BEDGE(left=(3, t["accent"])) if sel else None,
                 content=ft.Row([
-                    ft.Text(p["codigo"] or "—", size=12, weight=ft.FontWeight.W_800,
-                            color=t["accent"], font_family="monospace", width=44),
+                    ft.Container(width=54, bgcolor=soft(t["accent"], 0.12), border_radius=8,
+                                 padding=PADS(4, 4), alignment=ft.Alignment.CENTER,
+                                 content=ft.Text(p["codigo"] or "—", size=11.5, weight=ft.FontWeight.W_800,
+                                                 color=t["accent"], font_family="monospace", no_wrap=True)),
                     ft.Container(expand=True,
                                  content=self.app.marquee(p["nombre"] or "", 12.5, None, t["ink"])),
                 ], spacing=9),

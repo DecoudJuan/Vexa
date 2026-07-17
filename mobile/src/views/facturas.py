@@ -63,7 +63,7 @@ class FacturasView:
                 self._rows = [self._new_row()]
         else:
             self._ejercicio = date.today().year
-            self._cliente_id = self._clientes[0]["id"] if self._clientes else None
+            self._cliente_id = None   # arranca vacío: el usuario elige o crea el cliente
             self._numero = db.siguiente_numero("FA", self._ejercicio)
             self._fecha = date.today().isoformat()
             self._fp = None

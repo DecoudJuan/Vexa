@@ -900,40 +900,44 @@ class VexaApp:
                 ]),
             ], spacing=0, tight=True))
 
+        # Confirmación de borrado: banner al TOPE DE LA PANTALLA (page.overlay), NO dentro del
+        # sheet (antes quedaba sobre el slide, a media pantalla en el form de producto).
+        _del_box = {"c": None}
+
         def _hide_del(*_):
-            banner_del.visible = False
-            try:
-                banner_del.update()
-            except Exception:  # noqa: BLE001
-                pass
+            c = _del_box["c"]
+            if c is not None:
+                try:
+                    self.page.overlay.remove(c)
+                except ValueError:
+                    pass
+                _del_box["c"] = None
+                self.page.update()
 
         def _pedir_borrar(*_):
-            banner_del.visible = True
-            try:
-                banner_del.update()
-            except Exception:  # noqa: BLE001
-                pass
-
-        # Confirmación de borrado: mismo formato que el aviso de cambios, en rojo suave.
-        # Base OPACA (surface) + tinte rojo encima, así no se transparenta el form de atrás.
-        banner_del = ft.Container(
-            visible=False, top=8, left=12, right=12, bgcolor=t["surface"], border_radius=14,
-            content=ft.Container(
-                bgcolor=soft(t["danger"], 0.12), border=BALL(1, soft(t["danger"], 0.5)),
-                border_radius=14, padding=PADS(12, 16),
-                content=ft.Column([
-                    ft.Text(borrar_texto, size=13, weight=ft.FontWeight.W_600, color=t["ink"]),
-                    ft.Container(height=8),
-                    ft.Row([
-                        ft.Container(content=ft.Text("Cancelar", color=t["muted"], size=13,
-                                                     weight=ft.FontWeight.W_600), padding=PADS(8, 12),
-                                     ink=True, border_radius=10, on_click=_hide_del),
-                        ft.Container(expand=True),
-                        ft.Container(content=ft.Text("Eliminar", color="#ffffff", size=13,
-                                                     weight=ft.FontWeight.W_700), bgcolor=t["danger"],
-                                     border_radius=10, padding=PADS(8, 16), ink=True, on_click=borrar),
-                    ]),
-                ], spacing=0, tight=True)))
+            _hide_del()
+            c = ft.Container(
+                top=12, left=14, right=14, bgcolor=t["surface"], border=BALL(1, soft(t["danger"], 0.5)),
+                border_radius=14,
+                content=ft.Container(
+                    bgcolor=soft(t["danger"], 0.12), border_radius=14, padding=PADS(12, 16),
+                    content=ft.Column([
+                        ft.Text(borrar_texto, size=13, weight=ft.FontWeight.W_600, color=t["ink"]),
+                        ft.Container(height=8),
+                        ft.Row([
+                            ft.Container(content=ft.Text("Cancelar", color=t["muted"], size=13,
+                                                         weight=ft.FontWeight.W_600), padding=PADS(8, 12),
+                                         ink=True, border_radius=10, on_click=_hide_del),
+                            ft.Container(expand=True),
+                            ft.Container(content=ft.Text("Eliminar", color="#ffffff", size=13,
+                                                         weight=ft.FontWeight.W_700), bgcolor=t["danger"],
+                                         border_radius=10, padding=PADS(8, 16), ink=True,
+                                         on_click=lambda e: (_hide_del(), borrar(None))),
+                        ]),
+                    ], spacing=0, tight=True)))
+            _del_box["c"] = c
+            self.page.overlay.append(c)
+            self.page.update()
 
         cuerpo = _render_group(campos)
 
@@ -976,7 +980,7 @@ class VexaApp:
             base = ft.Container(padding=PAD(18, 8, 18, 18), bgcolor=t["ground"], expand=True,
                                 content=cuerpo_col)
             sheet = ft.BottomSheet(
-                content=ft.Stack([base, banner, banner_del], expand=True), bgcolor=t["ground"],
+                content=ft.Stack([base, banner], expand=True), bgcolor=t["ground"],
                 fullscreen=True, dismissible=False, draggable=False, show_drag_handle=False,
                 on_dismiss=_run_pendiente)
         else:
@@ -986,7 +990,7 @@ class VexaApp:
             base = ft.Container(padding=PAD(18, 8, 18, 20), bgcolor=t["ground"], height=alto,
                                 content=cuerpo_col)
             sheet = ft.BottomSheet(
-                content=ft.Stack([base, banner, banner_del]), bgcolor=t["ground"],
+                content=ft.Stack([base, banner]), bgcolor=t["ground"],
                 fullscreen=False, dismissible=True, draggable=False, show_drag_handle=False,
                 size_constraints=ft.BoxConstraints(max_height=alto + 12),
                 on_dismiss=_run_pendiente)

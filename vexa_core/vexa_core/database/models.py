@@ -114,6 +114,9 @@ class Cliente(Base):
     recargo_equiv: Mapped[float | None] = mapped_column(Float, server_default=text("0"))
     bonificacion: Mapped[float | None] = mapped_column(Float, server_default=text("0"))
     condicion_iva: Mapped[str | None] = mapped_column(Text)  # receptor: define la letra
+    # soft-delete: 1 = oculto (se eliminó pero tenía facturas, se conserva para no perder
+    # el nombre en los comprobantes). No aparece en los listados.
+    oculto: Mapped[int | None] = mapped_column(Integer, server_default=text("0"))
     legacy_id: Mapped[int | None] = mapped_column(Integer, unique=True)
     created_at: Mapped[str | None] = mapped_column(Text, server_default=_NOW)
 

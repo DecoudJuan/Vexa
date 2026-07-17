@@ -74,11 +74,11 @@ class ProductosView:
         productos = sorted(productos, key=lambda p: (not (p.get("codigo") or ""), (p.get("codigo") or "").lower()))
         filas = []
         for p in productos:
-            chip = ft.Container(bgcolor=soft(t["accent"], 0.12), border_radius=8, padding=PADS(5, 8),
-                                alignment=ft.Alignment.CENTER,
+            chip = ft.Container(width=54, bgcolor=soft(t["accent"], 0.12), border_radius=8,
+                                padding=PADS(5, 4), alignment=ft.Alignment.CENTER,
                                 content=ft.Text(p["codigo"] or "—", size=11.5,
                                                 weight=ft.FontWeight.W_800, color=t["accent"],
-                                                font_family="monospace"))
+                                                font_family="monospace", no_wrap=True))
             talles = " · ".join(p["talles"]) if p["talles"] else "Universal"
             main = ft.Column([
                 app.marquee(p["nombre"] or "", 14.5, ft.FontWeight.W_700, t["ink"]),
