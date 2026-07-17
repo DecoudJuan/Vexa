@@ -345,13 +345,7 @@ class ClienteDialog(BaseModal):
         c.addLayout(self._row2(self._labeled("EMAIL", self._email),
                                self._labeled("CONTACTO", self._persona_contacto)))
 
-        self._forma_pago = NoScrollComboBox()
-        self._forma_pago.setObjectName("field")
-        self._forma_pago.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
-        self._forma_pago.addItem("(sin definir)", None)
-        for fp in self.db.get_all_forma_pago():
-            self._forma_pago.addItem(fp["tipo"], fp["id"])
-
+        # Forma de pago ya no se edita en el cliente: depende de la factura.
         self._bonificacion = QLineEdit()
         self._bonificacion.setObjectName("field")
         self._bonificacion.setPlaceholderText("0,00")
@@ -364,8 +358,7 @@ class ClienteDialog(BaseModal):
         u = QLabel("%")
         u.setObjectName("unit")
         bh.addWidget(u)
-        c.addLayout(self._row2(self._labeled("FORMA DE PAGO", self._forma_pago),
-                               self._labeled("BONIFICACIÓN", bon_box)))
+        c.addLayout(self._labeled("BONIFICACIÓN", bon_box))
 
         self._banco = QLineEdit()
         self._banco.setObjectName("field")
@@ -393,8 +386,6 @@ class ClienteDialog(BaseModal):
         self._email.setText(c.get("email") or "")
         self._persona_contacto.setText(c.get("persona_contacto") or "")
         self._condicion_iva.setCurrentText(c.get("condicion_iva") or "")
-        idx = self._forma_pago.findData(c.get("forma_pago_id"))
-        self._forma_pago.setCurrentIndex(max(idx, 0))
         self._banco.setText(c.get("banco") or "")
         bonif = float(c.get("bonificacion") or 0)
         self._bonificacion.setText(f"{bonif:g}" if bonif else "")
@@ -422,7 +413,6 @@ class ClienteDialog(BaseModal):
             "email": self._email.text().strip() or None,
             "persona_contacto": self._persona_contacto.text().strip() or None,
             "condicion_iva": self._condicion_iva.currentText().strip() or None,
-            "forma_pago_id": self._forma_pago.currentData(),
             "banco": self._banco.text().strip() or None,
             "ccc1": None, "ccc2": None, "ccc3": None, "ccc4": None,
             # Retención / recargo de equivalencia ya no se editan desde la UI

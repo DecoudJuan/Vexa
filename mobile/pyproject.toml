@@ -1,0 +1,35 @@
+[project]
+name = "vexa-mobile"
+version = "2.8.0"
+description = "Vexa — facturador offline: clientes, productos, facturas y etiquetas."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "Juan Decoud" }]
+dependencies = [
+    "flet>=0.86.0",
+    # Dependencias de runtime de vexa_core (v1 offline, sin AFIP). Estas SÍ están
+    # en el índice de wheels de Flet (pypi.flet.dev) para Android.
+    "SQLAlchemy>=2.0",
+    "reportlab>=4.1.0",
+    "openpyxl>=3.1.0",
+    "Pillow>=10.0",
+]
+# NOTA: `vexa_core` NO va como dependencia pip: `flet build` instala las deps con
+# pip --target para Android y bajaría un paquete ajeno `vexa-core` de PyPI. En su
+# lugar se **vendoriza** el paquete dentro de `src/vexa_core` (ver scripts/vendor_core.py,
+# corrido por build_apk.ps1). Así viaja como código de la app, sin pip.
+
+[dependency-groups]
+dev = [
+    "flet-cli>=0.86.0",
+    "flet-desktop>=0.86.0",
+]
+
+[tool.flet]
+org = "com.vexa"
+product = "Vexa"
+company = "Vexa"
+copyright = "Copyright (C) 2026 Juan Decoud"
+
+[tool.flet.app]
+path = "src"

@@ -7,7 +7,7 @@ Este documento se mantiene al día a medida que se avanza.
 Llevar la app (hoy funcional para uso interno, **licencia de escritorio**) a un
 **facturador vendible a cualquier negocio**.
 
-## Lo que queda (resumen 2026-07-15)
+## Lo que queda (resumen 2026-07-17)
 Estado del rework de escritorio: **completo** (6.0b solo Facturas, 6.1b Etiquetas,
 6.1c rework visual). Lo pendiente:
 - **Escritorio — Fase 5 (pulido, en curso)**: corrección de bugs de uso real y ajustes
@@ -16,9 +16,9 @@ Estado del rework de escritorio: **completo** (6.0b solo Facturas, 6.1b Etiqueta
   (nombre/ícono/publisher configurables) para vender white-label.
 - **Gated por AFIP (Fase 4)**: test en vivo contra homologación/producción (necesita
   certificado + punto de venta habilitado). Futuro: `.pfx`, percepciones, monedas ≠ ARS.
-- **Mobile — DIFERIDO por decisión del usuario** (se retoma después): Fase 6.2 (app
-  Android en Flet, offline) y 6.3 (AFIP en mobile). El core `vexa_core` ya está listo
-  para reusar.
+- **Mobile — EN CURSO** (Flet, offline): 6.2a (toolchain + APK que builda/instala) y
+  6.2b (CRUD de clientes/productos/facturas/empresa + import Excel) **hechos**. **Falta el
+  onboarding de primera ejecución en la app mobile**; luego 6.3 (AFIP en mobile).
 
 ## Base (hecho)
 - [x] Sin dependencia de Access en runtime: arranca con base vacía y permite
@@ -161,15 +161,25 @@ Qt-free y reutilizable. Repo pasa a monorepo y se renombra a **`Vexa`**.
       facturas recientes + accesos), **sidebar siempre visible** con Inicio como ítem del nav,
       fuente del sistema (Segoe UI). Detalle en `desktop-rework.local.md`.
 
-- [ ] **Fase 6.2 — Mobile offline (Flet)**: carpeta `mobile/` que consume `vexa_core`.
-      Diseño acordado (mockup navegable, ver `mobile-roadmap.local.md`): **barra inferior
-      estilo Clash Royale** con Clientes/Productos/Etiquetas/Facturas (ítem activo
-      elevado); **Configuración** = ruedita arriba a la derecha (con switch claro/oscuro
-      adentro); **splash** de la V con fade → abre directo en **Etiquetas**; **animaciones
-      direccionales** al cambiar de pestaña; **Clientes** sin saldo/chips (solo el cliente);
-      **azul estático** (sin degradés). Spike técnico (Flet + DB + PDF en dispositivo;
-      validar reportlab, plan B fpdf2+qrcode). Adaptaciones Android (compartir PDF, 
-      `FilePicker`, `FACTURACION_DATA_DIR` → storage). `flet build apk` y entregar APK.
+- [~] **Fase 6.2 — Mobile offline (Flet)**: carpeta `mobile/` que consume `vexa_core`
+      (framework **Flet 0.86**), estructura modular (`theme/logo/widgets/seed/app/views`).
+      Diseño: **barra inferior** de 5 tabs (Clientes · Productos · **Inicio** central circular ·
+      Etiquetas · Facturas), Inicio = dashboard (KPIs + facturas recientes + accesos rápidos),
+      **azul plano**, tema claro/oscuro (switch en Configuración). Estado:
+  - [x] **6.2a — Spike/toolchain**: Android SDK completo (Flutter 3.44.6 + JDK/JBR +
+        cmdline-tools + licencias + `uv`); **`flet build apk` OK e instalado en emulador**;
+        reportlab validado. El core se **vendoriza** a `mobile/src/vexa_core`
+        (`scripts/vendor_core.py`) antes de buildear (flet build usa pip --target y no resuelve
+        rutas locales; había un `vexa-core` ajeno en PyPI).
+  - [x] **6.2b — CRUD offline (paridad con desktop)**: alta/edición/borrado de **Clientes**
+        (todos los campos, **CUIT/CUIL múltiples** con formateo en vivo, provincia editable),
+        **Productos** (+ **import Excel/CSV** con FilePicker + mapeo), **Facturas** (líneas
+        dinámicas, cliente/producto escribibles, bonificación, edición) y **Datos de empresa**.
+        Ver/compartir PDF y generar etiquetas. Forma de pago quitada de cliente/factura (no se
+        usa en PDF ni AFIP). Verificado corriendo en escritorio (`flet run`, ventana celular).
+  - [ ] **Falta**: **onboarding de primera ejecución en mobile** (wizard de datos de empresa
+        al abrir con base vacía; hoy se siembra un demo). Menores: líneas de texto libre en
+        factura, Guardado (logo/pie de PDF), pulidos varios. Detalle en `mobile-roadmap.local.md`.
 - [ ] **Fase 6.3 — AFIP en mobile**: `cryptography`+`lxml`+`zeep` en el build; reactivar
       "Autorizar en AFIP" y solapa AFIP (cert/key vía FilePicker); QR fiscal + CAE.
 

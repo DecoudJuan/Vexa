@@ -33,6 +33,9 @@ desktop/packaging/dist/
 build/
 dist/
 *.manifest
+# Flet: storage de desarrollo y copia vendorizada del core (se regenera al buildear)
+.flet/
+mobile/src/vexa_core/
 # Paquetes de release (app compilada) y APKs de la mobile
 Vexa-*.zip
 *.apk
