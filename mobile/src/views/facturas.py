@@ -80,26 +80,35 @@ class FacturasView:
                                     border=BALL(1, t["line2"]), border_radius=14, padding=PADS(12, 16),
                                     content=self._banner_content())
         self._refresh_lineas()
+        self._post = None
         self.app._form_escape = self._try_close
         self._sheet = ft.BottomSheet(
             content=ft.Stack([self._content(), self._banner], expand=True), bgcolor=t["ground"],
-            fullscreen=True, dismissible=False, draggable=False, show_drag_handle=False)
+            fullscreen=True, dismissible=False, draggable=False, show_drag_handle=False,
+            on_dismiss=lambda e: self._on_sheet_dismiss())
         self.app.page.show_dialog(self._sheet)
 
     def _new_row(self) -> dict:
         return {"prod": None, "texto": "", "cant": 1, "pvp": 0.0, "cant_ctrl": None, "pvp_ctrl": None}
 
     # -------- líneas (columna persistente; se actualiza sin recrear el modal)
+    def _prod_label(self, r: dict) -> str:
+        if r["prod"] is not None:
+            p = self._prods[r["prod"]]
+            return etiqueta_concepto(p["nombre"], p.get("codigo"))
+        return r["texto"] or "Elegí un producto"
+
     def _build_line(self, i: int, r: dict) -> ft.Control:
         t = self.app.t
-        prod_dd = ft.Dropdown(
-            value=(str(r["prod"]) if r["prod"] is not None else None),
-            editable=True, enable_filter=True, expand=True, border_radius=10,
-            options=[ft.DropdownOption(key=str(j), text=etiqueta_concepto(p["nombre"], p.get("codigo")))
-                     for j, p in enumerate(self._prods)],
-            border_color=t["line2"], filled=True, bgcolor=t["surface2"], text_size=13,
-            content_padding=PADS(8, 10), text_style=ft.TextStyle(color=t["ink"]),
-            hint_text="Producto…", on_select=lambda e, idx=i: self._on_prod(idx, e.control.value))
+        tiene = r["prod"] is not None or bool(r["texto"])
+        # Campo full-width que abre el selector full-screen (evita el dropdown que tapaba).
+        prod_dd = ft.Container(
+            expand=True, ink=True, on_click=lambda e, idx=i: self._abrir_sel_prod(idx),
+            bgcolor=t["surface2"], border=BALL(1, t["line2"]), border_radius=10, padding=PADS(9, 10),
+            content=ft.Row([ft.Container(expand=True, content=self.app.marquee(
+                                self._prod_label(r), 13, None, t["ink"] if tiene else t["faint"])),
+                            ft.Icon(ft.Icons.ARROW_DROP_DOWN, size=18, color=t["faint"])],
+                           vertical_alignment=ft.CrossAxisAlignment.CENTER))
         cant_tf = ft.TextField(value=f'{r["cant"]:g}', keyboard_type=ft.KeyboardType.NUMBER,
                                border_color=t["line2"], filled=True, border_radius=10,
                                bgcolor=t["surface2"], color=t["ink"], text_size=13,
@@ -145,16 +154,28 @@ class FacturasView:
         except Exception:  # noqa: BLE001
             pass
 
-    def _on_prod(self, idx, val):
-        self._sync()
-        if str(val).isdigit():
-            p = self._prods[int(val)]
-            self._rows[idx]["prod"] = int(val)
+    def _abrir_sel_prod(self, idx):
+        ops = [(etiqueta_concepto(p["nombre"], p.get("codigo")), j) for j, p in enumerate(self._prods)]
+
+        def elegir(j):
+            self._sync()
+            self._rows[idx]["prod"] = j
             self._rows[idx]["texto"] = ""
-            self._rows[idx]["pvp"] = p["pvp"] or 0
-        self._dirty = True
-        self._refresh_lineas()
-        self._recalc_total()
+            self._rows[idx]["pvp"] = self._prods[j]["pvp"] or 0
+            self._dirty = True
+            self._refresh_lineas()
+            self._recalc_total()
+
+        def otro(txt):
+            self._sync()
+            self._rows[idx]["prod"] = None
+            self._rows[idx]["texto"] = txt.strip()
+            self._dirty = True
+            self._refresh_lineas()
+            self._recalc_total()
+
+        self.app.abrir_selector_full("Elegí un producto", ops, elegir, on_nuevo=otro,
+                                     nuevo_prefix="Otro:", valor=self._rows[idx]["prod"])
 
     def _add_row(self):
         self._sync()
@@ -182,9 +203,40 @@ class FacturasView:
         self._coment = e.control.value
         self._dirty = True
 
-    def _on_cliente(self, e):
-        self._cliente_id = int(e.control.value) if str(e.control.value).isdigit() else None
-        self._dirty = True
+    def _cliente_nombre(self):
+        return next((c["nombre"] for c in self._clientes if c["id"] == self._cliente_id), None)
+
+    def _upd_cli_txt(self):
+        nombre = self._cliente_nombre()
+        t = self.app.t
+        self._cli_txt.value = nombre or "Elegí o creá un cliente"
+        self._cli_txt.color = t["ink"] if nombre else t["faint"]
+        try:
+            self._cli_txt.update()
+        except Exception:  # noqa: BLE001
+            pass
+
+    def _abrir_sel_cliente(self):
+        ops = [(c["nombre"], c["id"]) for c in self._clientes]
+
+        def elegir(cid):
+            self._cliente_id = cid
+            self._dirty = True
+            self._upd_cli_txt()
+
+        def crear(txt):
+            txt = (txt or "").strip()
+            if not txt:
+                return
+            nid = self.app.db.create_cliente({"nombre": txt})
+            self._clientes = self.app.db.get_all_clientes()
+            self._cliente_id = nid
+            self._dirty = True
+            self._upd_cli_txt()
+            self.app.snack(f"Cliente «{txt}» creado")
+
+        self.app.abrir_selector_full("Elegí o creá un cliente", ops, elegir, on_nuevo=crear,
+                                     nuevo_prefix="Crear cliente", valor=self._cliente_id)
 
     # -------- cierre con chequeo (grip / Escape / Cancelar)
     def _banner_content(self):
@@ -226,6 +278,13 @@ class FacturasView:
         self.app._form_escape = None
         self.app.page.pop_dialog()
 
+    def _on_sheet_dismiss(self):
+        # Corre cuando la hoja YA cerró: acá sí se puede render() sin dejar scrim negro.
+        fn = getattr(self, "_post", None)
+        self._post = None
+        if fn:
+            fn()
+
     def _guardar(self):
         self._sync()
         if self._cliente_id is None:
@@ -241,6 +300,9 @@ class FacturasView:
                 cid, libre = None, (r["texto"].strip() or None)
             if cid is None and not libre:
                 continue
+            if (r["pvp"] or 0) <= 0:      # aviso rápido si falta el precio
+                self.app.snack(f"«{self._prod_label(r)}» tiene precio en 0")
+                return
             lineas.append({"concepto_id": cid, "concepto_libre": libre,
                            "cantidad": r["cant"] or 1, "pvp": r["pvp"] or 0})
         if not lineas:
@@ -254,9 +316,9 @@ class FacturasView:
             self.app.db.update_factura(self._fid, data, lineas)
         else:
             self.app.db.create_factura(data, lineas)
+        # Diferir el render al cierre de la hoja (evita el scrim negro de pop+render).
+        self._post = lambda: (self.app.render(), self.app.snack("Factura guardada"))
         self._close()
-        self.app.render()
-        self.app.snack("Factura guardada")
 
     # -------- contenido (se arma una sola vez)
     def _content(self) -> ft.Control:
@@ -275,20 +337,16 @@ class FacturasView:
                                  content=ft.Container(width=44, height=5, border_radius=3,
                                                       bgcolor=t["line2"])))
 
-        if not self._clientes:
-            middle = ft.Column([empty(t, "Primero cargá un cliente.")], expand=True)
-            footer = None
-        elif not self._prods:
-            middle = ft.Column([empty(t, "Primero cargá un producto.")], expand=True)
-            footer = None
-        else:
-            cli_dd = ft.Dropdown(
-                value=(str(self._cliente_id) if self._cliente_id is not None else None),
-                editable=True, enable_filter=True, border_radius=12,
-                options=[ft.DropdownOption(key=str(c["id"]), text=c["nombre"]) for c in self._clientes],
-                border_color=t["line2"], filled=True, bgcolor=t["surface2"], text_size=14,
-                content_padding=PADS(11, 13), text_style=ft.TextStyle(color=t["ink"]),
-                on_select=self._on_cliente)
+        if True:
+            # Cliente: campo full-width que abre el selector full-screen (elegir o crear).
+            nombre_cli = self._cliente_nombre()
+            self._cli_txt = ft.Text(nombre_cli or "Elegí o creá un cliente", size=14, expand=True,
+                                    no_wrap=True, color=t["ink"] if nombre_cli else t["faint"])
+            cli_dd = ft.Container(
+                expand=True, ink=True, on_click=lambda e: self._abrir_sel_cliente(),
+                bgcolor=t["surface2"], border=BALL(1, t["line2"]), border_radius=12, padding=PADS(11, 13),
+                content=ft.Row([self._cli_txt, ft.Icon(ft.Icons.ARROW_DROP_DOWN, color=t["faint"])],
+                               vertical_alignment=ft.CrossAxisAlignment.CENTER))
             add = ft.Container(
                 content=ft.Text("＋ Agregar línea", size=12.5, weight=ft.FontWeight.W_600,
                                 color=t["accent"]), border=BALL(1, soft(t["accent"], 0.45)),
@@ -397,8 +455,9 @@ class FacturasView:
 
         kpis = ft.Row([kpi("Total emitido", fmt_ar(total), "en total"),
                        kpi("Facturas", fmt_cantidad_corta(len(facturas)), "en total")], spacing=10)
-        self.lista = ft.Column(spacing=9)
+        self.lista = ft.Column(spacing=9, scroll=ft.ScrollMode.HIDDEN, expand=True)
         self._fill()
+        # Header (título + + + KPIs + buscador) FIJO; solo la lista se desliza.
         return ft.Column([
             ft.Row([titulo(t, "Facturas", "Emití y gestioná tus facturas."),
                     ft.Container(expand=True), add_button(t, self.nueva)],
@@ -406,5 +465,6 @@ class FacturasView:
             ft.Container(height=14), kpis, ft.Container(height=12),
             search(t, "Buscar por número o cliente…",
                    lambda e: (self._fill(e.control.value), self.lista.update())),
-            ft.Container(height=12), self.lista,
-        ], spacing=0, scroll=ft.ScrollMode.AUTO, expand=True)
+            ft.Container(height=12),
+            ft.Container(expand=True, content=self.lista),
+        ], spacing=0, expand=True)
