@@ -278,6 +278,23 @@ def fmt_ar(value, moneda: str | None = None) -> str:
     return f"{moneda or _MONEDA} {s}"
 
 
+def fmt_cantidad_corta(n) -> str:
+    """Cantidad entera compacta para KPIs: hasta 999 el número tal cual; de 1000
+    en adelante en miles con sufijo 'k' (una decimal), y un '+' adelante cuando el
+    valor real es mayor que el mostrado (redondeo hacia abajo). Ej.: 1000→'1k',
+    1500→'1.5k', 1540→'+1.5k', 1050→'+1k', 12300→'+12.3k'."""
+    import math
+    try:
+        n = int(n or 0)
+    except (TypeError, ValueError):
+        n = 0
+    if n < 1000:
+        return str(n)
+    piso = math.floor(n / 100) / 10  # miles con una decimal, hacia abajo
+    txt = f"{piso:.1f}".rstrip("0").rstrip(".") + "k"
+    return ("+" + txt) if piso * 1000 < n else txt
+
+
 def parse_float(text, default: float = 0.0) -> float:
     """Convierte texto a float aceptando la coma decimal es-AR: '1234,56',
     '1.234,56' y '1234.56' se leen todos correctamente. Devuelve `default`
