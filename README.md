@@ -183,8 +183,8 @@ sheet nativo (con fallback a guardar). Suite de **84 tests** headless en `mobile
 ### Instalar en el celular (Android)
 
 1. Descargá el **APK** desde la [última release](../../releases/latest). Para un celular moderno
-   usá el **`app-arm64-v8a-release.apk`** (~60 MB); si tu teléfono es viejo (32-bit) usá
-   `app-armeabi-v7a-release.apk`. Está adjunto (o dentro del `.zip` de la release).
+   usá el **`vexa-mobile-arm64-v8a.apk`** (~60 MB); si tu teléfono es viejo (32-bit) usá
+   `vexa-mobile-armeabi-v7a.apk`. Está adjunto (o dentro del `.zip` de la release).
 2. Pasalo al teléfono (cable, Drive, WhatsApp Web…) o descargalo directo desde el celular.
 3. En Android, la primera vez te va a pedir permitir **"Instalar apps de fuentes desconocidas"**
    para el navegador/gestor de archivos que uses. Activalo.
@@ -214,8 +214,8 @@ flet build apk --split-per-abi                # un APK por arquitectura (~60 MB 
 ```
 
 Requiere el toolchain de Android: Flutter, JDK 17, Android SDK (con `cmdline-tools`
-y licencias aceptadas). Los APK quedan en `mobile/build/apk/` (`app-arm64-v8a-release.apk`,
-`app-armeabi-v7a-release.apk`, `app-x86_64-release.apk` con `--split-per-abi`). La base SQLite
+y licencias aceptadas). Los APK quedan en `mobile/build/apk/` (`vexa-mobile-arm64-v8a.apk`,
+`vexa-mobile-armeabi-v7a.apk`, `vexa-mobile-x86_64.apk` con `--split-per-abi`). La base SQLite
 en Android vive en el storage privado de la app (`FLET_APP_STORAGE_DATA`), que `main.py`
 mapea a `FACTURACION_DATA_DIR` antes de importar el core.
 
