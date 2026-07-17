@@ -16,7 +16,8 @@ ejecución la app **no depende de Access** ni de ningún driver ODBC.
 
 | Área            | Tecnología                                   |
 |-----------------|----------------------------------------------|
-| UI              | PySide6 (Qt 6) — CSS/QSS propio, tema claro/oscuro |
+| UI (escritorio) | PySide6 (Qt 6) — CSS/QSS propio, tema claro/oscuro |
+| UI (mobile)     | Flet (Flutter en Python) — Android/escritorio, tema claro/oscuro |
 | Base de datos   | SQLite (modo WAL) vía **SQLAlchemy 2.0** (ORM) |
 | Generación PDF  | ReportLab                                    |
 | Importación     | openpyxl + csv (listas de precios `.xlsx`/`.xlsm`/CSV, mapeo flexible con perfiles) |
@@ -64,7 +65,13 @@ Vexa/
 │       ├── clientes.py  conceptos.py  documentos.py  etiquetas.py  configuracion.py
 │       ├── modal.py  widgets.py  anim.py  styles.py  icons.py
 │
-├── mobile/                       # ← app MOBILE Flet (Fase 6.2, aún no creada)
+├── mobile/                       # ← app MOBILE Flet (Fase 6.2, spike 6.2a en curso)
+│   ├── pyproject.toml            # config de flet build (org com.vexa, deps del core)
+│   ├── scripts/vendor_core.py    # copia vexa_core → src/ para `flet build` (Android)
+│   └── src/
+│       ├── main.py               # app Flet: barra inferior, splash, 4 secciones
+│       ├── plataforma.py         # adaptación por plataforma (compartir/abrir PDF)
+│       └── vexa_core/            # copia vendorizada del core (gitignoreada)
 │
 ├── Distribucion/                 # paquete final para el usuario (ignorado en git)
 └── "Modelo Actual - Access"/     # app Access legacy (DATOS REALES — ignorado en git)
@@ -156,6 +163,42 @@ con Inno Setup a partir de `desktop/packaging/installer.iss`.
 
 > La app se corre desde el `.exe` generado (vía acceso directo). Tras cambios de
 > código hay que **rebuildear** para verlos reflejados en el ejecutable.
+
+---
+
+## App mobile (Flet) — Fase 6.2
+
+La app Android vive en `mobile/` y reusa el mismo `vexa_core`. UI con **Flet**
+(Flutter en Python), offline, con la identidad de Vexa (azul plano). Estructura modular
+(`theme/logo/widgets/seed/app/views`), barra inferior de 5 tabs (Clientes · Productos ·
+**Inicio** · Etiquetas · Facturas) e Inicio tipo dashboard. **CRUD completo offline**
+(alta/edición/borrado de clientes, productos, facturas y datos de empresa; import Excel/CSV;
+ver/compartir PDF; etiquetas). El **APK builda e instala** en Android. **Falta el onboarding
+de primera ejecución** (wizard de datos de empresa; hoy se siembra un demo).
+
+Correr en escritorio (iteración rápida):
+
+```bash
+pip install flet flet-desktop
+cd mobile
+flet run src/main.py
+```
+
+Buildear el APK (Android). `flet build` instala las dependencias con pip para el
+target, y **no** resuelve rutas locales, así que primero se **vendoriza** el core
+dentro de `src/` (queda gitignoreado):
+
+```bash
+pip install flet uv
+python mobile/scripts/vendor_core.py          # copia vexa_core → mobile/src/vexa_core
+cd mobile
+flet build apk --yes --build-version <VERSION> --build-number <N>
+```
+
+Requiere el toolchain de Android: Flutter, JDK 17, Android SDK (con `cmdline-tools`
+y licencias aceptadas). La base SQLite en Android vive en el storage privado de la
+app (`FLET_APP_STORAGE_DATA`), que `main.py` mapea a `FACTURACION_DATA_DIR` antes de
+importar el core.
 
 ---
 
