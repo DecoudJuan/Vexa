@@ -175,19 +175,22 @@ La app Android vive en `mobile/` y reusa el mismo `vexa_core`. UI con **Flet**
 (clientes, productos, facturas y datos de empresa; import Excel/CSV; ver/compartir PDF;
 etiquetas). Además: **onboarding de primera ejecución**, **página AFIP** con tutorial ARCA,
 selectores full-screen (el **cliente se autocrea** si no existe, producto con opción **"Otro"**
-de texto libre), nav con pastilla deslizante, marquee de nombres largos, y los **PDF se guardan
-en la carpeta Documentos** del dispositivo. Suite de **83 tests** headless en `mobile/tests/`
+de texto libre), nav con pastilla deslizante, **marquee** de nombres largos (se desliza al
+mantenerlo apretado, hasta el último carácter) y **compartir/imprimir** el PDF por el share
+sheet nativo (con fallback a guardar). Suite de **84 tests** headless en `mobile/tests/`
 (`cd mobile && python -m pytest`).
 
 ### Instalar en el celular (Android)
 
-1. Descargá el **APK** (`app-release.apk`) desde la [última release](../../releases/latest)
-   — está adjunto (o dentro del `.zip` de la release).
+1. Descargá el **APK** desde la [última release](../../releases/latest). Para un celular moderno
+   usá el **`app-arm64-v8a-release.apk`** (~60 MB); si tu teléfono es viejo (32-bit) usá
+   `app-armeabi-v7a-release.apk`. Está adjunto (o dentro del `.zip` de la release).
 2. Pasalo al teléfono (cable, Drive, WhatsApp Web…) o descargalo directo desde el celular.
 3. En Android, la primera vez te va a pedir permitir **"Instalar apps de fuentes desconocidas"**
    para el navegador/gestor de archivos que uses. Activalo.
 4. Tocá el APK → **Instalar**. Al abrir por primera vez arranca el **onboarding** (cargás los
-   datos de tu empresa) y listo. Los PDF que generes quedan en `Documentos/Vexa`.
+   datos de tu empresa) y listo. Al generar un PDF se abre el **compartir/imprimir** del sistema
+   (WhatsApp, Drive, Imprimir…); si tu equipo no lo soporta, cae a **guardar** el archivo.
 
 ### Correr en escritorio (iteración rápida)
 
@@ -206,11 +209,13 @@ locales, así que primero se **vendoriza** el core dentro de `src/` (queda gitig
 pip install flet uv
 python mobile/scripts/vendor_core.py          # copia vexa_core → mobile/src/vexa_core
 cd mobile
-flet build apk --build-version <VERSION> --build-number <N>
+flet build apk --split-per-abi                # un APK por arquitectura (~60 MB c/u)
+# o un único APK "fat" (~153 MB, instala en cualquier ABI): flet build apk
 ```
 
 Requiere el toolchain de Android: Flutter, JDK 17, Android SDK (con `cmdline-tools`
-y licencias aceptadas). El APK queda en `mobile/build/apk/app-release.apk`. La base SQLite
+y licencias aceptadas). Los APK quedan en `mobile/build/apk/` (`app-arm64-v8a-release.apk`,
+`app-armeabi-v7a-release.apk`, `app-x86_64-release.apk` con `--split-per-abi`). La base SQLite
 en Android vive en el storage privado de la app (`FLET_APP_STORAGE_DATA`), que `main.py`
 mapea a `FACTURACION_DATA_DIR` antes de importar el core.
 
