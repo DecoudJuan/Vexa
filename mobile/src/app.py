@@ -32,7 +32,10 @@ class VexaApp:
     def __init__(self, page: ft.Page, db: DatabaseManager):
         self.page = page
         self.db = db
-        self.dark = page.platform_brightness == ft.Brightness.DARK
+        # Tema: respeta el que el usuario eligió (guardado); si nunca eligió, sigue al SO.
+        guardado = db.get_config("tema")
+        self.dark = (guardado == "oscuro") if guardado in ("oscuro", "claro") \
+            else (page.platform_brightness == ft.Brightness.DARK)
         self.tab = "inicio"
         self.views = {
             "inicio": InicioView(self), "clientes": ClientesView(self),
@@ -61,55 +64,11 @@ class VexaApp:
         self.page.show_dialog(ft.SnackBar(ft.Text(texto)))
 
     def marquee(self, texto, size, weight, color, fit=18) -> ft.Control:
-        """Texto de una línea que, si NO entra (más de `fit` chars aprox.), se desliza
-        despacio revelando TODO el texto y vuelve, en loop lento. Usa scroll REAL
-        (`scroll_to`), así llega al final sin importar el ancho (no se estima). El task se
-        corta solo al desmontarse el control. Toma el ancho del padre (Row con expand o
-        Column con STRETCH)."""
-        texto = texto or ""
-        txt = ft.Text(texto, size=size, weight=weight, color=color, no_wrap=True)
-        st = {"max": None}   # máximo real de scroll (se captura en el 1er viaje)
-
-        def on_sc(e):
-            # el evento no trae el máximo directo; antes+después = distancia total scrollable
-            try:
-                m = (getattr(e, "extent_before", 0) or 0) + (getattr(e, "extent_after", 0) or 0)
-            except Exception:  # noqa: BLE001
-                m = 0
-            if m and m > 0:
-                st["max"] = m
-
-        fila = ft.Row([txt], scroll=ft.ScrollMode.HIDDEN, spacing=0, on_scroll=on_sc)
-        if len(texto) <= fit:
-            return fila
-
-        async def _loop():
-            import asyncio
-            dur = 3200               # ida y vuelta a la MISMA velocidad
-            trip = dur / 1000.0
-            while True:
-                await asyncio.sleep(2.0)              # pausa mostrando el inicio
-                # al máximo REAL (no 100000: eso rompía la simetría → la vuelta salía rapidísima).
-                # 1er viaje: estimación moderada acotada; on_scroll captura el máximo real para el resto.
-                target = st["max"] if st["max"] else min(4000.0, len(texto) * size)
-                try:
-                    await fila.scroll_to(offset=target, duration=dur,
-                                         curve=ft.AnimationCurve.EASE_IN_OUT)
-                except Exception:  # noqa: BLE001 — desmontado → parar el loop
-                    break
-                await asyncio.sleep(trip + 1.7)      # viaje + PAUSA DEL MEDIO (0,5s más larga)
-                try:
-                    await fila.scroll_to(offset=0, duration=dur,
-                                         curve=ft.AnimationCurve.EASE_IN_OUT)
-                except Exception:  # noqa: BLE001
-                    break
-                await asyncio.sleep(trip)            # viaje de vuelta (misma duración)
-
-        try:
-            self.page.run_task(_loop)
-        except Exception:  # noqa: BLE001
-            pass
-        return fila
+        """Nombre de una línea. Si es largo, se puede **deslizar con el dedo** para ver el
+        resto (Row scrollable, barra oculta). SIN animación automática: el auto-scroll con
+        `run_task` (un loop por fila) lageaba toda la app con listas largas — se quitó."""
+        txt = ft.Text(texto or "", size=size, weight=weight, color=color, no_wrap=True)
+        return ft.Row([txt], scroll=ft.ScrollMode.HIDDEN, spacing=0)
 
     def confirm_toast(self, mensaje: str, on_confirm):
         """Toast arriba de todo (sobre la pantalla) con acción de confirmar.
@@ -437,6 +396,7 @@ class VexaApp:
         if self.dark == dark:
             return
         self.dark = dark
+        self.db.set_config("tema", "oscuro" if dark else "claro")   # persiste la elección
         self.render()
         sheet = getattr(self, "_config_sheet", None)
         if sheet is not None:
@@ -972,15 +932,23 @@ class VexaApp:
         if full:
             base = ft.Container(padding=PAD(18, 8, 18, 18), bgcolor=t["ground"], expand=True,
                                 content=cuerpo_col)
+            sheet = ft.BottomSheet(
+                content=ft.Stack([base, banner, banner_del], expand=True), bgcolor=t["ground"],
+                fullscreen=True, dismissible=False, draggable=False, show_drag_handle=False,
+                on_dismiss=_run_pendiente)
         else:
-            alto = int((self.page.height or 900) * 0.6)   # media pantalla; footer fijo abajo
-            base = ft.Container(padding=PAD(18, 8, 18, 18), bgcolor=t["ground"], height=alto,
+            # Media pantalla. size_constraints SUBE el tope (Flutter capa a ~9/16 y cortaba el
+            # footer/precio). dismissible=True → tocar afuera cierra (además del grip/Cancelar).
+            alto = int((self.page.height or 900) * 0.66)
+            base = ft.Container(padding=PAD(18, 8, 18, 20), bgcolor=t["ground"], height=alto,
                                 content=cuerpo_col)
+            sheet = ft.BottomSheet(
+                content=ft.Stack([base, banner, banner_del]), bgcolor=t["ground"],
+                fullscreen=False, dismissible=True, draggable=False, show_drag_handle=False,
+                size_constraints=ft.BoxConstraints(max_height=alto + 12),
+                on_dismiss=_run_pendiente)
         self._form_escape = try_close
-        self.page.show_dialog(ft.BottomSheet(
-            content=ft.Stack([base, banner, banner_del], expand=full), bgcolor=t["ground"],
-            fullscreen=full, dismissible=False, draggable=False, show_drag_handle=False,
-            on_dismiss=_run_pendiente))
+        self.page.show_dialog(sheet)
 
     # ------------------------------------------------------------- navegación
     def set_tab(self, sid: str):
