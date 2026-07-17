@@ -75,7 +75,8 @@ class ClientesView:
         self.app.open_form(
             "Editar cliente", self._campos(full, cuits),
             on_save=lambda d: self._guardar(d, full, cid),
-            on_delete=lambda: self.app.db.delete_cliente(cid))
+            on_delete=lambda: self.app.db.delete_cliente(cid),
+            borrar_texto="¿Seguro que querés eliminar este cliente?")
 
     # -------------------------------------------------------------------- lista
     def _fill(self, texto: str = ""):
@@ -106,13 +107,15 @@ class ClientesView:
 
     def build(self) -> ft.Control:
         t = self.app.t
-        self.lista = ft.Column(spacing=9)
+        self.lista = ft.Column(spacing=9, scroll=ft.ScrollMode.HIDDEN, expand=True)
         self._fill()
+        # Header (título + + + buscador) FIJO arriba; solo la lista se desliza.
         return ft.Column([
             ft.Row([titulo(t, "Clientes", "Alta y gestión de clientes."), ft.Container(expand=True),
                     add_button(t, self._nuevo)], vertical_alignment=ft.CrossAxisAlignment.CENTER),
             ft.Container(height=14),
             search(t, "Buscar por nombre, CUIT o email…",
                    lambda e: (self._fill(e.control.value), self.lista.update())),
-            ft.Container(height=12), self.lista,
-        ], spacing=0, scroll=ft.ScrollMode.AUTO, expand=True)
+            ft.Container(height=12),
+            ft.Container(expand=True, content=self.lista),
+        ], spacing=0, expand=True)
