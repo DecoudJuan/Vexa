@@ -72,7 +72,7 @@ def test_generar_pdf(app, faja, monkeypatch):
     import plataforma
     capt = {}
 
-    async def _fake(a, ruta):
+    async def _fake(a, ruta, **kwargs):
         capt["ruta"] = str(ruta)
         return True
 

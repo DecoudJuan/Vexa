@@ -77,26 +77,34 @@ def _abrir_escritorio(ruta: str) -> None:
         os.system(f'xdg-open "{ruta}"')
 
 
-async def entregar_pdf(app, ruta: str) -> bool:
+async def entregar_pdf(app, ruta: str, *, titulo: str = "Compartir PDF") -> bool:
     """Entrega el PDF al usuario.
 
-    - **Android**: abre el **diálogo nativo para GUARDAR** (`FilePicker.save_file`), donde
-      elige la carpeta/app destino (Descargas, Drive, etc.) y Flet escribe los bytes. Es
-      confiable (no depende del share-intent nativo, que necesitaba el FileProvider/Activity
-      correctos). Devuelve True si eligió destino, False si canceló.
+    - **Android**: abre el **share sheet NATIVO** (`ft.Share.share_files`) → el usuario elige
+      WhatsApp, Imprimir, Drive, Gmail, guardar en Archivos, etc. Es el flujo nativo (usa el
+      Activity de Flutter, no jnius). Si el share falla, cae al diálogo de **guardar**
+      (`FilePicker.save_file`) para no dejar al usuario sin salida. El PDF ya está en disco.
     - **Escritorio**: lo abre con el visor del sistema.
     """
     import os
     if es_android():
         try:
-            with open(ruta, "rb") as f:
-                data = f.read()
-            destino = await app.file_picker.save_file(
-                dialog_title="Guardar PDF", file_name=os.path.basename(ruta),
-                allowed_extensions=["pdf"], src_bytes=data)
-            return destino is not None
-        except Exception:  # noqa: BLE001 — el PDF ya está en disco
-            return False
+            import flet as ft
+            await app.share.share_files(
+                [ft.ShareFile(path=ruta, mime_type="application/pdf",
+                              name=os.path.basename(ruta))],
+                title=titulo)
+            return True
+        except Exception:  # noqa: BLE001 — fallback: diálogo de guardar
+            try:
+                with open(ruta, "rb") as f:
+                    data = f.read()
+                destino = await app.file_picker.save_file(
+                    dialog_title="Guardar PDF", file_name=os.path.basename(ruta),
+                    allowed_extensions=["pdf"], src_bytes=data)
+                return destino is not None
+            except Exception:  # noqa: BLE001 — el PDF ya está en disco
+                return False
     return _abrir_escritorio(ruta) or True
 
 

@@ -266,8 +266,8 @@ class EtiquetasView:
     async def _generar(self, _e=None):
         try:
             ruta = generar_pdf_etiquetas(self.queue, obtener_carpeta_pdf(self.app.db))
-            ok = await plataforma.entregar_pdf(self.app, ruta)
+            ok = await plataforma.entregar_pdf(self.app, ruta, titulo="Imprimir etiquetas")
             if not ok:
-                self.app.snack("Guardado cancelado")
+                self.app.snack("No se pudo compartir/imprimir")
         except Exception as ex:  # noqa: BLE001
             self.app.snack(f"Error al generar etiquetas: {ex}")

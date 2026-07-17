@@ -63,6 +63,7 @@ def main(page: ft.Page):
     app = VexaApp(page, db)
     page.on_keyboard_event = app.on_key   # Escape cierra forms con chequeo de cambios
     page.services.append(app.file_picker)  # FilePicker es un service en flet 0.86
+    page.services.append(app.share)        # Share nativo (compartir/imprimir el PDF)
 
     # Primera ejecución (base vacía, sin empresa): onboarding en vez de sembrar demo.
     if necesita_onboarding(db):
