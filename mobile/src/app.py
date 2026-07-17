@@ -49,6 +49,7 @@ class VexaApp:
         self._pending_after_config = None
         self._form_escape = None   # callback de cierre del form abierto (para Escape)
         self.file_picker = ft.FilePicker()  # se agrega a page.services en main
+        self.share = ft.Share()             # share sheet nativo (WhatsApp/Imprimir/Drive…)
         self.root = None
 
     def on_key(self, e):
@@ -79,23 +80,38 @@ class VexaApp:
         if len(texto) <= 14:   # entra siempre → sin marquee
             return ft.Container(content=txt_plano, clip_behavior=ft.ClipBehavior.HARD_EDGE)
 
+        # Ancho REAL del texto (reportlab, con sesgo a pasarse → nunca corto).
+        try:
+            from reportlab.pdfbase.pdfmetrics import stringWidth
+            tw = stringWidth(texto, "Helvetica", size) * 1.06 + 8
+        except Exception:  # noqa: BLE001
+            tw = len(texto) * size * 0.62
+
         hijo = ft.Container(
-            left=0, right=None, top=0, content=txt_plano,
+            left=0, top=0, content=txt_plano,
             animate_position=ft.Animation(1900, ft.AnimationCurve.EASE_IN_OUT))
+        st = {"anim": False, "w": None}
+
+        def on_size(e):   # ancho renderizado de la columna (LayoutSizeChangeEvent.width)
+            st["w"] = getattr(e, "width", None)
+
         stack = ft.Stack([hijo], clip_behavior=ft.ClipBehavior.HARD_EDGE,
-                         height=size * 1.35 + 2, expand=True)
-        st = {"anim": False}
+                         height=size * 1.35 + 2, expand=True, on_size_change=on_size)
 
         async def _reveal():
             import asyncio
             if st["anim"]:
                 return
+            vis = st["w"] or 150
+            overflow = tw - vis
+            if overflow <= 1:   # entra completo → no hace falta deslizar
+                return
             st["anim"] = True
             try:
-                hijo.left, hijo.right = None, 0     # desliza hasta alinear el final a la derecha
+                hijo.left = -overflow           # numérico → animate_position interpola (se desliza)
                 hijo.update()
-                await asyncio.sleep(1.9 + 2.2)       # animación + pausa mostrando el final
-                hijo.left, hijo.right = 0, None     # vuelve al inicio
+                await asyncio.sleep(1.9 + 2.2)   # animación + pausa mostrando el final
+                hijo.left = 0                   # vuelve al inicio
                 hijo.update()
                 await asyncio.sleep(1.9)
             except Exception:  # noqa: BLE001
@@ -899,42 +915,50 @@ class VexaApp:
                 ]),
             ], spacing=0, tight=True))
 
-        def _hide_del(*_):
-            banner_del.visible = False
-            try:
-                banner_del.update()
-            except Exception:  # noqa: BLE001
-                pass
+        # Confirmación de borrado ARRIBA DE TODO (sobre el form), a la altura de la barra de
+        # Vexa: hoja full-screen semitransparente (se muestra ENCIMA del form) con el banner
+        # rojo posicionado arriba dentro de un SafeArea. Mismo formato que "cambios sin
+        # guardar" pero en rojo. Tocar el área oscura (o Cancelar) cierra solo la confirmación.
+        confirm = {"abierta": False}
+
+        def _cerrar_confirm(*_):
+            if confirm["abierta"]:
+                confirm["abierta"] = False
+                try:
+                    self.page.pop_dialog()
+                except Exception:  # noqa: BLE001
+                    pass
 
         def _pedir_borrar(*_):
-            banner_del.visible = True
-            try:
-                banner_del.update()
-            except Exception:  # noqa: BLE001
-                pass
-
-        # Confirmación de borrado: MISMO formato que el aviso de cambios sin guardar (arriba,
-        # dentro del sheet, encima del form) pero en ROJO. El sheet usa SafeArea → arranca a la
-        # altura de la barra de Vexa (no lo tapa el panel de notificaciones).
-        banner_del = ft.Container(
-            visible=False, top=8, left=12, right=12, bgcolor=t["surface"], border_radius=14,
-            content=ft.Container(
-                bgcolor=soft(t["danger"], 0.12), border=BALL(1, soft(t["danger"], 0.5)),
-                border_radius=14, padding=PADS(12, 16),
-                content=ft.Column([
-                    ft.Text(borrar_texto, size=13, weight=ft.FontWeight.W_600, color=t["ink"]),
-                    ft.Container(height=8),
-                    ft.Row([
-                        ft.Container(content=ft.Text("Cancelar", color=t["muted"], size=13,
-                                                     weight=ft.FontWeight.W_600), padding=PADS(8, 12),
-                                     ink=True, border_radius=10, on_click=_hide_del),
-                        ft.Container(expand=True),
-                        ft.Container(content=ft.Text("Eliminar", color="#ffffff", size=13,
-                                                     weight=ft.FontWeight.W_700), bgcolor=t["danger"],
-                                     border_radius=10, padding=PADS(8, 16), ink=True,
-                                     on_click=lambda e: (_hide_del(), borrar(None))),
-                    ]),
-                ], spacing=0, tight=True)))
+            banner = ft.Container(
+                top=8, left=12, right=12, bgcolor=t["surface"], border_radius=14,
+                content=ft.Container(
+                    bgcolor=soft(t["danger"], 0.12), border=BALL(1, soft(t["danger"], 0.5)),
+                    border_radius=14, padding=PADS(12, 16),
+                    content=ft.Column([
+                        ft.Text(borrar_texto, size=13, weight=ft.FontWeight.W_600, color=t["ink"]),
+                        ft.Container(height=8),
+                        ft.Row([
+                            ft.Container(content=ft.Text("Cancelar", color=t["muted"], size=13,
+                                                         weight=ft.FontWeight.W_600), padding=PADS(8, 12),
+                                         ink=True, border_radius=10, on_click=_cerrar_confirm),
+                            ft.Container(expand=True),
+                            ft.Container(content=ft.Text("Eliminar", color="#ffffff", size=13,
+                                                         weight=ft.FontWeight.W_700), bgcolor=t["danger"],
+                                         border_radius=10, padding=PADS(8, 16), ink=True,
+                                         on_click=lambda e: (_cerrar_confirm(), borrar(None))),
+                        ]),
+                    ], spacing=0, tight=True)))
+            dim = ft.GestureDetector(  # tocar el área oscura cierra la confirmación
+                on_tap=_cerrar_confirm,
+                content=ft.Container(expand=True, bgcolor="#66000000"))
+            cuerpo = ft.SafeArea(ft.Stack([dim, banner], expand=True),
+                                 avoid_intrusions_bottom=False)
+            sheet = ft.BottomSheet(
+                content=cuerpo, bgcolor="#00000000", fullscreen=True, dismissible=True,
+                show_drag_handle=False, on_dismiss=lambda e: confirm.__setitem__("abierta", False))
+            confirm["abierta"] = True
+            self.page.show_dialog(sheet)
 
         cuerpo = _render_group(campos)
 
@@ -977,7 +1001,7 @@ class VexaApp:
             base = ft.Container(padding=PAD(18, 8, 18, 18), bgcolor=t["ground"], expand=True,
                                 content=cuerpo_col)
             sheet = ft.BottomSheet(
-                content=ft.Stack([base, banner, banner_del], expand=True), bgcolor=t["ground"],
+                content=ft.Stack([base, banner], expand=True), bgcolor=t["ground"],
                 fullscreen=True, dismissible=False, draggable=False, show_drag_handle=False,
                 use_safe_area=True, on_dismiss=_run_pendiente)
         else:
@@ -987,7 +1011,7 @@ class VexaApp:
             base = ft.Container(padding=PAD(18, 8, 18, 20), bgcolor=t["ground"], height=alto,
                                 content=cuerpo_col)
             sheet = ft.BottomSheet(
-                content=ft.Stack([base, banner, banner_del]), bgcolor=t["ground"],
+                content=ft.Stack([base, banner]), bgcolor=t["ground"],
                 fullscreen=False, dismissible=True, draggable=False, show_drag_handle=False,
                 size_constraints=ft.BoxConstraints(max_height=alto + 12),
                 on_dismiss=_run_pendiente)
