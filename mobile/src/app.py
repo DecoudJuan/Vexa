@@ -70,14 +70,20 @@ class VexaApp:
         (lageaba la app): se anima el offset UNA vez por interacción."""
         texto = texto or ""
         txt = ft.Text(texto, size=size, weight=weight, color=color, no_wrap=True,
-                      offset=ft.Offset(0, 0), animate_offset=ft.Animation(1900, ft.AnimationCurve.EASE_IN_OUT))
+                      offset=ft.Offset(0, 0), animate_offset=ft.Animation(2000, ft.AnimationCurve.EASE_IN_OUT))
         clip = ft.Container(content=txt, clip_behavior=ft.ClipBehavior.HARD_EDGE)
-        if len(texto) <= 14:   # nombres cortos entran sin recortarse
+        # Ancho REAL del texto (px) con reportlab (ya es dependencia). offset es fracción del
+        # ancho del texto → para mostrar el FINAL corro hasta dejar visible el último tramo,
+        # que SIEMPRE incluye el último carácter. Sesgo a pasarme un poco (tramo chico) para
+        # nunca quedar corto, aunque el font del render sea un toque más ancho que Helvetica.
+        try:
+            from reportlab.pdfbase.pdfmetrics import stringWidth
+            tw = stringWidth(texto, "Helvetica", size)
+        except Exception:  # noqa: BLE001
+            tw = len(texto) * size * 0.55
+        if tw <= 150:   # entra en el ancho típico del renglón → no hace falta marquee
             return clip
-        # cuánto correr para llegar AL FINAL. Como no se puede medir el ancho real, se usa
-        # una fracción agresiva (base 7) para que el recorrido alcance el final (mejor pasarse
-        # un poco: el nombre se lee mientras se mueve).
-        frac = min(0.92, (len(texto) - 7) / len(texto))
+        frac = min(0.96, (tw - 30) / tw)   # deja ~30px del final visible (incluye el último char)
         st = {"anim": False}
 
         async def _reveal():
