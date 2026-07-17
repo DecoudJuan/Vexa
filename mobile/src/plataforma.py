@@ -77,6 +77,29 @@ def _abrir_escritorio(ruta: str) -> None:
         os.system(f'xdg-open "{ruta}"')
 
 
+async def entregar_pdf(app, ruta: str) -> bool:
+    """Entrega el PDF al usuario.
+
+    - **Android**: abre el **diálogo nativo para GUARDAR** (`FilePicker.save_file`), donde
+      elige la carpeta/app destino (Descargas, Drive, etc.) y Flet escribe los bytes. Es
+      confiable (no depende del share-intent nativo, que necesitaba el FileProvider/Activity
+      correctos). Devuelve True si eligió destino, False si canceló.
+    - **Escritorio**: lo abre con el visor del sistema.
+    """
+    import os
+    if es_android():
+        try:
+            with open(ruta, "rb") as f:
+                data = f.read()
+            destino = await app.file_picker.save_file(
+                dialog_title="Guardar PDF", file_name=os.path.basename(ruta),
+                allowed_extensions=["pdf"], src_bytes=data)
+            return destino is not None
+        except Exception:  # noqa: BLE001 — el PDF ya está en disco
+            return False
+    return _abrir_escritorio(ruta) or True
+
+
 def abrir_o_compartir_pdf(page, ruta: str) -> bool:
     """Comparte (Android) o abre (escritorio) el PDF en `ruta`.
 

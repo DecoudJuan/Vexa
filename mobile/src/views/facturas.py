@@ -216,6 +216,21 @@ class FacturasView:
         except Exception:  # noqa: BLE001
             pass
 
+    def _aplicar_bonif_cliente(self):
+        """Autocompleta la bonificación de la factura con la del cliente elegido."""
+        if not self._cliente_id:
+            return
+        c = self.app.db.get_cliente(self._cliente_id) or {}
+        self._bonif = float(c.get("bonificacion") or 0)
+        tf = getattr(self, "_bonif_tf", None)
+        if tf is not None:
+            tf.value = f"{self._bonif:g}"
+            try:
+                tf.update()
+            except Exception:  # noqa: BLE001
+                pass
+        self._recalc_total()
+
     def _abrir_sel_cliente(self):
         ops = [(c["nombre"], c["id"]) for c in self._clientes]
 
@@ -223,6 +238,7 @@ class FacturasView:
             self._cliente_id = cid
             self._dirty = True
             self._upd_cli_txt()
+            self._aplicar_bonif_cliente()
 
         def crear(txt):
             txt = (txt or "").strip()
@@ -359,6 +375,7 @@ class FacturasView:
                                     border_color=t["line2"], filled=True, border_radius=12,
                                     bgcolor=t["surface2"], color=t["ink"], text_size=14,
                                     content_padding=PADS(11, 13), on_change=self._on_bonif, width=110)
+            self._bonif_tf = bonif_tf   # ref para autocompletar con la bonif del cliente
             guardar = ft.Container(
                 content=ft.Text("Guardar factura", color=t["accent_ink"], weight=ft.FontWeight.W_700,
                                 size=14), bgcolor=t["accent"], border_radius=13, padding=13,
@@ -406,11 +423,12 @@ class FacturasView:
     def _pdf_handler(self, factura_id: int):
         app = self.app
 
-        def _h(_e):
+        async def _h(_e):
             try:
                 ruta = generar_pdf_documento(app.db, factura_id)
-                plataforma.abrir_o_compartir_pdf(app.page, ruta)
-                app.snack(f"PDF: {os.path.basename(ruta)}")
+                ok = await plataforma.entregar_pdf(app, ruta)
+                if not ok:
+                    app.snack("Guardado cancelado")
             except Exception as ex:  # noqa: BLE001
                 app.snack(f"Error al generar PDF: {ex}")
         return _h
@@ -467,4 +485,4 @@ class FacturasView:
                    lambda e: (self._fill(e.control.value), self.lista.update())),
             ft.Container(height=12),
             ft.Container(expand=True, content=self.lista),
-        ], spacing=0, expand=True)
+        ], spacing=0, expand=True, horizontal_alignment=ft.CrossAxisAlignment.STRETCH)

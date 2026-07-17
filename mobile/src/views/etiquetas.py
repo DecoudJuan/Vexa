@@ -242,7 +242,7 @@ class EtiquetasView:
                                     weight=ft.FontWeight.W_700, size=14)],
                            alignment=ft.MainAxisAlignment.CENTER, spacing=8),
             bgcolor=t["accent"], border_radius=13, padding=13, margin=MAR(top=12),
-            on_click=lambda e: self._generar(), ink=True))
+            on_click=self._generar, ink=True))
         hijos.append(ft.Container(
             content=ft.Text("Limpiar cola", color=t["muted"], size=12.5),
             border=BALL(1, t["line2"]), border_radius=13, padding=9, alignment=ft.Alignment.CENTER,
@@ -260,10 +260,11 @@ class EtiquetasView:
         self._render_cola()
         self._u(self._paso3)
 
-    def _generar(self):
+    async def _generar(self, _e=None):
         try:
             ruta = generar_pdf_etiquetas(self.queue, obtener_carpeta_pdf(self.app.db))
-            plataforma.abrir_o_compartir_pdf(self.app.page, ruta)
-            self.app.snack(f"Etiquetas: {os.path.basename(ruta)}")
+            ok = await plataforma.entregar_pdf(self.app, ruta)
+            if not ok:
+                self.app.snack("Guardado cancelado")
         except Exception as ex:  # noqa: BLE001
             self.app.snack(f"Error al generar etiquetas: {ex}")

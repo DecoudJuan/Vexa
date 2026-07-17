@@ -68,16 +68,21 @@ def test_cola_borrar_y_limpiar(app, faja):
 
 
 def test_generar_pdf(app, faja, monkeypatch):
+    import asyncio
     import plataforma
     capt = {}
-    monkeypatch.setattr(plataforma, "abrir_o_compartir_pdf",
-                        lambda page, ruta: capt.setdefault("ruta", str(ruta)))
+
+    async def _fake(a, ruta):
+        capt["ruta"] = str(ruta)
+        return True
+
+    monkeypatch.setattr(plataforma, "entregar_pdf", _fake)
     v = EtiquetasView(app)
     v.build()
     v._sel_producto(faja)
     v.rows[0]["cant_ctrl"].value = "14"
     v._add_to_queue()
-    v._generar()
+    asyncio.run(v._generar())
     assert capt.get("ruta", "").endswith(".pdf")
 
 

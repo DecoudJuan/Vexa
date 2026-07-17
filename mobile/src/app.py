@@ -72,9 +72,12 @@ class VexaApp:
         txt = ft.Text(texto, size=size, weight=weight, color=color, no_wrap=True,
                       offset=ft.Offset(0, 0), animate_offset=ft.Animation(1900, ft.AnimationCurve.EASE_IN_OUT))
         clip = ft.Container(content=txt, clip_behavior=ft.ClipBehavior.HARD_EDGE)
-        if len(texto) <= fit:
+        if len(texto) <= 14:   # nombres cortos entran sin recortarse
             return clip
-        frac = min(0.9, (len(texto) - fit) / len(texto))   # cuánto correr para ver el final
+        # cuánto correr para llegar AL FINAL. Como no se puede medir el ancho real, se usa
+        # una fracción agresiva (base 7) para que el recorrido alcance el final (mejor pasarse
+        # un poco: el nombre se lee mientras se mueve).
+        frac = min(0.92, (len(texto) - 7) / len(texto))
         st = {"anim": False}
 
         async def _reveal():

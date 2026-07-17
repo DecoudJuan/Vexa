@@ -118,4 +118,4 @@ class ClientesView:
                    lambda e: (self._fill(e.control.value), self.lista.update())),
             ft.Container(height=12),
             ft.Container(expand=True, content=self.lista),
-        ], spacing=0, expand=True)
+        ], spacing=0, expand=True, horizontal_alignment=ft.CrossAxisAlignment.STRETCH)

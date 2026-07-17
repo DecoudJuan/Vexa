@@ -121,6 +121,16 @@ def test_guardar_factura_cierra_y_renderiza_sin_negro(app, db, monkeypatch):
     assert app.page.dialogs == []      # no quedaron diálogos/scrim colgados
 
 
+def test_bonif_cliente_autocompleta(app, db, monkeypatch):
+    cid = db.create_cliente({"nombre": "Mayorista", "bonificacion": 15})
+    cap = _cap_selector(app, monkeypatch)
+    fv = FacturasView(app)
+    fv.nueva()
+    fv._abrir_sel_cliente()
+    cap["sel"](cid)                       # elegir el cliente
+    assert fv._bonif == 15                # la factura tomó su bonificación
+
+
 def test_selector_full_construye(app):
     picked = {}
     app.abrir_selector_full("Elegí", [("Uno", 1), ("Dos", 2)],
