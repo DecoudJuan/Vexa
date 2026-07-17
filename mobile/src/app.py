@@ -66,24 +66,24 @@ class VexaApp:
     def marquee(self, texto, size, weight, color, fit=18) -> ft.Control:
         """Nombre de una línea. Si es largo, se revela el resto **a demanda**: apretándolo
         (long-press en el celular) o pasándole el puntero por encima (hover en escritorio).
-        NO usa scroll con el dedo (chocaba con el swipe de pestañas) NI un loop automático
-        (lageaba la app): se anima el offset UNA vez por interacción."""
+
+        Render COMPLETO sin scroll de dedo (chocaba con el swipe de pestañas) ni loop
+        automático (lageaba): el texto es el hijo POSICIONADO de un Stack con `left`/`right`.
+        Al estar posicionado con un solo lado recibe ancho infinito → el Text(no_wrap) se
+        renderiza entero (desborda) y el Stack lo recorta (clip HARD_EDGE). El reveal pasa el
+        hijo de left=0 (inicio) a right=0 (final alineado a la derecha) → muestra el último
+        carácter EXACTO sea cual sea el ancho de la columna, sin calcular nada. Simétrico en
+        ambos sentidos (misma duración de ida y vuelta)."""
         texto = texto or ""
-        txt = ft.Text(texto, size=size, weight=weight, color=color, no_wrap=True,
-                      offset=ft.Offset(0, 0), animate_offset=ft.Animation(2000, ft.AnimationCurve.EASE_IN_OUT))
-        clip = ft.Container(content=txt, clip_behavior=ft.ClipBehavior.HARD_EDGE)
-        # Ancho REAL del texto (px) con reportlab (ya es dependencia). offset es fracción del
-        # ancho del texto → para mostrar el FINAL corro hasta dejar visible el último tramo,
-        # que SIEMPRE incluye el último carácter. Sesgo a pasarme un poco (tramo chico) para
-        # nunca quedar corto, aunque el font del render sea un toque más ancho que Helvetica.
-        try:
-            from reportlab.pdfbase.pdfmetrics import stringWidth
-            tw = stringWidth(texto, "Helvetica", size)
-        except Exception:  # noqa: BLE001
-            tw = len(texto) * size * 0.55
-        if tw <= 150:   # entra en el ancho típico del renglón → no hace falta marquee
-            return clip
-        frac = min(0.96, (tw - 30) / tw)   # deja ~30px del final visible (incluye el último char)
+        txt_plano = ft.Text(texto, size=size, weight=weight, color=color, no_wrap=True)
+        if len(texto) <= 14:   # entra siempre → sin marquee
+            return ft.Container(content=txt_plano, clip_behavior=ft.ClipBehavior.HARD_EDGE)
+
+        hijo = ft.Container(
+            left=0, right=None, top=0, content=txt_plano,
+            animate_position=ft.Animation(1900, ft.AnimationCurve.EASE_IN_OUT))
+        stack = ft.Stack([hijo], clip_behavior=ft.ClipBehavior.HARD_EDGE,
+                         height=size * 1.35 + 2, expand=True)
         st = {"anim": False}
 
         async def _reveal():
@@ -92,11 +92,11 @@ class VexaApp:
                 return
             st["anim"] = True
             try:
-                txt.offset = ft.Offset(-frac, 0)   # corre hasta el final (se lee mientras se mueve)
-                txt.update()
-                await asyncio.sleep(2.4)            # lo deja mostrando el final
-                txt.offset = ft.Offset(0, 0)
-                txt.update()
+                hijo.left, hijo.right = None, 0     # desliza hasta alinear el final a la derecha
+                hijo.update()
+                await asyncio.sleep(1.9 + 2.2)       # animación + pausa mostrando el final
+                hijo.left, hijo.right = 0, None     # vuelve al inicio
+                hijo.update()
                 await asyncio.sleep(1.9)
             except Exception:  # noqa: BLE001
                 pass
@@ -108,8 +108,7 @@ class VexaApp:
             except Exception:  # noqa: BLE001
                 pass
 
-        # long-press (celular) + hover (mouse). El TAP normal NO lo dispara → sigue editando/eligiendo.
-        gd = ft.GestureDetector(content=clip, on_long_press=lambda e: disparar())
+        gd = ft.GestureDetector(content=stack, on_long_press=lambda e: disparar())
         return ft.Container(content=gd,
                             on_hover=lambda e: disparar() if getattr(e, "data", None) in ("true", True) else None)
 
@@ -900,44 +899,42 @@ class VexaApp:
                 ]),
             ], spacing=0, tight=True))
 
-        # Confirmación de borrado: banner al TOPE DE LA PANTALLA (page.overlay), NO dentro del
-        # sheet (antes quedaba sobre el slide, a media pantalla en el form de producto).
-        _del_box = {"c": None}
-
         def _hide_del(*_):
-            c = _del_box["c"]
-            if c is not None:
-                try:
-                    self.page.overlay.remove(c)
-                except ValueError:
-                    pass
-                _del_box["c"] = None
-                self.page.update()
+            banner_del.visible = False
+            try:
+                banner_del.update()
+            except Exception:  # noqa: BLE001
+                pass
 
         def _pedir_borrar(*_):
-            _hide_del()
-            c = ft.Container(
-                top=12, left=14, right=14, bgcolor=t["surface"], border=BALL(1, soft(t["danger"], 0.5)),
-                border_radius=14,
-                content=ft.Container(
-                    bgcolor=soft(t["danger"], 0.12), border_radius=14, padding=PADS(12, 16),
-                    content=ft.Column([
-                        ft.Text(borrar_texto, size=13, weight=ft.FontWeight.W_600, color=t["ink"]),
-                        ft.Container(height=8),
-                        ft.Row([
-                            ft.Container(content=ft.Text("Cancelar", color=t["muted"], size=13,
-                                                         weight=ft.FontWeight.W_600), padding=PADS(8, 12),
-                                         ink=True, border_radius=10, on_click=_hide_del),
-                            ft.Container(expand=True),
-                            ft.Container(content=ft.Text("Eliminar", color="#ffffff", size=13,
-                                                         weight=ft.FontWeight.W_700), bgcolor=t["danger"],
-                                         border_radius=10, padding=PADS(8, 16), ink=True,
-                                         on_click=lambda e: (_hide_del(), borrar(None))),
-                        ]),
-                    ], spacing=0, tight=True)))
-            _del_box["c"] = c
-            self.page.overlay.append(c)
-            self.page.update()
+            banner_del.visible = True
+            try:
+                banner_del.update()
+            except Exception:  # noqa: BLE001
+                pass
+
+        # Confirmación de borrado: MISMO formato que el aviso de cambios sin guardar (arriba,
+        # dentro del sheet, encima del form) pero en ROJO. El sheet usa SafeArea → arranca a la
+        # altura de la barra de Vexa (no lo tapa el panel de notificaciones).
+        banner_del = ft.Container(
+            visible=False, top=8, left=12, right=12, bgcolor=t["surface"], border_radius=14,
+            content=ft.Container(
+                bgcolor=soft(t["danger"], 0.12), border=BALL(1, soft(t["danger"], 0.5)),
+                border_radius=14, padding=PADS(12, 16),
+                content=ft.Column([
+                    ft.Text(borrar_texto, size=13, weight=ft.FontWeight.W_600, color=t["ink"]),
+                    ft.Container(height=8),
+                    ft.Row([
+                        ft.Container(content=ft.Text("Cancelar", color=t["muted"], size=13,
+                                                     weight=ft.FontWeight.W_600), padding=PADS(8, 12),
+                                     ink=True, border_radius=10, on_click=_hide_del),
+                        ft.Container(expand=True),
+                        ft.Container(content=ft.Text("Eliminar", color="#ffffff", size=13,
+                                                     weight=ft.FontWeight.W_700), bgcolor=t["danger"],
+                                     border_radius=10, padding=PADS(8, 16), ink=True,
+                                     on_click=lambda e: (_hide_del(), borrar(None))),
+                    ]),
+                ], spacing=0, tight=True)))
 
         cuerpo = _render_group(campos)
 
@@ -980,9 +977,9 @@ class VexaApp:
             base = ft.Container(padding=PAD(18, 8, 18, 18), bgcolor=t["ground"], expand=True,
                                 content=cuerpo_col)
             sheet = ft.BottomSheet(
-                content=ft.Stack([base, banner], expand=True), bgcolor=t["ground"],
+                content=ft.Stack([base, banner, banner_del], expand=True), bgcolor=t["ground"],
                 fullscreen=True, dismissible=False, draggable=False, show_drag_handle=False,
-                on_dismiss=_run_pendiente)
+                use_safe_area=True, on_dismiss=_run_pendiente)
         else:
             # Media pantalla. size_constraints SUBE el tope (Flutter capa a ~9/16 y cortaba el
             # footer/precio). dismissible=True → tocar afuera cierra (además del grip/Cancelar).
@@ -990,7 +987,7 @@ class VexaApp:
             base = ft.Container(padding=PAD(18, 8, 18, 20), bgcolor=t["ground"], height=alto,
                                 content=cuerpo_col)
             sheet = ft.BottomSheet(
-                content=ft.Stack([base, banner]), bgcolor=t["ground"],
+                content=ft.Stack([base, banner, banner_del]), bgcolor=t["ground"],
                 fullscreen=False, dismissible=True, draggable=False, show_drag_handle=False,
                 size_constraints=ft.BoxConstraints(max_height=alto + 12),
                 on_dismiss=_run_pendiente)
