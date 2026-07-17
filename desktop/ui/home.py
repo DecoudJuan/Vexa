@@ -15,7 +15,7 @@ from PySide6.QtGui import QPixmap, QImage, QColor
 
 from ui.icons import svg_pixmap, svg_icon
 from ui.styles import get_palette
-from vexa_core.utils.helpers import leer_tema, leer_zoom, fmt_ar
+from vexa_core.utils.helpers import leer_tema, leer_zoom, fmt_ar, fmt_cantidad_corta
 from resources import resource_path
 
 
@@ -163,14 +163,14 @@ class HomeWidget(QWidget):
     def _kpis(self, pal, z, m) -> QHBoxLayout:
         row = QHBoxLayout()
         row.setSpacing(round(16 * z))
-        row.addWidget(self._hero_card(pal, z, str(m["fac_mes"]),
+        row.addWidget(self._hero_card(pal, z, fmt_cantidad_corta(m["fac_mes"]),
                                       f"en {_MESES[datetime.now().month - 1]}"))
         row.addWidget(self._kpi_card(pal, z, "file-text", "Facturas",
-                                     str(m["fac_total"]), "emitidas"))
+                                     fmt_cantidad_corta(m["fac_total"]), "emitidas"))
         row.addWidget(self._kpi_card(pal, z, "users", "Clientes",
-                                     str(m["clientes"]), "en cartera"))
+                                     fmt_cantidad_corta(m["clientes"]), "en cartera"))
         row.addWidget(self._kpi_card(pal, z, "layers", "Productos",
-                                     str(m["productos"]), "en catálogo"))
+                                     fmt_cantidad_corta(m["productos"]), "en catálogo"))
         return row
 
     def _hero_card(self, pal, z, value, sub) -> QFrame:
