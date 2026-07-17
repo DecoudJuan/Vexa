@@ -949,11 +949,17 @@ class VexaApp:
                                          on_click=lambda e: (_cerrar_confirm(), borrar(None))),
                         ]),
                     ], spacing=0, tight=True)))
+            # Dimensiones EXPLÍCITAS de pantalla completa: sin esto el Stack con `expand`
+            # quedaba sin alto acotado, la hoja se dimensionaba al contenido y el banner
+            # aparecía a media pantalla. Con height=page.height el banner ancla ARRIBA.
+            alto = int(self.page.height or 900)
+            ancho = int(self.page.width or 420)
             dim = ft.GestureDetector(  # tocar el área oscura cierra la confirmación
                 on_tap=_cerrar_confirm,
-                content=ft.Container(expand=True, bgcolor="#66000000"))
-            cuerpo = ft.SafeArea(ft.Stack([dim, banner], expand=True),
-                                 avoid_intrusions_bottom=False)
+                content=ft.Container(width=ancho, height=alto, bgcolor="#66000000"))
+            cuerpo = ft.SafeArea(
+                ft.Stack([dim, banner], width=ancho, height=alto),
+                avoid_intrusions_bottom=False)
             sheet = ft.BottomSheet(
                 content=cuerpo, bgcolor="#00000000", fullscreen=True, dismissible=True,
                 show_drag_handle=False, on_dismiss=lambda e: confirm.__setitem__("abierta", False))

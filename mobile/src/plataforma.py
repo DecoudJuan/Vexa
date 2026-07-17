@@ -88,11 +88,14 @@ async def entregar_pdf(app, ruta: str, *, titulo: str = "Compartir PDF") -> bool
     """
     import os
     if es_android():
+        # 1) Intento el share sheet nativo (WhatsApp/Imprimir/Drive…). Si el plugin no
+        #    responde en este build, 2) caigo al diálogo de guardar (Descargas/Drive),
+        #    que es el comportamiento confiable actual.
         try:
             import flet as ft
             await app.share.share_files(
-                [ft.ShareFile(path=ruta, mime_type="application/pdf",
-                              name=os.path.basename(ruta))],
+                [ft.ShareFile(path=str(ruta), mime_type="application/pdf",
+                              name=os.path.basename(str(ruta)))],
                 title=titulo)
             return True
         except Exception:  # noqa: BLE001 — fallback: diálogo de guardar
@@ -100,7 +103,7 @@ async def entregar_pdf(app, ruta: str, *, titulo: str = "Compartir PDF") -> bool
                 with open(ruta, "rb") as f:
                     data = f.read()
                 destino = await app.file_picker.save_file(
-                    dialog_title="Guardar PDF", file_name=os.path.basename(ruta),
+                    dialog_title="Guardar PDF", file_name=os.path.basename(str(ruta)),
                     allowed_extensions=["pdf"], src_bytes=data)
                 return destino is not None
             except Exception:  # noqa: BLE001 — el PDF ya está en disco
