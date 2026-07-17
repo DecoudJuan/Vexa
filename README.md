@@ -172,11 +172,24 @@ La app Android vive en `mobile/` y reusa el mismo `vexa_core`. UI con **Flet**
 (Flutter en Python), offline, con la identidad de Vexa (azul plano). Estructura modular
 (`theme/logo/widgets/seed/app/views`), barra inferior de 5 tabs (Clientes · Productos ·
 **Inicio** · Etiquetas · Facturas) e Inicio tipo dashboard. **CRUD completo offline**
-(alta/edición/borrado de clientes, productos, facturas y datos de empresa; import Excel/CSV;
-ver/compartir PDF; etiquetas). El **APK builda e instala** en Android. **Falta el onboarding
-de primera ejecución** (wizard de datos de empresa; hoy se siembra un demo).
+(clientes, productos, facturas y datos de empresa; import Excel/CSV; ver/compartir PDF;
+etiquetas). Además: **onboarding de primera ejecución**, **página AFIP** con tutorial ARCA,
+selectores full-screen (el **cliente se autocrea** si no existe, producto con opción **"Otro"**
+de texto libre), nav con pastilla deslizante, marquee de nombres largos, y los **PDF se guardan
+en la carpeta Documentos** del dispositivo. Suite de **83 tests** headless en `mobile/tests/`
+(`cd mobile && python -m pytest`).
 
-Correr en escritorio (iteración rápida):
+### Instalar en el celular (Android)
+
+1. Descargá el **APK** (`app-release.apk`) desde la [última release](../../releases/latest)
+   — está adjunto (o dentro del `.zip` de la release).
+2. Pasalo al teléfono (cable, Drive, WhatsApp Web…) o descargalo directo desde el celular.
+3. En Android, la primera vez te va a pedir permitir **"Instalar apps de fuentes desconocidas"**
+   para el navegador/gestor de archivos que uses. Activalo.
+4. Tocá el APK → **Instalar**. Al abrir por primera vez arranca el **onboarding** (cargás los
+   datos de tu empresa) y listo. Los PDF que generes quedan en `Documentos/Vexa`.
+
+### Correr en escritorio (iteración rápida)
 
 ```bash
 pip install flet flet-desktop
@@ -184,21 +197,22 @@ cd mobile
 flet run src/main.py
 ```
 
-Buildear el APK (Android). `flet build` instala las dependencias con pip para el
-target, y **no** resuelve rutas locales, así que primero se **vendoriza** el core
-dentro de `src/` (queda gitignoreado):
+### Buildear el APK vos mismo
+
+`flet build` instala las dependencias con pip para el target y **no** resuelve rutas
+locales, así que primero se **vendoriza** el core dentro de `src/` (queda gitignoreado):
 
 ```bash
 pip install flet uv
 python mobile/scripts/vendor_core.py          # copia vexa_core → mobile/src/vexa_core
 cd mobile
-flet build apk --yes --build-version <VERSION> --build-number <N>
+flet build apk --build-version <VERSION> --build-number <N>
 ```
 
 Requiere el toolchain de Android: Flutter, JDK 17, Android SDK (con `cmdline-tools`
-y licencias aceptadas). La base SQLite en Android vive en el storage privado de la
-app (`FLET_APP_STORAGE_DATA`), que `main.py` mapea a `FACTURACION_DATA_DIR` antes de
-importar el core.
+y licencias aceptadas). El APK queda en `mobile/build/apk/app-release.apk`. La base SQLite
+en Android vive en el storage privado de la app (`FLET_APP_STORAGE_DATA`), que `main.py`
+mapea a `FACTURACION_DATA_DIR` antes de importar el core.
 
 ---
 

@@ -7,8 +7,8 @@ import flet as ft
 
 from theme import PADS, MAR, BALL, BEDGE, soft
 from widgets import titulo, search, card, clabel, empty
-from vexa_core.database.db import DATA_DIR
 from vexa_core.utils.etiquetas import resumen_cola, generar_pdf_etiquetas
+from vexa_core.utils.pdf_generator import obtener_carpeta_pdf
 import plataforma
 
 
@@ -18,20 +18,27 @@ class EtiquetasView:
         self.sel = None                 # producto elegido
         self.rows: list[dict] = []      # {talle, cant, talle_ctrl, cant_ctrl}
         self.queue: list[dict] = []     # cola de impresión
-        self._lista = ft.Column(spacing=0, scroll=ft.ScrollMode.AUTO, height=210)
+        self._lista = ft.Column(spacing=0, scroll=ft.ScrollMode.HIDDEN, height=210)
         self._paso2 = ft.Container()
         self._paso3 = ft.Container()
+
+    def _u(self, ctrl):
+        """Update defensivo: si el control no está montado (tests), no rompe."""
+        try:
+            ctrl.update()
+        except Exception:  # noqa: BLE001
+            pass
 
     # ---------------------------------------------------------------- build
     def build(self) -> ft.Control:
         app = self.app
         t = app.t
-        self._lista = ft.Column(spacing=0, scroll=ft.ScrollMode.AUTO, height=210)
+        self._lista = ft.Column(spacing=0, scroll=ft.ScrollMode.HIDDEN, height=210)
         self._fill_prod()
         paso1 = card(t, [
             clabel(t, "1 · ELEGÍ UN PRODUCTO"), ft.Container(height=11),
             search(t, "Buscar por código o nombre…",
-                   lambda e: (self._fill_prod(e.control.value), self._lista.update())),
+                   lambda e: (self._fill_prod(e.control.value), self._u(self._lista))),
             ft.Container(height=10),
             ft.Container(border=BALL(1, t["line"]), border_radius=12, content=self._lista,
                          clip_behavior=ft.ClipBehavior.ANTI_ALIAS),
@@ -44,12 +51,13 @@ class EtiquetasView:
             titulo(t, "Etiquetas", "Generá e imprimí etiquetas de tus productos."),
             ft.Container(height=14), paso1, ft.Container(height=12), self._paso2,
             ft.Container(height=12), self._paso3,
-        ], spacing=0, scroll=ft.ScrollMode.AUTO, expand=True)
+        ], spacing=0, scroll=ft.ScrollMode.HIDDEN, expand=True)
 
     # ------------------------------------------------------------- paso 1
     def _fill_prod(self, texto: str = ""):
         t = self.app.t
         productos = self.app.db.get_productos()
+        productos = sorted(productos, key=lambda p: (not (p.get("codigo") or ""), (p.get("codigo") or "").lower()))
         s = (texto or "").lower().strip()
         filt = [p for p in productos
                 if not s or s in (p["codigo"] or "").lower() or s in (p["nombre"] or "").lower()]
@@ -63,7 +71,8 @@ class EtiquetasView:
                 content=ft.Row([
                     ft.Text(p["codigo"] or "—", size=12, weight=ft.FontWeight.W_800,
                             color=t["accent"], font_family="monospace", width=44),
-                    ft.Text(p["nombre"] or "", size=12.5, color=t["ink"], expand=True),
+                    ft.Container(expand=True,
+                                 content=self.app.marquee(p["nombre"] or "", 12.5, None, t["ink"])),
                 ], spacing=9),
                 on_click=lambda e, prod=p: self._sel_producto(prod), ink=True))
         self._lista.controls = items or [empty(t, "Sin resultados")]
@@ -74,10 +83,10 @@ class EtiquetasView:
         self.rows = [{"talle": talles[0] if talles else "", "cant": 1,
                       "talle_ctrl": None, "cant_ctrl": None}]
         self._fill_prod()
-        self._lista.update()
+        self._u(self._lista)
         self._paso2.visible = True
         self._render_paso2()
-        self._paso2.update()
+        self._u(self._paso2)
 
     # ------------------------------------------------------------- paso 2
     def _sync_rows(self):
@@ -102,8 +111,8 @@ class EtiquetasView:
             padding=PADS(10, 13), content=ft.Row([
                 ft.Text(p["codigo"] or "—", size=12, weight=ft.FontWeight.W_800, color=t["accent"],
                         font_family="monospace"),
-                ft.Text(p["nombre"] or "", size=14, weight=ft.FontWeight.W_700, color=t["ink"],
-                        expand=True, no_wrap=True),
+                ft.Container(expand=True,
+                             content=self.app.marquee(p["nombre"] or "", 14, ft.FontWeight.W_700, t["ink"])),
                 ft.Text(ty, size=11.5, color=t["muted"]),
             ], spacing=10, vertical_alignment=ft.CrossAxisAlignment.CENTER))
 
@@ -113,15 +122,16 @@ class EtiquetasView:
             if not universal:
                 dd = ft.Dropdown(value=row["talle"] or (p["talles"][0] if p["talles"] else ""),
                                  options=[ft.DropdownOption(key=x, text=x) for x in p["talles"]],
-                                 border_color=t["line2"], filled=True, bgcolor=t["surface"],
-                                 text_size=13, content_padding=PADS(6, 9),
+                                 border_radius=12, border_color=t["line2"], filled=True,
+                                 bgcolor=t["surface"], text_size=13, content_padding=PADS(9, 12),
                                  text_style=ft.TextStyle(color=t["ink"]))
                 row["talle_ctrl"] = dd
                 campos.append(ft.Column([ft.Text("Talle", size=11, color=t["muted"]), dd],
                                         spacing=4, expand=True, tight=True))
             tf = ft.TextField(value=str(row["cant"]), keyboard_type=ft.KeyboardType.NUMBER,
-                              border_color=t["line2"], filled=True, bgcolor=t["surface"],
-                              color=t["ink"], text_size=13, content_padding=PADS(6, 9), width=92)
+                              border_radius=12, border_color=t["line2"], filled=True,
+                              bgcolor=t["surface"], color=t["ink"], text_size=13,
+                              content_padding=PADS(9, 12), width=96)
             row["cant_ctrl"] = tf
             campos.append(ft.Column([ft.Text("Cantidad", size=11, color=t["muted"]), tf],
                                     spacing=4, tight=True))
@@ -129,7 +139,7 @@ class EtiquetasView:
                                on_click=lambda e, idx=i: self._del_row(idx))
                  if i > 0 else ft.Container(width=40))
             filas_ctrl.append(ft.Container(
-                bgcolor=t["surface2"], border=BALL(1, t["line"]), border_radius=11, padding=10,
+                bgcolor=t["surface2"], border=BALL(1, t["line"]), border_radius=14, padding=12,
                 margin=MAR(bottom=8),
                 content=ft.Row(campos + [x], vertical_alignment=ft.CrossAxisAlignment.END, spacing=9)))
 
@@ -154,14 +164,14 @@ class EtiquetasView:
         self.rows.append({"talle": talles[0] if talles else "", "cant": 1,
                           "talle_ctrl": None, "cant_ctrl": None})
         self._render_paso2()
-        self._paso2.update()
+        self._u(self._paso2)
 
     def _del_row(self, idx: int):
         self._sync_rows()
         if 0 <= idx < len(self.rows):
             self.rows.pop(idx)
         self._render_paso2()
-        self._paso2.update()
+        self._u(self._paso2)
 
     def _add_to_queue(self):
         if not self.sel:
@@ -172,7 +182,7 @@ class EtiquetasView:
             self.queue.append({"codigo": p["codigo"], "nombre": p["nombre"],
                                "talle": row["talle"], "cantidad": max(1, int(row["cant"] or 1))})
         self._render_cola()
-        self._paso3.update()
+        self._u(self._paso3)
 
     # ------------------------------------------------------------- paso 3
     def _render_cola(self):
@@ -217,10 +227,15 @@ class EtiquetasView:
             ], spacing=3, tight=True)))
         if r["faltan"]:
             hijos.append(ft.Container(
-                bgcolor=soft(t["warn"], 0.15), border=BALL(1, soft(t["warn"], 0.45)), border_radius=11,
-                padding=PADS(10, 12), margin=MAR(top=10),
-                content=ft.Text(f"⚠  Quedan {r['faltan']} espacios libres en la última hoja.",
-                                size=11.5, color=t["warn"])))
+                margin=MAR(top=10),
+                content=ft.Row([ft.Container(
+                    expand=True, bgcolor=soft(t["warn"], 0.15), border=BALL(1, soft(t["warn"], 0.45)),
+                    border_radius=11, padding=PADS(10, 12),
+                    content=ft.Row([
+                        ft.Icon(ft.Icons.WARNING_AMBER_ROUNDED, size=18, color=t["warn"]),
+                        ft.Text(f"Quedan {r['faltan']} espacios libres en la última hoja.",
+                                size=11.5, color=t["warn"], expand=True),
+                    ], spacing=8, vertical_alignment=ft.CrossAxisAlignment.CENTER))])))
         hijos.append(ft.Container(
             content=ft.Row([ft.Icon(ft.Icons.PRINT_OUTLINED, color=t["accent_ink"], size=20),
                             ft.Text("Generar e imprimir", color=t["accent_ink"],
@@ -238,16 +253,16 @@ class EtiquetasView:
         if 0 <= idx < len(self.queue):
             self.queue.pop(idx)
         self._render_cola()
-        self._paso3.update()
+        self._u(self._paso3)
 
     def _clear(self):
         self.queue = []
         self._render_cola()
-        self._paso3.update()
+        self._u(self._paso3)
 
     def _generar(self):
         try:
-            ruta = generar_pdf_etiquetas(self.queue, DATA_DIR / "pdf")
+            ruta = generar_pdf_etiquetas(self.queue, obtener_carpeta_pdf(self.app.db))
             plataforma.abrir_o_compartir_pdf(self.app.page, ruta)
             self.app.snack(f"Etiquetas: {os.path.basename(ruta)}")
         except Exception as ex:  # noqa: BLE001

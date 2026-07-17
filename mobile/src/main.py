@@ -27,6 +27,7 @@ from vexa_core.utils.helpers import set_moneda  # noqa: E402
 
 from app import VexaApp  # noqa: E402
 from logo import v_logo  # noqa: E402
+from onboarding import Onboarding, necesita_onboarding  # noqa: E402
 from seed import seed_demo  # noqa: E402
 
 
@@ -44,23 +45,32 @@ def main(page: ft.Page):
     page.title = "Vexa"
     page.padding = 0
     # Desktop: abrir en tamaño celular para iterar sin buildear el APK (Android
-    # ignora el tamaño de ventana).
+    # ignora el tamaño de ventana). Tamaño override por env (VEXA_WIN_W/H) sin tocar
+    # el default.
     try:
-        page.window.width = 1080
-        page.window.height = 1400
+        page.window.width = int(os.getenv("VEXA_WIN_W") or 1080)
+        page.window.height = int(os.getenv("VEXA_WIN_H") or 1400)
     except Exception:
         pass
 
     db = DatabaseManager()
     db.init_db()
     set_moneda(db.get_datos_empresa().get("moneda"))
-    seed_demo(db)
+    # Los PDF (facturas y etiquetas) se guardan en la carpeta Documentos del dispositivo.
+    from plataforma import carpeta_documentos  # noqa: E402
+    db.set_config("pdf_dir", str(carpeta_documentos()))
 
     app = VexaApp(page, db)
     page.on_keyboard_event = app.on_key   # Escape cierra forms con chequeo de cambios
-    app.render()
     page.services.append(app.file_picker)  # FilePicker es un service en flet 0.86
 
+    # Primera ejecución (base vacía, sin empresa): onboarding en vez de sembrar demo.
+    if necesita_onboarding(db):
+        Onboarding(app).start()   # bienvenida (V que sube + "Comenzar") → form → app
+        return
+
+    seed_demo(db)
+    app.render()
     tk = app.t
     splash = ft.Container(expand=True, bgcolor=tk["ground"], alignment=ft.Alignment.CENTER,
                           content=v_logo(96, tk["v_ink"], tk["dot"]), opacity=1,

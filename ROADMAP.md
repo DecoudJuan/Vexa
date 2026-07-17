@@ -16,9 +16,10 @@ Estado del rework de escritorio: **completo** (6.0b solo Facturas, 6.1b Etiqueta
   (nombre/ícono/publisher configurables) para vender white-label.
 - **Gated por AFIP (Fase 4)**: test en vivo contra homologación/producción (necesita
   certificado + punto de venta habilitado). Futuro: `.pfx`, percepciones, monedas ≠ ARS.
-- **Mobile — EN CURSO** (Flet, offline): 6.2a (toolchain + APK que builda/instala) y
-  6.2b (CRUD de clientes/productos/facturas/empresa + import Excel) **hechos**. **Falta el
-  onboarding de primera ejecución en la app mobile**; luego 6.3 (AFIP en mobile).
+- **Mobile — EN CURSO** (Flet, offline): 6.2a (toolchain + APK) · 6.2b (CRUD completo + import
+  Excel) · **6.2e** (onboarding, página AFIP + tutorial ARCA, selectores full-screen con
+  autocrear cliente y "Otro" producto, nav/slide/marquee, PDFs a Documentos, 83 tests) →
+  **hechos, release v2.9.0**. Luego 6.3 (conexión AFIP en mobile).
 
 ## Base (hecho)
 - [x] Sin dependencia de Access en runtime: arranca con base vacía y permite
@@ -177,11 +178,33 @@ Qt-free y reutilizable. Repo pasa a monorepo y se renombra a **`Vexa`**.
         dinámicas, cliente/producto escribibles, bonificación, edición) y **Datos de empresa**.
         Ver/compartir PDF y generar etiquetas. Forma de pago quitada de cliente/factura (no se
         usa en PDF ni AFIP). Verificado corriendo en escritorio (`flet run`, ventana celular).
-  - [ ] **Falta**: **onboarding de primera ejecución en mobile** (wizard de datos de empresa
-        al abrir con base vacía; hoy se siembra un demo). Menores: líneas de texto libre en
-        factura, Guardado (logo/pie de PDF), pulidos varios. Detalle en `mobile-roadmap.local.md`.
-- [ ] **Fase 6.3 — AFIP en mobile**: `cryptography`+`lxml`+`zeep` en el build; reactivar
-      "Autorizar en AFIP" y solapa AFIP (cert/key vía FilePicker); QR fiscal + CAE.
+  - [x] **Onboarding de primera ejecución** (`mobile/src/onboarding.py`): si no hay empresa
+        (nombre vacío) y no está la flag `onboarding_done`, se muestra en vez de sembrar el demo.
+        Bienvenida con la V que **sube con transición** + botón **"Comenzar"** que aparece abajo →
+        form **idéntico al de escritorio** ("Guardar y empezar"). El form de empresa se unificó
+        (onboarding y Configuración usan el mismo set de campos que desktop: nombre, CUIT con
+        formateo en vivo, condición IVA, Calle/Número, localidad/provincia, teléfono/email, moneda
+        y **bloque AFIP opcional** con checkbox → punto de venta/ingresos brutos/inicio actividades).
+  - [x] **6.2e — Pulido UX + página AFIP + PDFs a Documentos + tests** (release **v2.9.0**):
+        **Página AFIP** propia (`views/afip.py`, subpágina full-screen con datos fiscales +
+        tutorial ARCA deslizable). **Import** pasa a **subpágina** (arregla la pantalla negra).
+        **Selector de provincia** en hoja inferior (abre hacia abajo, no tapa el input) y
+        **selectores full-screen en factura**: cliente **se autocrea** si no existe, producto
+        con opción **"Otro"** (texto libre). **Nav con pastilla azul deslizante** + **slide de
+        contenido** entre secciones (animación determinística). **Marquee** de nombres largos
+        (scroll real, revela todo). **Render diferido** al cerrar (arregla pantalla negra al
+        guardar factura/cliente), **confirmación de borrado** (banner rojo), aviso de **precio 0**.
+        **PDFs (facturas/etiquetas) van a la carpeta Documentos** del dispositivo. Header fijo +
+        solo la lista scrollea; barras de scroll ocultas; form de producto a media pantalla.
+        **Suite de 83 tests** headless (`mobile/tests/`, pytest). Detalle en `mobile-roadmap.local.md`.
+  - [ ] **Menores**: líneas de texto libre "sueltas" en factura (ya cubierto por "Otro"),
+        Guardado (logo/pie de PDF), verificación en device (animaciones/gestos, PDFs a Documentos
+        compartido en Android). Detalle en `mobile-roadmap.local.md`.
+- [ ] **Fase 6.3 — AFIP en mobile** (viable — verificado 2026-07-17): `cryptography` y `lxml` ya
+      están **prebuilt para Android** en el índice de Flet (pypi.flet.dev) y `zeep` es pure-Python,
+      así que no hay bloqueo de wheels nativas. Trabajo: agregarlas al build + permiso INTERNET,
+      cert/key vía FilePicker, reactivar "Autorizar en AFIP" y solapa AFIP, QR fiscal + CAE, y
+      confirmar con un APK real contra homologación.
 
 ## Transversal
 - [ ] Licenciamiento / activación de escritorio + empaquetado por marca
