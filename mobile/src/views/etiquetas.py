@@ -148,11 +148,12 @@ class EtiquetasView:
         hijos = [clabel(t, "2 · CONFIGURÁ TALLES Y CANTIDAD"), ft.Container(height=11),
                  selinfo, ft.Container(height=10)] + filas_ctrl
         if not universal:
-            hijos.append(ft.Container(
+            hijos.append(ft.Row([ft.Container(   # ocupa todo el ancho
+                expand=True, alignment=ft.Alignment.CENTER,
                 content=ft.Text("＋ Agregar otro talle", size=12.5, weight=ft.FontWeight.W_600,
                                 color=t["accent"]),
                 border=BALL(1, soft(t["accent"], 0.45)), border_radius=10, padding=PADS(8, 12),
-                on_click=lambda e: self._add_row(), ink=True, margin=MAR(bottom=4)))
+                on_click=lambda e: self._add_row(), ink=True, margin=MAR(bottom=4))]))
         hijos.append(ft.Container(
             content=ft.Text("Agregar a la cola →", color=t["accent_ink"], weight=ft.FontWeight.W_700,
                             size=14),
