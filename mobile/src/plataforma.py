@@ -17,15 +17,20 @@ def es_android() -> bool:
 
 
 def carpeta_documentos() -> Path:
-    """Carpeta donde se guardan los PDF: la de **Documentos** del dispositivo.
-    Android → `/storage/emulated/0/Documents/Vexa`; escritorio → `~/Documents/Vexa`.
-    Override con `VEXA_DOCS_DIR`. Si no se puede escribir (Android sin permiso al
-    almacenamiento compartido), cae al storage privado de la app."""
+    """Carpeta donde se generan los PDF.
+
+    - **Android**: storage privado de la app (`DATA_DIR/pdf`), siempre escribible y
+      cubierto por el FileProvider → el PDF se **entrega por el share sheet** (WhatsApp,
+      Drive, guardar en Descargas…). Escribir directo a la carpeta Documentos compartida
+      necesita permisos/MediaStore (queda para 6.2c).
+    - **Escritorio**: `~/Documents/Vexa` (se abre con el visor del sistema).
+    Override con `VEXA_DOCS_DIR`."""
     env = os.getenv("VEXA_DOCS_DIR")
     if env:
         base = Path(env)
     elif es_android():
-        base = Path("/storage/emulated/0/Documents/Vexa")
+        from vexa_core.database.db import DATA_DIR
+        base = Path(DATA_DIR) / "pdf"
     else:
         base = Path.home() / "Documents" / "Vexa"
     try:
@@ -49,14 +54,16 @@ def _compartir_android(ruta: str) -> None:
 
     activity = PythonActivity.mActivity
     archivo = File(ruta)
-    authority = activity.getPackageName() + ".flutter.share_provider"
+    # El FileProvider del build de Flet declara el authority `<applicationId>.provider`
+    # (antes usábamos `.flutter.share_provider`, que NO existía → el share fallaba).
+    authority = activity.getPackageName() + ".provider"
     uri = FileProvider.getUriForFile(activity, authority, archivo)
 
     intent = Intent(Intent.ACTION_SEND)
     intent.setType("application/pdf")
     intent.putExtra(Intent.EXTRA_STREAM, cast("android.os.Parcelable", uri))
     intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-    chooser = Intent.createChooser(intent, cast("java.lang.CharSequence", "Compartir factura"))
+    chooser = Intent.createChooser(intent, cast("java.lang.CharSequence", "Compartir PDF"))
     chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     activity.startActivity(chooser)
 
