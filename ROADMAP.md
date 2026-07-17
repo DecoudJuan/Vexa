@@ -197,9 +197,18 @@ Qt-free y reutilizable. Repo pasa a monorepo y se renombra a **`Vexa`**.
         **PDFs (facturas/etiquetas) van a la carpeta Documentos** del dispositivo. Header fijo +
         solo la lista scrollea; barras de scroll ocultas; form de producto a media pantalla.
         **Suite de 83 tests** headless (`mobile/tests/`, pytest). Detalle en `mobile-roadmap.local.md`.
+  - [x] **6.2f — Pulido en device (emulador Vexa35) + share nativo** (release **v2.9.6**):
+        **Marquee resuelto** — el nombre largo se desliza suave hasta el último carácter sin
+        chocar con el swipe de pestañas (`Text` posicionado en un `Stack` → render completo, se
+        mide el ancho real con `on_size_change` y se anima `left` numérico). **Confirmación de
+        borrado** a pantalla completa (dim) sobre el form. **PDF por el share sheet nativo**
+        (`ft.Share.share_files`: WhatsApp/Imprimir/Drive), con **fallback a guardar** si el share
+        no responde. **"Agregar otro talle"** a todo el ancho. **Factura arranca sin cliente**.
+        **Borrar cliente con facturas** → soft-delete (conserva el nombre en el comprobante).
+        Verificado instalando el APK en el emulador Android (Vexa35, x86_64).
   - [ ] **Menores**: líneas de texto libre "sueltas" en factura (ya cubierto por "Otro"),
-        Guardado (logo/pie de PDF), verificación en device (animaciones/gestos, PDFs a Documentos
-        compartido en Android). Detalle en `mobile-roadmap.local.md`.
+        Guardado (logo/pie de PDF), share nativo del PDF a afinar en device real (hoy cae a guardar).
+        Detalle en `mobile-roadmap.local.md`.
 - [ ] **Fase 6.3 — AFIP en mobile** (viable — verificado 2026-07-17): `cryptography` y `lxml` ya
       están **prebuilt para Android** en el índice de Flet (pypi.flet.dev) y `zeep` es pure-Python,
       así que no hay bloqueo de wheels nativas. Trabajo: agregarlas al build + permiso INTERNET,
