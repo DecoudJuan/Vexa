@@ -9,10 +9,33 @@ from __future__ import annotations
 
 import os
 import sys
+from pathlib import Path
 
 
 def es_android() -> bool:
     return "ANDROID_ARGUMENT" in os.environ or "ANDROID_ROOT" in os.environ
+
+
+def carpeta_documentos() -> Path:
+    """Carpeta donde se guardan los PDF: la de **Documentos** del dispositivo.
+    Android → `/storage/emulated/0/Documents/Vexa`; escritorio → `~/Documents/Vexa`.
+    Override con `VEXA_DOCS_DIR`. Si no se puede escribir (Android sin permiso al
+    almacenamiento compartido), cae al storage privado de la app."""
+    env = os.getenv("VEXA_DOCS_DIR")
+    if env:
+        base = Path(env)
+    elif es_android():
+        base = Path("/storage/emulated/0/Documents/Vexa")
+    else:
+        base = Path.home() / "Documents" / "Vexa"
+    try:
+        base.mkdir(parents=True, exist_ok=True)
+        return base
+    except Exception:  # noqa: BLE001 — fallback al storage privado
+        from vexa_core.database.db import DATA_DIR
+        alt = Path(DATA_DIR) / "pdf"
+        alt.mkdir(parents=True, exist_ok=True)
+        return alt
 
 
 def _compartir_android(ruta: str) -> None:
