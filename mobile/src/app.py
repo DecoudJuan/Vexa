@@ -64,11 +64,45 @@ class VexaApp:
         self.page.show_dialog(ft.SnackBar(ft.Text(texto)))
 
     def marquee(self, texto, size, weight, color, fit=18) -> ft.Control:
-        """Nombre de una línea. Si es largo, se puede **deslizar con el dedo** para ver el
-        resto (Row scrollable, barra oculta). SIN animación automática: el auto-scroll con
-        `run_task` (un loop por fila) lageaba toda la app con listas largas — se quitó."""
-        txt = ft.Text(texto or "", size=size, weight=weight, color=color, no_wrap=True)
-        return ft.Row([txt], scroll=ft.ScrollMode.HIDDEN, spacing=0)
+        """Nombre de una línea. Si es largo, se revela el resto **a demanda**: apretándolo
+        (long-press en el celular) o pasándole el puntero por encima (hover en escritorio).
+        NO usa scroll con el dedo (chocaba con el swipe de pestañas) NI un loop automático
+        (lageaba la app): se anima el offset UNA vez por interacción."""
+        texto = texto or ""
+        txt = ft.Text(texto, size=size, weight=weight, color=color, no_wrap=True,
+                      offset=ft.Offset(0, 0), animate_offset=ft.Animation(1900, ft.AnimationCurve.EASE_IN_OUT))
+        clip = ft.Container(content=txt, clip_behavior=ft.ClipBehavior.HARD_EDGE)
+        if len(texto) <= fit:
+            return clip
+        frac = min(0.9, (len(texto) - fit) / len(texto))   # cuánto correr para ver el final
+        st = {"anim": False}
+
+        async def _reveal():
+            import asyncio
+            if st["anim"]:
+                return
+            st["anim"] = True
+            try:
+                txt.offset = ft.Offset(-frac, 0)   # corre hasta el final (se lee mientras se mueve)
+                txt.update()
+                await asyncio.sleep(2.4)            # lo deja mostrando el final
+                txt.offset = ft.Offset(0, 0)
+                txt.update()
+                await asyncio.sleep(1.9)
+            except Exception:  # noqa: BLE001
+                pass
+            st["anim"] = False
+
+        def disparar(*_):
+            try:
+                self.page.run_task(_reveal)
+            except Exception:  # noqa: BLE001
+                pass
+
+        # long-press (celular) + hover (mouse). El TAP normal NO lo dispara → sigue editando/eligiendo.
+        gd = ft.GestureDetector(content=clip, on_long_press=lambda e: disparar())
+        return ft.Container(content=gd,
+                            on_hover=lambda e: disparar() if getattr(e, "data", None) in ("true", True) else None)
 
     def confirm_toast(self, mensaje: str, on_confirm):
         """Toast arriba de todo (sobre la pantalla) con acción de confirmar.
