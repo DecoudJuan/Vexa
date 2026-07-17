@@ -1,6 +1,6 @@
 [project]
 name = "vexa-mobile"
-version = "2.9.2"
+version = "2.9.3"
 description = "Vexa — facturador offline: clientes, productos, facturas y etiquetas."
 readme = "README.md"
 requires-python = ">=3.10"
