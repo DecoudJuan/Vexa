@@ -946,7 +946,8 @@ class VexaApp:
                             ft.Container(content=ft.Text("Eliminar", color="#ffffff", size=13,
                                                          weight=ft.FontWeight.W_700), bgcolor=t["danger"],
                                          border_radius=10, padding=PADS(8, 16), ink=True,
-                                         on_click=lambda e: (_cerrar_confirm(), borrar(None))),
+                                         on_click=lambda e: (confirm.__setitem__("borrar", True),
+                                                             _cerrar_confirm())),
                         ]),
                     ], spacing=0, tight=True)))
             # Dimensiones EXPLÍCITAS de pantalla completa: sin esto el Stack con `expand`
@@ -960,9 +961,19 @@ class VexaApp:
             cuerpo = ft.SafeArea(
                 ft.Stack([dim, banner], width=ancho, height=alto),
                 avoid_intrusions_bottom=False)
+
+            def _confirm_dismiss(_e=None):
+                # La hoja de confirmación YA cerró (su scrim se removió). RECIÉN ahora
+                # cerramos el form y renderizamos: si borráramos en el mismo handler que
+                # cierra la confirmación, quedarían dos scrims desmontándose a la vez y la
+                # pantalla se ponía negra. Secuenciar los cierres lo evita siempre.
+                confirm["abierta"] = False
+                if confirm.pop("borrar", False):
+                    borrar(None)
+
             sheet = ft.BottomSheet(
                 content=cuerpo, bgcolor="#00000000", fullscreen=True, dismissible=True,
-                show_drag_handle=False, on_dismiss=lambda e: confirm.__setitem__("abierta", False))
+                show_drag_handle=False, on_dismiss=_confirm_dismiss)
             confirm["abierta"] = True
             self.page.show_dialog(sheet)
 

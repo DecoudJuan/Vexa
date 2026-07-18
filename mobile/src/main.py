@@ -18,6 +18,18 @@ import os
 _storage = os.getenv("FLET_APP_STORAGE_DATA")
 if _storage:
     os.environ["FACTURACION_DATA_DIR"] = _storage
+    # Seed opcional: si el APK trae una base pre-cargada (`seed_data.db` junto al código)
+    # y el dispositivo TODAVÍA no tiene base, la copiamos → la app arranca CON esos datos
+    # (salta el onboarding). Si no hay seed, arranca vacía como siempre (onboarding).
+    import shutil
+    _seed = os.path.join(os.path.dirname(os.path.abspath(__file__)), "seed_data.db")
+    _target = os.path.join(_storage, "data.db")
+    if os.path.exists(_seed) and not os.path.exists(_target):
+        try:
+            os.makedirs(_storage, exist_ok=True)
+            shutil.copy(_seed, _target)
+        except Exception:  # noqa: BLE001 — si falla, arranca vacía
+            pass
 
 # --- 2) Core + Flet + módulos de la app -------------------------------------
 import flet as ft  # noqa: E402

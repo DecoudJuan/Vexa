@@ -7,9 +7,9 @@ import flet as ft
 
 from theme import PADS, MAR, BALL, BEDGE, soft
 from widgets import titulo, search, card, clabel, empty
-from vexa_core.utils.etiquetas import resumen_cola, generar_pdf_etiquetas
-from vexa_core.utils.pdf_generator import obtener_carpeta_pdf
 import plataforma
+# NOTA: reportlab (vía vexa_core.utils.etiquetas y pdf_generator) se importa PEREZOSO
+# donde se usa, para no arrastrarlo al cold start (la landing es Inicio, no Etiquetas).
 
 
 class EtiquetasView:
@@ -216,6 +216,7 @@ class EtiquetasView:
                 content=ft.Row([ico, main, qty, xb], spacing=11,
                                vertical_alignment=ft.CrossAxisAlignment.CENTER)))
 
+        from vexa_core.utils.etiquetas import resumen_cola  # perezoso (arrastra reportlab)
         r = resumen_cola(sum(q["cantidad"] for q in self.queue))
 
         def sumrow(lbl, val):
@@ -265,6 +266,8 @@ class EtiquetasView:
 
     async def _generar(self, _e=None):
         try:
+            from vexa_core.utils.etiquetas import generar_pdf_etiquetas   # perezoso
+            from vexa_core.utils.pdf_generator import obtener_carpeta_pdf
             ruta = generar_pdf_etiquetas(self.queue, obtener_carpeta_pdf(self.app.db))
             ok = await plataforma.entregar_pdf(self.app, ruta, titulo="Imprimir etiquetas")
             if not ok:
