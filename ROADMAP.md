@@ -16,10 +16,11 @@ Estado del rework de escritorio: **completo** (6.0b solo Facturas, 6.1b Etiqueta
   (nombre/ícono/publisher configurables) para vender white-label.
 - **Gated por AFIP (Fase 4)**: test en vivo contra homologación/producción (necesita
   certificado + punto de venta habilitado). Futuro: `.pfx`, percepciones, monedas ≠ ARS.
-- **Mobile — EN CURSO** (Flet, offline): 6.2a (toolchain + APK) · 6.2b (CRUD completo + import
-  Excel) · **6.2e** (onboarding, página AFIP + tutorial ARCA, selectores full-screen con
-  autocrear cliente y "Otro" producto, nav/slide/marquee, PDFs a Documentos, 83 tests) →
-  **hechos, release v2.9.0**. Luego 6.3 (conexión AFIP en mobile).
+- **Mobile — EN CURSO** (Flet, offline): 6.2a–6.2e (toolchain, CRUD completo + import Excel,
+  onboarding, página AFIP, PDFs a Documentos) · 6.2f (pulido en device + share nativo, v2.9.6) ·
+  **6.2g** (fix pantalla negra al borrar, optimización de arranque, base pre-cargada, **119 tests**
+  con 35 escenarios BDD + **E2E visual con Appium**) → **hechos, release v2.9.7**. Luego 6.3
+  (conexión AFIP en mobile).
 
 ## Base (hecho)
 - [x] Sin dependencia de Access en runtime: arranca con base vacía y permite
@@ -206,6 +207,15 @@ Qt-free y reutilizable. Repo pasa a monorepo y se renombra a **`Vexa`**.
         no responde. **"Agregar otro talle"** a todo el ancho. **Factura arranca sin cliente**.
         **Borrar cliente con facturas** → soft-delete (conserva el nombre en el comprobante).
         Verificado instalando el APK en el emulador Android (Vexa35, x86_64).
+  - [x] **6.2g — Fix borrado + optimizaciones + tests BDD + E2E visual** (release **v2.9.7**):
+        **Fix pantalla negra al borrar** (cliente/producto): se secuencian los cierres de los
+        diálogos (la confirmación se cierra y recién en su `on_dismiss` se cierra el form y se
+        renderiza) para no dejar dos scrims desmontándose a la vez. **Optimización de arranque**:
+        `reportlab`/`openpyxl` con import perezoso (fuera del cold start) + `PRAGMA
+        synchronous=NORMAL`. **Base pre-cargada** opcional (`src/seed_data.db`) → arranca con datos
+        y saltea el onboarding. **Suite a 119 tests**: e2e de vista + **35 escenarios BDD (Gherkin,
+        `pytest-bdd`)** por feature. **E2E visual tipo Cypress** con **Appium** sobre el APK en el
+        emulador (`mobile/e2e_visual/`): recorre pantallas y saca screenshots.
   - [ ] **Menores**: líneas de texto libre "sueltas" en factura (ya cubierto por "Otro"),
         Guardado (logo/pie de PDF), share nativo del PDF a afinar en device real (hoy cae a guardar).
         Detalle en `mobile-roadmap.local.md`.
