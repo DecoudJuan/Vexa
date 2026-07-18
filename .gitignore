@@ -74,3 +74,9 @@ desktop.ini
 
 # Bocetos de diseño (referencia visual, no se versionan)
 design/
+
+# Base pre-cargada para el APK (datos reales de clientes)
+mobile/src/seed_data.db
+
+# Screenshots del E2E visual (datos reales de clientes)
+mobile/e2e_visual/shots/
