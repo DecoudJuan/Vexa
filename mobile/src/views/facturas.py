@@ -18,8 +18,10 @@ import flet as ft
 from theme import PAD, PADS, MAR, BALL, BEDGE, soft
 from widgets import titulo, search, row_card, empty, add_button, clabel
 from vexa_core.utils.helpers import fmt_ar, fmt_cantidad_corta, parse_float, etiqueta_concepto
-from vexa_core.utils.pdf_generator import generar_pdf_documento
 import plataforma
+# NOTA: `pdf_generator` (reportlab) NO se importa acá arriba a propósito: arrastra
+# reportlab al cold start aunque el usuario nunca genere un PDF. Se importa perezoso
+# dentro del handler de PDF (más abajo). Ídem etiquetas.py e import_productos.py.
 
 
 class FacturasView:
@@ -425,6 +427,7 @@ class FacturasView:
 
         async def _h(_e):
             try:
+                from vexa_core.utils.pdf_generator import generar_pdf_documento  # perezoso
                 ruta = generar_pdf_documento(app.db, factura_id)
                 ok = await plataforma.entregar_pdf(app, ruta)
                 if not ok:
@@ -433,9 +436,11 @@ class FacturasView:
                 app.snack(f"Error al generar PDF: {ex}")
         return _h
 
-    def _fill(self, texto: str = ""):
+    def _fill(self, texto: str = "", facturas=None):
         t = self.app.t
-        facturas = self.app.db.get_facturas(search=texto or None)
+        # `facturas` pre-cargadas (las reusa build() para no consultar dos veces).
+        if facturas is None:
+            facturas = self.app.db.get_facturas(search=texto or None)
         filas = []
         for f in facturas:
             main = ft.Column([
@@ -474,7 +479,7 @@ class FacturasView:
         kpis = ft.Row([kpi("Total emitido", fmt_ar(total), "en total"),
                        kpi("Facturas", fmt_cantidad_corta(len(facturas)), "en total")], spacing=10)
         self.lista = ft.Column(spacing=9, scroll=ft.ScrollMode.HIDDEN, expand=True)
-        self._fill()
+        self._fill(facturas=facturas)   # reusa la lista ya traída (sin re-consultar)
         # Header (título + + + KPIs + buscador) FIJO; solo la lista se desliza.
         return ft.Column([
             ft.Row([titulo(t, "Facturas", "Emití y gestioná tus facturas."),

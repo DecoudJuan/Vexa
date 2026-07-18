@@ -50,6 +50,11 @@ class DatabaseManager:
         def _set_pragmas(dbapi_conn, _rec):  # noqa: ANN001
             cur = dbapi_conn.cursor()
             cur.execute("PRAGMA journal_mode = WAL")
+            # NORMAL es seguro bajo WAL (no corrompe la base; a lo sumo se pierde la
+            # última transacción ante corte de energía, aceptable para facturación
+            # offline) y evita un fsync extra por commit → escrituras más rápidas,
+            # sobre todo en el flash de Android.
+            cur.execute("PRAGMA synchronous = NORMAL")
             cur.execute("PRAGMA foreign_keys = ON")
             cur.close()
 

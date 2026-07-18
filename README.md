@@ -177,8 +177,18 @@ etiquetas). Además: **onboarding de primera ejecución**, **página AFIP** con 
 selectores full-screen (el **cliente se autocrea** si no existe, producto con opción **"Otro"**
 de texto libre), nav con pastilla deslizante, **marquee** de nombres largos (se desliza al
 mantenerlo apretado, hasta el último carácter) y **compartir/imprimir** el PDF por el share
-sheet nativo (con fallback a guardar). Suite de **84 tests** headless en `mobile/tests/`
-(`cd mobile && python -m pytest`).
+sheet nativo (con fallback a guardar).
+
+**Tests.** Suite de **119 tests** en `mobile/tests/` (`cd mobile && python -m pytest`): e2e
+headless de lógica de vista + **35 escenarios BDD (Gherkin, `pytest-bdd`)** en
+`tests/features/*.feature` que cubren cada feature (clientes, productos, facturación,
+etiquetas, importación, onboarding, empresa y AFIP). Además hay un **E2E visual tipo Cypress**
+con **Appium** sobre el APK en un emulador (`mobile/e2e_visual/`): recorre las pantallas y
+saca screenshots para revisar regresiones visuales.
+
+**Arranque optimizado**: `reportlab`/`openpyxl` se importan de forma perezosa (no en el cold
+start), y una base **pre-cargada** opcional (`mobile/src/seed_data.db`) hace que la app arranque
+directamente con datos y saltee el onboarding.
 
 ### Instalar en el celular (Android)
 
@@ -200,6 +210,33 @@ cd mobile
 flet run src/main.py
 ```
 
+### Correr los tests
+
+Los tests son **headless** (no necesitan emulador ni ventana Flet):
+
+```bash
+cd mobile
+pip install pytest pytest-bdd        # dependencias de test
+python -m pytest                     # corre los 119 tests
+```
+
+Variantes útiles:
+
+```bash
+python -m pytest -v                              # detalle de cada test / escenario
+python -m pytest tests/test_bdd_facturas.py      # solo un feature (BDD)
+python -m pytest -k borrar                        # filtrar por nombre
+```
+
+Los **escenarios BDD (Gherkin)** están en `tests/features/*.feature` y sus pasos en
+`tests/test_bdd_*.py`; los pasos compartidos y la fixture `context` viven en `tests/conftest.py`.
+
+> **En Windows**, si ves un `UnicodeEncodeError` en la consola, exportá `PYTHONUTF8=1`.
+
+**E2E visual (Appium, opcional):** corre sobre el APK en un emulador y saca screenshots de
+cada pantalla para revisar regresiones visuales. Requiere un emulador x86_64 + server Appium;
+instrucciones completas en [`mobile/e2e_visual/README.md`](mobile/e2e_visual/README.md).
+
 ### Buildear el APK vos mismo
 
 `flet build` instala las dependencias con pip para el target y **no** resuelve rutas
@@ -210,6 +247,7 @@ pip install flet uv
 python mobile/scripts/vendor_core.py          # copia vexa_core → mobile/src/vexa_core
 cd mobile
 flet build apk --split-per-abi                # un APK por arquitectura (~60 MB c/u)
+flet build apk --arch arm64-v8a               # una sola ABI (queda como build/apk/vexa-mobile.apk)
 # o un único APK "fat" (~153 MB, instala en cualquier ABI): flet build apk
 ```
 
@@ -218,6 +256,9 @@ y licencias aceptadas). Los APK quedan en `mobile/build/apk/` (`vexa-mobile-arm6
 `vexa-mobile-armeabi-v7a.apk`, `vexa-mobile-x86_64.apk` con `--split-per-abi`). La base SQLite
 en Android vive en el storage privado de la app (`FLET_APP_STORAGE_DATA`), que `main.py`
 mapea a `FACTURACION_DATA_DIR` antes de importar el core.
+
+> **En Windows**: exportá `PYTHONUTF8=1` antes de `flet build`, si no `flet` crashea al
+> arrancar por un `UnicodeEncodeError` de `rich` en la consola (sin haber compilado nada).
 
 ---
 

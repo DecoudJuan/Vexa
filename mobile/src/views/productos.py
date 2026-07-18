@@ -7,7 +7,8 @@ import flet as ft
 from theme import PADS, BALL, soft
 from widgets import titulo, search, row_card, empty, add_button
 from vexa_core.utils.helpers import fmt_ar
-from views.import_productos import ImportProductosView
+# `import_productos` (arrastra openpyxl vía excel_import) se importa PEREZOSO en
+# `_importar`, para no cargar openpyxl en el cold start si no se importa una lista.
 
 
 def _parse_talles(texto: str) -> list[str]:
@@ -63,6 +64,7 @@ class ProductosView:
             allowed_extensions=["xlsx", "xlsm", "xls", "csv"], allow_multiple=False)
         if not files:
             return
+        from views.import_productos import ImportProductosView  # perezoso (openpyxl)
         # Subpágina full-screen (evita el scrim negro del BottomSheet al re-mapear).
         self.app.abrir_subpagina(ImportProductosView(self.app, files[0].path))
 
