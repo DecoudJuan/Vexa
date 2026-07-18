@@ -35,6 +35,15 @@ python e2e_visual/tour.py build/apk/vexa-mobile-x86_64.apk
 `05_facturas` · `06_inicio`. Instala limpio (`full_reset`) para tomar la base
 `src/seed_data.db` y saltear el onboarding.
 
+> **Para pantallas pobladas** el APK tiene que traer una base seed. Si buildeaste el
+> APK **sin** `src/seed_data.db` (p. ej. el distributable), el tour arranca en el
+> **onboarding** (sin barra de tabs) y los screenshots salen vacíos. Restaurá el seed y
+> rebuildeá el x86_64 antes de correr el tour:
+> ```bash
+> cp src/seed_data.db.bak src/seed_data.db   # si lo tenés guardado como .bak
+> flet build apk --arch x86_64
+> ```
+
 ## Notas
 - **Navegación por coordenadas**: Flet dibuja sobre un canvas Flutter sin IDs de
   accesibilidad confiables, así que los taps son por fracción de pantalla. Robusto para
