@@ -210,6 +210,33 @@ cd mobile
 flet run src/main.py
 ```
 
+### Correr los tests
+
+Los tests son **headless** (no necesitan emulador ni ventana Flet):
+
+```bash
+cd mobile
+pip install pytest pytest-bdd        # dependencias de test
+python -m pytest                     # corre los 119 tests
+```
+
+Variantes útiles:
+
+```bash
+python -m pytest -v                              # detalle de cada test / escenario
+python -m pytest tests/test_bdd_facturas.py      # solo un feature (BDD)
+python -m pytest -k borrar                        # filtrar por nombre
+```
+
+Los **escenarios BDD (Gherkin)** están en `tests/features/*.feature` y sus pasos en
+`tests/test_bdd_*.py`; los pasos compartidos y la fixture `context` viven en `tests/conftest.py`.
+
+> **En Windows**, si ves un `UnicodeEncodeError` en la consola, exportá `PYTHONUTF8=1`.
+
+**E2E visual (Appium, opcional):** corre sobre el APK en un emulador y saca screenshots de
+cada pantalla para revisar regresiones visuales. Requiere un emulador x86_64 + server Appium;
+instrucciones completas en [`mobile/e2e_visual/README.md`](mobile/e2e_visual/README.md).
+
 ### Buildear el APK vos mismo
 
 `flet build` instala las dependencias con pip para el target y **no** resuelve rutas
