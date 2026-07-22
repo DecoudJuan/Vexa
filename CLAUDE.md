@@ -41,6 +41,15 @@ powershell -ExecutionPolicy Bypass -File mobile\scripts\build_apk.ps1
 - **Core duplicado en mobile**: `mobile/src/vexa_core/` es una **copia vendorizada** (gitignoreada) que genera `python mobile/scripts/vendor_core.py`. **Editá siempre `vexa_core/vexa_core/` (la raíz) y re-vendorizá**; no edites la copia de mobile (se pisa al buildear).
 - **Seed mobile**: si existe `mobile/src/seed_data.db`, `main.py` lo copia al primer arranque (salta onboarding). Las **releases van vacías** (se saca el seed). Al generarlo hay que hacer `PRAGMA wal_checkpoint(TRUNCATE)` (Android copia solo el `.db`, sin `-wal`).
 
+## Principios de código (por sobre todo)
+
+- **DRY**: la lógica compartida va **una sola vez en `vexa_core`**, nunca duplicada entre `desktop/` y `mobile/`. Si algo lo necesitan las dos UIs (parseo, formato, PDF, reglas de negocio, correcciones de catálogo), va al core y cada UI lo consume. Antes de escribir algo nuevo, buscá si ya existe un helper y **extendelo** en vez de copiar.
+- **Buenas prácticas de cada framework** (no pelear con la herramienta):
+  - **SQLAlchemy 2.0**: acceso vía `Session`/`select()`/ORM; SQL crudo solo para DDL puntual de compatibilidad. La API pública devuelve `dict`.
+  - **PySide6**: widgets + layouts + QSS (`styles.py`), señales/slots; nada de lógica de negocio en la UI (delegar al core).
+  - **Flet 0.86**: respetar sus idioms (ver "Trampas"); `ListView` para listas largas; helpers de `theme.py` para padding/border.
+- **Sin trash code**: nada de código muerto, imports sin usar ni duplicación; funciones puras y testeables en `utils/`; nombres claros. Cada cambio deja la suite (`pytest`) verde.
+
 ## Convenciones (importante)
 
 - **Commits**: identidad del usuario (Juan Decoud). **Nunca** agregar `Co-Authored-By: Claude`. Commits chicos, por rama/PR. No hay `gh` CLI: se pushea y se pasa el link de compare.
