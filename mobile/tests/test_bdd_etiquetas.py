@@ -81,6 +81,12 @@ def _cola_detalle(context, a, ta, b, tb):
     assert porcant[ta] == int(a) and porcant[tb] == int(b)
 
 
+@then(parsers.parse('la primera entrada de la cola tiene talle "{talle}" y cantidad {cant:d}'))
+def _primera_entrada(context, talle, cant):
+    q = context["view"].queue[0]
+    assert q["talle"] == talle and q["cantidad"] == cant
+
+
 @then("se entregó un archivo PDF")
 def _pdf(context):
     assert context.get("ruta", "").endswith(".pdf")

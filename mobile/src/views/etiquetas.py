@@ -7,6 +7,7 @@ import flet as ft
 
 from theme import PADS, MAR, BALL, BEDGE, soft
 from widgets import titulo, search, card, clabel, empty
+from vexa_core.utils.helpers import talle_parentesis
 import plataforma
 # NOTA: reportlab (vía vexa_core.utils.etiquetas y pdf_generator) se importa PEREZOSO
 # donde se usa, para no arrastrarlo al cold start (la landing es Inicio, no Etiquetas).
@@ -182,10 +183,21 @@ class EtiquetasView:
         self._sync_rows()
         p = self.sel
         for row in self.rows:
-            self.queue.append({"codigo": p["codigo"], "nombre": p["nombre"],
-                               "talle": row["talle"], "cantidad": max(1, int(row["cant"] or 1))})
+            self._push_queue(p["codigo"], p["nombre"], row["talle"],
+                             max(1, int(row["cant"] or 1)))
         self._render_cola()
         self._u(self._paso3)
+
+    def _push_queue(self, codigo, nombre, talle, cant):
+        """Agrega a la cola fusionando con un ítem igual (mismo código, nombre y
+        talle): en vez de duplicar la fila, suma la cantidad. Así agregar dos
+        veces "041 T1" queda como una sola línea ×2."""
+        for it in self.queue:
+            if it["codigo"] == codigo and it["nombre"] == nombre and it["talle"] == talle:
+                it["cantidad"] += cant
+                return
+        self.queue.append({"codigo": codigo, "nombre": nombre, "talle": talle,
+                           "cantidad": cant})
 
     # ------------------------------------------------------------- paso 3
     def _render_cola(self):
@@ -200,10 +212,14 @@ class EtiquetasView:
                                alignment=ft.Alignment.CENTER,
                                content=ft.Text(q["codigo"] or "—", size=10, weight=ft.FontWeight.W_800,
                                                color=t["accent_ink"], font_family="monospace"))
-            titulo_it = q["nombre"] + (f" — T {q['talle']}" if q["talle"] else "")
+            paren = talle_parentesis(q["talle"])
+            det = []
+            if paren:  # talle bien visible (accent) para que no se corte con el nombre
+                det.append(ft.Text(paren, size=11.5, weight=ft.FontWeight.W_800, color=t["accent"]))
+            det.append(ft.Text(f"Código {q['codigo'] or '—'}", size=11, color=t["muted"]))
             main = ft.Column([
-                ft.Text(titulo_it, size=13, weight=ft.FontWeight.W_700, color=t["ink"], no_wrap=True),
-                ft.Text(f"Código {q['codigo']}", size=11, color=t["muted"]),
+                ft.Text(q["nombre"], size=13, weight=ft.FontWeight.W_700, color=t["ink"], no_wrap=True),
+                ft.Row(det, spacing=6),
             ], spacing=1, expand=True, tight=True)
             qty = ft.Container(bgcolor=soft(t["accent"], 0.12), border_radius=8, padding=PADS(3, 9),
                                content=ft.Text(f"×{q['cantidad']}", size=12.5,

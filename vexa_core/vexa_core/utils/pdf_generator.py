@@ -230,6 +230,8 @@ def _tabla_lineas(lineas: list[dict]) -> Table:
         cantidad = ln.get("cantidad") or 0
         pvp = ln.get("pvp") or 0
         importe = cantidad * pvp
+        if importe < 0:   # línea "a favor" (crédito): se aclara junto al concepto
+            nombre = f"<b>A favor</b> — {nombre}"
         rows.append([
             Paragraph(nombre, _style_small),
             f"{cantidad:g}",

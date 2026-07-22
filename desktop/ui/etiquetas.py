@@ -12,17 +12,17 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QFrame,
     QLineEdit, QListWidget, QListWidgetItem, QTableWidgetItem,
     QHeaderView, QAbstractItemView, QSpinBox, QPushButton, QMessageBox,
-    QScrollArea,
+    QScrollArea, QSizePolicy,
 )
 from PySide6.QtGui import QColor
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QSize
 
 from ui.icons import svg_icon
 from ui.anim import AnimatedTable, fade_in
 from ui.styles import get_palette
 from ui.widgets import NoScrollComboBox
 from vexa_core.utils.helpers import (
-    nombre_sin_talle, abrir_archivo, leer_tema, leer_zoom,
+    nombre_sin_talle, abrir_archivo, leer_tema, leer_zoom, talle_parentesis,
 )
 from vexa_core.utils.etiquetas import resumen_cola, generar_pdf_etiquetas
 from vexa_core.utils.pdf_generator import obtener_carpeta_pdf
@@ -198,6 +198,9 @@ class EtiquetasWidget(QWidget):
         self._queue_list.setObjectName("queue_list")
         self._queue_list.setSelectionMode(QListWidget.NoSelection)
         self._queue_list.setFocusPolicy(Qt.NoFocus)
+        # Sin scroll horizontal: las filas se ajustan al ancho del panel (si no,
+        # un nombre largo empujaba el ×cantidad fuera de la vista).
+        self._queue_list.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         lay.addWidget(self._queue_list, 1)
 
         self._queue_empty = QLabel("No hay etiquetas en la cola todavía.")
@@ -426,17 +429,31 @@ class EtiquetasWidget(QWidget):
 
             info = QVBoxLayout()
             info.setSpacing(self._S(1))
-            lbl = QLabel(it["nombre"] + (f" — T: {it['talle']}" if it["talle"] else ""))
+            paren = talle_parentesis(it["talle"])
+            lbl = QLabel(it["nombre"])
             lbl.setProperty("role", "qi-label")
-            det = QLabel(f"Código: {it['codigo'] or '—'}")
+            lbl.setToolTip(it["nombre"])
+            # Nombre en una línea: policy Ignored en el ancho → no empuja la fila
+            # (recorta si es muy largo) y así el ×cantidad y el talle quedan
+            # siempre visibles. El talle va debajo, a la izquierda del código
+            # (como en mobile).
+            lbl.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
+            cod = it["codigo"] or "—"
+            if paren:
+                det = QLabel(f"<span style=\"color:{pal['accent']}; font-weight:700;\">"
+                             f"{paren}</span>&nbsp;&nbsp;Código: {cod}")
+            else:
+                det = QLabel(f"Código: {cod}")
             det.setProperty("role", "qi-detail")
+            det.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
             info.addWidget(lbl)
             info.addWidget(det)
             h.addLayout(info, 1)
 
             qty = QLabel(f"×{it['cantidad']}")
             qty.setProperty("role", "qi-qty")
-            h.addWidget(qty)
+            qty.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+            h.addWidget(qty, 0, Qt.AlignVCenter)
 
             btn = QPushButton()
             btn.setObjectName("icon_btn")
@@ -444,10 +461,13 @@ class EtiquetasWidget(QWidget):
             btn.setFixedSize(self._S(28), self._S(28))
             btn.setCursor(Qt.PointingHandCursor)
             btn.clicked.connect(lambda _, i=it: self._remove_from_queue(i))
-            h.addWidget(btn)
+            h.addWidget(btn, 0, Qt.AlignVCenter)
 
             item = QListWidgetItem()
-            item.setSizeHint(row.sizeHint())
+            # Ancho = viewport (no el sizeHint de la fila, que con nombres largos
+            # se iba de ancho y metía scroll horizontal ocultando el ×cantidad).
+            vw = self._queue_list.viewport().width() or self._S(340)
+            item.setSizeHint(QSize(vw, row.sizeHint().height()))
             self._queue_list.addItem(item)
             self._queue_list.setItemWidget(item, row)
 

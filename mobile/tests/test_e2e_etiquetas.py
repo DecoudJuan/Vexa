@@ -58,13 +58,29 @@ def test_cola_borrar_y_limpiar(app, faja):
     v = EtiquetasView(app)
     v.build()
     v._sel_producto(faja)
+    v.rows[0]["talle_ctrl"].value = "1"
     v._add_to_queue()
+    v.rows[0]["talle_ctrl"].value = "2"   # otro talle → segunda entrada distinta
     v._add_to_queue()
     assert len(v.queue) == 2
     v._del_queue(0)
     assert len(v.queue) == 1
     v._clear()
     assert v.queue == []
+
+
+def test_cola_fusiona_mismo_producto_y_talle(app, faja):
+    """Agregar el mismo producto+talle dos veces suma la cantidad en una sola
+    entrada, en vez de duplicar la fila."""
+    v = EtiquetasView(app)
+    v.build()
+    v._sel_producto(faja)
+    v.rows[0]["talle_ctrl"].value = "1"
+    v._add_to_queue()
+    v._add_to_queue()
+    assert len(v.queue) == 1
+    assert v.queue[0]["talle"] == "1"
+    assert v.queue[0]["cantidad"] == 2
 
 
 def test_generar_pdf(app, faja, monkeypatch):

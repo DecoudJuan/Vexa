@@ -18,9 +18,10 @@ Estado del rework de escritorio: **completo** (6.0b solo Facturas, 6.1b Etiqueta
   certificado + punto de venta habilitado). Futuro: `.pfx`, percepciones, monedas ≠ ARS.
 - **Mobile — EN CURSO** (Flet, offline): 6.2a–6.2e (toolchain, CRUD completo + import Excel,
   onboarding, página AFIP, PDFs a Documentos) · 6.2f (pulido en device + share nativo, v2.9.6) ·
-  **6.2g** (fix pantalla negra al borrar, optimización de arranque, base pre-cargada, **119 tests**
-  con 35 escenarios BDD + **E2E visual con Appium**) → **hechos, release v2.9.7**. Luego 6.3
-  (conexión AFIP en mobile).
+  **6.2g** (fix pantalla negra al borrar, optimización de arranque, base pre-cargada, tests BDD +
+  **E2E visual con Appium**, v2.9.7) · **6.2h** (talle visible en la cola de etiquetas + fusión de
+  ítems, "A favor" por precio negativo, "Universal"→talle U, **121 tests**) → **hechos, release
+  v2.9.8**. Luego 6.3 (conexión AFIP en mobile).
 
 ## Base (hecho)
 - [x] Sin dependencia de Access en runtime: arranca con base vacía y permite
@@ -216,6 +217,15 @@ Qt-free y reutilizable. Repo pasa a monorepo y se renombra a **`Vexa`**.
         y saltea el onboarding. **Suite a 119 tests**: e2e de vista + **35 escenarios BDD (Gherkin,
         `pytest-bdd`)** por feature. **E2E visual tipo Cypress** con **Appium** sobre el APK en el
         emulador (`mobile/e2e_visual/`): recorre pantallas y saca screenshots.
+  - [x] **6.2h — Etiquetas/facturas: talle visible, "A favor" y catálogo** (release **v2.9.8**):
+        en la **cola de etiquetas** el talle se muestra entre paréntesis (`(T1)`, y `(U)` para
+        Universal) debajo del nombre, a la izquierda del código (mobile y desktop); **agregar el
+        mismo producto+talle** varias veces **fusiona** en una sola línea sumando la cantidad.
+        En **facturas** se admite **precio negativo** como línea **"A favor"** (crédito que resta
+        del total, marcado en pantalla y en el PDF). **"Universal"** en la lista de precios se toma
+        como **talle "U"** (import + backfill en `init_db`). Correcciones puntuales de catálogo
+        idempotentes en `init_db` (`_correcciones_catalogo`): pulgar 046 y fajas alta compresión
+        24CM→624 / 28CM→628. Suite a **121 tests**.
   - [ ] **Menores**: líneas de texto libre "sueltas" en factura (ya cubierto por "Otro"),
         Guardado (logo/pie de PDF), share nativo del PDF a afinar en device real (hoy cae a guardar).
         Detalle en `mobile-roadmap.local.md`.

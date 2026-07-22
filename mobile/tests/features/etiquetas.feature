@@ -21,12 +21,23 @@ Característica: Etiquetas
 
   Escenario: Borrar una entrada de la cola y limpiarla
     Cuando selecciono el producto "FAJA LUMBAR" para etiquetar
+    Y pongo en la primera fila talle "1" cantidad 1
     Y sumo las filas a la cola
+    Y pongo en la primera fila talle "2" cantidad 1
     Y sumo las filas a la cola
-    Y borro la primera entrada de la cola
+    Entonces la cola tiene 2 entradas
+    Cuando borro la primera entrada de la cola
     Entonces la cola tiene 1 entradas
     Cuando limpio la cola
     Entonces la cola tiene 0 entradas
+
+  Escenario: Agregar el mismo producto y talle dos veces se fusiona en la cola
+    Cuando selecciono el producto "FAJA LUMBAR" para etiquetar
+    Y pongo en la primera fila talle "1" cantidad 1
+    Y sumo las filas a la cola
+    Y sumo las filas a la cola
+    Entonces la cola tiene 1 entradas
+    Y la primera entrada de la cola tiene talle "1" y cantidad 2
 
   Escenario: Generar el PDF de la cola
     Cuando selecciono el producto "FAJA LUMBAR" para etiquetar
