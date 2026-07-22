@@ -258,6 +258,18 @@ flet build apk --arch arm64-v8a               # una sola ABI (queda como build/a
 # o un único APK "fat" (~153 MB, instala en cualquier ABI): flet build apk
 ```
 
+**Release firmada (recomendado):** para que una actualización se instale *encima* de la
+versión anterior **sin borrar los datos** del usuario, el APK debe estar firmado con la
+**misma clave** siempre. Usá el script que firma con la clave de release del proyecto:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File mobile\scripts\build_apk.ps1   # --split-per-abi por defecto
+```
+
+La clave vive en `mobile/signing/vexa-release.keystore` (**gitignoreada** — mantené un backup
+aparte; si se pierde, no podés publicar updates que conserven los datos). Es la misma clave que
+firmó todas las releases anteriores, así que las actualizaciones son retrocompatibles.
+
 Requiere el toolchain de Android: Flutter, JDK 17, Android SDK (con `cmdline-tools`
 y licencias aceptadas). Los APK quedan en `mobile/build/apk/` (`vexa-mobile-arm64-v8a.apk`,
 `vexa-mobile-armeabi-v7a.apk`, `vexa-mobile-x86_64.apk` con `--split-per-abi`). La base SQLite
