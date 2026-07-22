@@ -116,16 +116,36 @@ class FacturasView:
                                bgcolor=t["surface2"], color=t["ink"], text_size=13,
                                content_padding=PADS(8, 8), width=54, text_align=ft.TextAlign.CENTER,
                                on_change=lambda e: self._recalc_total())
+        neg = (r["pvp"] or 0) < 0   # precio negativo = línea "a favor" (crédito)
         pvp_tf = ft.TextField(value=f'{r["pvp"]:.2f}', keyboard_type=ft.KeyboardType.NUMBER,
                               border_color=t["line2"], filled=True, border_radius=10,
-                              bgcolor=t["surface2"], color=t["ink"], text_size=13,
-                              content_padding=PADS(8, 8), width=84, text_align=ft.TextAlign.RIGHT,
-                              on_change=lambda e: self._recalc_total())
+                              bgcolor=t["surface2"], color=t["danger"] if neg else t["ink"],
+                              text_size=13, content_padding=PADS(8, 8), width=84,
+                              text_align=ft.TextAlign.RIGHT,
+                              label="A favor" if neg else None,
+                              label_style=ft.TextStyle(color=t["danger"], size=10,
+                                                       weight=ft.FontWeight.W_700),
+                              on_change=lambda e, row=r: (self._recalc_total(), self._upd_favor(row)))
         r["cant_ctrl"], r["pvp_ctrl"] = cant_tf, pvp_tf
         x = ft.IconButton(ft.Icons.CLOSE, icon_size=16, icon_color=t["faint"],
                           on_click=lambda e, idx=i: self._del_row(idx))
         return ft.Container(margin=MAR(bottom=12), content=ft.Row(
             [prod_dd, cant_tf, pvp_tf, x], vertical_alignment=ft.CrossAxisAlignment.CENTER, spacing=6))
+
+    def _upd_favor(self, r: dict):
+        """Marca la línea como «A favor» (rojo + leyenda) cuando el precio es
+        negativo, sin recrear la fila (se actualiza en vivo al tipear)."""
+        tf = r.get("pvp_ctrl")
+        if tf is None:
+            return
+        t = self.app.t
+        neg = parse_float(str(tf.value)) < 0
+        tf.color = t["danger"] if neg else t["ink"]
+        tf.label = "A favor" if neg else None
+        try:
+            tf.update()
+        except Exception:  # noqa: BLE001
+            pass
 
     def _refresh_lineas(self):
         self._lineas_col.controls = [self._build_line(i, r) for i, r in enumerate(self._rows)]
@@ -318,7 +338,9 @@ class FacturasView:
                 cid, libre = None, (r["texto"].strip() or None)
             if cid is None and not libre:
                 continue
-            if (r["pvp"] or 0) <= 0:      # aviso rápido si falta el precio
+            if (r["pvp"] or 0) == 0:      # aviso rápido si falta el precio
+                # Un precio negativo es válido: es una línea "a favor" (crédito)
+                # que resta del total; solo se bloquea el 0 (precio sin cargar).
                 self.app.snack(f"«{self._prod_label(r)}» tiene precio en 0")
                 return
             lineas.append({"concepto_id": cid, "concepto_libre": libre,

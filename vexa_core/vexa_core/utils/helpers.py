@@ -107,6 +107,27 @@ def fmt_talle(talle: str | None) -> str:
     return f"T{t}" if t.isdigit() else t
 
 
+def talle_parentesis(talle: str | None) -> str:
+    """Talle entre paréntesis para aclararlo en la cola de etiquetas:
+    "(T1)" si es numérico, "(U)" para el talle Universal, "(texto)" para el
+    resto (M, XL…). Cadena vacía si no hay talle."""
+    t = (talle or "").strip()
+    if not t:
+        return ""
+    if t.upper() in ("U", "UNIVERSAL"):
+        return "(U)"
+    return f"(T{t})" if t.isdigit() else f"({t})"
+
+
+_UNIVERSAL_RE = re.compile(r"\bUNIVERSAL\b", re.IGNORECASE)
+
+
+def es_talle_universal(nombre: str | None) -> bool:
+    """True si el nombre de la lista de precios indica talle universal (contiene
+    la palabra "Universal"), para tomarlo como talle "U" en el catálogo."""
+    return bool(nombre and _UNIVERSAL_RE.search(nombre))
+
+
 def ordenar_talles(talles) -> list[str]:
     """Ordena talles: numéricos primero por valor (1, 2, 10), luego los de
     letra alfabéticamente (M, U, XL). Deduplica preservando el texto."""

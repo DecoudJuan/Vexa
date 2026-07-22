@@ -18,7 +18,9 @@ import csv
 
 import openpyxl
 
-from vexa_core.utils.helpers import separar_codigo_talle, separar_talles_rango
+from vexa_core.utils.helpers import (
+    separar_codigo_talle, separar_talles_rango, es_talle_universal,
+)
 
 # Campos que se pueden mapear. 'nombre' y 'precio' son obligatorios.
 CAMPOS = ("nombre", "precio", "codigo", "talle")
@@ -173,6 +175,10 @@ def filas_a_items(filas: list[list], mapeo: dict) -> list[dict]:
                 talle, usado = talle_extra, True
             if usado:
                 nombre = limpio
+        # "Universal" en el nombre (lista de precios) = talle "U" (Fase 3): se
+        # toma como un talle propio, sin tocar el nombre.
+        if not talle and es_talle_universal(nombre):
+            talle = "U"
         # Rango de talles en el nombre ("... TALLES 0 AL 4"): una fila del Excel
         # se expande en una variante por talle, con el nombre ya sin el rango.
         if not talle:

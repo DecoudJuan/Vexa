@@ -502,7 +502,14 @@ class DocumentoDialog(BaseModal):
         pvp_w.setObjectName("cell_input")
         pvp_w.setFixedWidth(self._S(_COL_W["pvp"]))
         pvp_w.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-        pvp_w.setValidator(num_validator(0.0, 1e12, 2))
+        # Admite negativos: una línea con precio negativo es un crédito "a favor"
+        # que resta del total (devoluciones, descuentos por unidad, etc.).
+        pvp_w.setValidator(num_validator(-1e12, 1e12, 2))
+
+        favor = QLabel("A favor")
+        favor.setObjectName("favor_badge")
+        favor.setAlignment(Qt.AlignCenter)
+        favor.setVisible(False)
 
         importe = QLabel(fmt_ar(0))
         importe.setObjectName("cell_importe")
@@ -518,11 +525,12 @@ class DocumentoDialog(BaseModal):
         rl.addWidget(combo, 1)
         rl.addWidget(cant)
         rl.addWidget(pvp_w)
+        rl.addWidget(favor)
         rl.addWidget(importe)
         rl.addWidget(btn_del)
 
         entry = {"row": row, "prod": combo, "cant": cant,
-                 "pvp": pvp_w, "importe": importe}
+                 "pvp": pvp_w, "favor": favor, "importe": importe}
         self._lineas.append(entry)
 
         combo.currentIndexChanged.connect(lambda _=None, e=entry: self._on_producto_changed(e))
@@ -604,6 +612,10 @@ class DocumentoDialog(BaseModal):
             importe = parse_float(e["cant"].text()) * parse_float(e["pvp"].text())
             subtotal += importe
             e["importe"].setText(fmt_ar(importe))
+            # Línea "a favor": precio/importe negativo → badge + importe en rojo.
+            neg = importe < 0
+            e["favor"].setVisible(neg)
+            e["importe"].setStyleSheet("color: #e5484d; font-weight: 700;" if neg else "")
 
         pct = parse_float(self._bonif_input.text())
         aplica = pct > 0
@@ -764,6 +776,10 @@ class DocumentoDialog(BaseModal):
         }
         #modal_body QLineEdit#cell_input:focus { background: %FIELD%; }
         #cell_importe { color: %ACCENT_INK%; font-weight: 700; font-size: 13px; }
+        #favor_badge {
+            color: #e5484d; background: rgba(229,72,77,0.12); border-radius: 6px;
+            padding: 2px 7px; font-size: 11px; font-weight: 700;
+        }
         #btn_row_delete { background: transparent; border: none; border-radius: 6px; }
         #btn_row_delete:hover { background: %DEL_HOVER%; }
         #btn_add_line {

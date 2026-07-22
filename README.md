@@ -179,7 +179,14 @@ de texto libre), nav con pastilla deslizante, **marquee** de nombres largos (se 
 mantenerlo apretado, hasta el último carácter) y **compartir/imprimir** el PDF por el share
 sheet nativo (con fallback a guardar).
 
-**Tests.** Suite de **119 tests** en `mobile/tests/` (`cd mobile && python -m pytest`): e2e
+**Etiquetas y facturas (v2.9.8).** En la **cola de etiquetas** el talle se muestra entre
+paréntesis (`(T1)`, y `(U)` para el talle Universal) debajo del nombre, a la izquierda del código;
+agregar el mismo producto+talle varias veces **fusiona** en una sola línea sumando la cantidad
+(mobile y desktop). En **facturas** se admite **precio negativo** como línea **"A favor"** (resta
+del total, se marca en pantalla y en el PDF). La palabra **"Universal"** del catálogo se toma como
+**talle "U"** al importar y en bases ya cargadas.
+
+**Tests.** Suite de **121 tests** en `mobile/tests/` (`cd mobile && python -m pytest`): e2e
 headless de lógica de vista + **35 escenarios BDD (Gherkin, `pytest-bdd`)** en
 `tests/features/*.feature` que cubren cada feature (clientes, productos, facturación,
 etiquetas, importación, onboarding, empresa y AFIP). Además hay un **E2E visual tipo Cypress**

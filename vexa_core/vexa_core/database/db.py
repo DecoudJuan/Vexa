@@ -122,6 +122,51 @@ class DatabaseManager:
                           .on_conflict_do_nothing(index_elements=["clave"]))
         self._backfill_codigos_concepto()
         self._backfill_talles_concepto()
+        self._correcciones_catalogo()
+
+    def _correcciones_catalogo(self) -> None:
+        """Correcciones puntuales del catálogo (casos específicos que el parseo
+        del nombre no puede resolver solo). Idempotentes: los filtros dejan de
+        matchear una vez aplicadas. Corren en ambas apps (mobile y desktop) al
+        iniciar, así la corrección queda en las dos sin reimportar."""
+        with self._session() as s:
+            # Inmovilizador de pulgar (código 046): el nombre traía
+            # "…MUÑECA CON INMOVILIZADOR DE PULGAR U" (frase duplicada + la "U"
+            # de talle pegada). Queda "INMOVILIZADOR DE MUÑECA CON PULGAR",
+            # talle Universal.
+            for c in s.execute(
+                select(Concepto).where(Concepto.codigo == "046")
+            ).scalars().all():
+                if "CON INMOVILIZADOR DE PULGAR" in (c.nombre or "").upper():
+                    c.nombre = "INMOVILIZADOR DE MUÑECA CON PULGAR"
+                    c.talle = "U"
+            # Fajas de alta compresión: el código va por medida (24 → 624,
+            # 28 → 628). El parseo descarta las medidas ("24CM") como código,
+            # así que se asignan acá a las que quedaron sin código.
+            sin_codigo = s.execute(
+                select(Concepto).where(
+                    (Concepto.codigo.is_(None)) | (Concepto.codigo == "")
+                )
+            ).scalars().all()
+            for c in sin_codigo:
+                nom = (c.nombre or "").upper()
+                if "ALTA COMPRESION" not in nom:
+                    continue
+                if "24CM" in nom:
+                    c.codigo = "624"
+                elif "28CM" in nom:
+                    c.codigo = "628"
+            # "Universal" en el nombre = talle "U" (para productos sin talle que
+            # ya estaban en la base; en la importación lo hace filas_a_items).
+            from vexa_core.utils.helpers import es_talle_universal
+            sin_talle = s.execute(
+                select(Concepto).where(
+                    (Concepto.talle.is_(None)) | (Concepto.talle == "")
+                )
+            ).scalars().all()
+            for c in sin_talle:
+                if es_talle_universal(c.nombre):
+                    c.talle = "U"
 
     def _backfill_codigos_concepto(self) -> None:
         """Rellena código y talle de productos ya cargados sin código (codigo
