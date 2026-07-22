@@ -41,6 +41,11 @@ Vexa-*.zip
 *.apk
 *.aab
 
+# Keystore de firma de Android: NUNCA versionar (mantené un backup aparte). El
+# script de build (scripts/build_apk.ps1) sí se versiona.
+mobile/signing/*.keystore
+mobile/signing/*.jks
+
 # Notas / roadmaps locales (no se suben a GitHub)
 *.local.md
 

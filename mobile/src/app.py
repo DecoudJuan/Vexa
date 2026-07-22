@@ -64,6 +64,28 @@ class VexaApp:
     def snack(self, texto: str):
         self.page.show_dialog(ft.SnackBar(ft.Text(texto)))
 
+    def debounce(self, key: str, segundos: float, fn):
+        """Ejecuta `fn` recién tras `segundos` sin nuevas llamadas con el mismo
+        `key`. Evita reconstruir la lista en CADA tecla del buscador (una sola
+        vez cuando el usuario deja de tipear). Degrada sin romper si no hay loop
+        (tests): corre `fn` directo."""
+        import asyncio
+        tareas = self.__dict__.setdefault("_debounces", {})
+        anterior = tareas.get(key)
+        if anterior is not None and not anterior.done():
+            anterior.cancel()
+
+        async def _run():
+            try:
+                await asyncio.sleep(segundos)
+            except asyncio.CancelledError:
+                return
+            fn()
+        try:
+            tareas[key] = self.page.run_task(_run)
+        except Exception:  # noqa: BLE001 — sin página/loop montado
+            fn()
+
     def marquee(self, texto, size, weight, color, fit=18) -> ft.Control:
         """Nombre de una línea. Si es largo, se revela el resto **a demanda**: apretándolo
         (long-press en el celular) o pasándole el puntero por encima (hover en escritorio).

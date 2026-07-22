@@ -500,7 +500,7 @@ class FacturasView:
 
         kpis = ft.Row([kpi("Total emitido", fmt_ar(total), "en total"),
                        kpi("Facturas", fmt_cantidad_corta(len(facturas)), "en total")], spacing=10)
-        self.lista = ft.Column(spacing=9, scroll=ft.ScrollMode.HIDDEN, expand=True)
+        self.lista = ft.ListView(spacing=9, expand=True)   # virtualizado (solo pinta lo visible)
         self._fill(facturas=facturas)   # reusa la lista ya traída (sin re-consultar)
         # Header (título + + + KPIs + buscador) FIJO; solo la lista se desliza.
         return ft.Column([
@@ -509,7 +509,8 @@ class FacturasView:
                    vertical_alignment=ft.CrossAxisAlignment.CENTER),
             ft.Container(height=14), kpis, ft.Container(height=12),
             search(t, "Buscar por número o cliente…",
-                   lambda e: (self._fill(e.control.value), self.lista.update())),
+                   lambda e: self.app.debounce("fac_search", 0.25,
+                                               lambda: (self._fill(e.control.value), self.lista.update()))),
             ft.Container(height=12),
             ft.Container(expand=True, content=self.lista),
         ], spacing=0, expand=True, horizontal_alignment=ft.CrossAxisAlignment.STRETCH)

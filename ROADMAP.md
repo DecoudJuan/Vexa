@@ -226,6 +226,13 @@ Qt-free y reutilizable. Repo pasa a monorepo y se renombra a **`Vexa`**.
         como **talle "U"** (import + backfill en `init_db`). Correcciones puntuales de catálogo
         idempotentes en `init_db` (`_correcciones_catalogo`): pulgar 046 y fajas alta compresión
         24CM→624 / 28CM→628. Suite a **121 tests**.
+  - [~] **6.2i — Performance mobile** (reducir el lag en dispositivos): listas migradas de
+        `ft.Column(scroll)` a **`ft.ListView`** (virtualizado: solo construye/pinta lo visible) en
+        Productos/Facturas/Clientes — abarata el scroll y el `build()` de cada tab; **debounce** de
+        ~250 ms en los buscadores (no reconstruir la lista en cada tecla). El marquee ya corre solo
+        en el ítem que se mantiene apretado. Pendiente/futuro: evitar el rebuild completo del árbol
+        en `render()` al cambiar de tab (cachear/alternar vistas) — diferido por el fix delicado de
+        pantalla negra; medir antes.
   - [ ] **Menores**: líneas de texto libre "sueltas" en factura (ya cubierto por "Otro"),
         Guardado (logo/pie de PDF), share nativo del PDF a afinar en device real (hoy cae a guardar).
         Detalle en `mobile-roadmap.local.md`.
@@ -236,6 +243,8 @@ Qt-free y reutilizable. Repo pasa a monorepo y se renombra a **`Vexa`**.
       confirmar con un APK real contra homologación.
 
 ## Transversal
+- [x] **CI (GitHub Actions)**: corre la suite de tests (pytest + pytest-bdd) en cada push/PR
+      (`.github/workflows/ci.yml`). No buildea la APK firmada (necesita el keystore fuera del repo).
 - [ ] Licenciamiento / activación de escritorio + empaquetado por marca
       (nombre/ícono/publisher configurables).
 

@@ -107,7 +107,7 @@ class ClientesView:
 
     def build(self) -> ft.Control:
         t = self.app.t
-        self.lista = ft.Column(spacing=9, scroll=ft.ScrollMode.HIDDEN, expand=True)
+        self.lista = ft.ListView(spacing=9, expand=True)   # virtualizado (solo pinta lo visible)
         self._fill()
         # Header (título + + + buscador) FIJO arriba; solo la lista se desliza.
         return ft.Column([
@@ -115,7 +115,8 @@ class ClientesView:
                     add_button(t, self._nuevo)], vertical_alignment=ft.CrossAxisAlignment.CENTER),
             ft.Container(height=14),
             search(t, "Buscar por nombre, CUIT o email…",
-                   lambda e: (self._fill(e.control.value), self.lista.update())),
+                   lambda e: self.app.debounce("cli_search", 0.25,
+                                               lambda: (self._fill(e.control.value), self.lista.update()))),
             ft.Container(height=12),
             ft.Container(expand=True, content=self.lista),
         ], spacing=0, expand=True, horizontal_alignment=ft.CrossAxisAlignment.STRETCH)
