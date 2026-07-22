@@ -11,7 +11,7 @@ ya recolecta y guarda los datos.
 """
 from __future__ import annotations
 
-import os
+import re
 
 import flet as ft
 
@@ -198,7 +198,11 @@ class AfipView:
 
     # ------------------------------------------------------------- acciones
     def _nombre(self, path: str) -> str:
-        return os.path.basename(path) if path else "Ningún archivo elegido"
+        # Toma el nombre del archivo separando por "/" y "\" en CUALQUIER SO
+        # (os.path.basename en Linux no corta el "\" de una ruta de Windows).
+        if not path:
+            return "Ningún archivo elegido"
+        return re.split(r"[\\/]", path)[-1] or path
 
     async def _pick_cert(self, _e=None):
         f = await self.app.file_picker.pick_files(
