@@ -76,7 +76,6 @@ Vexa/
 ├── Distribucion/                 # paquete final para el usuario (ignorado en git)
 └── "Modelo Actual - Access"/     # app Access legacy (DATOS REALES — ignorado en git)
 ```
-```
 
 ---
 

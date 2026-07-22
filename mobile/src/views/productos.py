@@ -95,7 +95,7 @@ class ProductosView:
 
     def build(self) -> ft.Control:
         t = self.app.t
-        self.lista = ft.Column(spacing=9, scroll=ft.ScrollMode.HIDDEN, expand=True)
+        self.lista = ft.ListView(spacing=9, expand=True)   # virtualizado (solo pinta lo visible)
         self._fill()
         importar_btn = ft.Container(
             width=40, height=40, border_radius=12, bgcolor=t["surface2"],
@@ -110,7 +110,8 @@ class ProductosView:
                    vertical_alignment=ft.CrossAxisAlignment.CENTER),
             ft.Container(height=14),
             search(t, "Buscar por código o nombre…",
-                   lambda e: (self._fill(e.control.value), self.lista.update())),
+                   lambda e: self.app.debounce("prod_search", 0.25,
+                                               lambda: (self._fill(e.control.value), self.lista.update()))),
             ft.Container(height=12),
             ft.Container(expand=True, content=self.lista),
         ], spacing=0, expand=True, horizontal_alignment=ft.CrossAxisAlignment.STRETCH)
