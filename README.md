@@ -1,4 +1,25 @@
-# Facturación
+# Vexa
+
+**Desktop invoicing for a real Argentine business — Python + PySide6 over SQLite, replacing a legacy Microsoft Access system in production.**
+
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
+[![PySide6](https://img.shields.io/badge/UI-PySide6%20(Qt%206)-41cd52.svg)](https://doc.qt.io/qtforpython/)
+[![Latest release](https://img.shields.io/github/v/release/DecoudJuan/Vexa?label=release)](https://github.com/DecoudJuan/Vexa/releases/latest)
+
+<sub>**English summary.** Vexa manages clients, products and documents, issues
+their PDFs, and files electronic invoices with **AFIP/ARCA**, Argentina's tax
+authority — WSAA certificate signing, WSFEv1 for the CAE, and the RG 4291 QR
+code. It replaces *ADHER*, a legacy Access application: importing the `.mdb` is
+a **one-time** bootstrap step, and at runtime the app depends on neither Access
+nor any ODBC driver, which is the entire reason the rewrite was worth doing.
+A shared, UI-free `vexa_core` package backs both a PySide6 desktop app and a
+Flet mobile app. Packaged for Windows with PyInstaller + Inno Setup.</sub>
+
+<sub>The rest of this README is in Spanish: the domain is Argentine tax law
+(CUIT, CAE, RG 4291, tipos FA/PR/PE) and so are its users.</sub>
+
+---
+
 
 Aplicación de escritorio para **facturación** (clientes, productos y documentos),
 construida en **Python + PySide6 (Qt)** sobre **SQLite**.
