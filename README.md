@@ -67,6 +67,7 @@ Vexa/
 │       │   └── migration.py      # importador único desde Access legacy (.mdb)
 │       ├── utils/                # helpers puros sin estado de UI
 │       │   ├── helpers.py        # formato ($/fecha), parseo de código y talle…
+│       │   ├── facturas.py       # reglas de la factura: totales, "a favor", precio 0
 │       │   ├── pdf_generator.py  # armado de PDF de documentos (ReportLab)
 │       │   └── excel_import.py   # lectura de listas de precios en Excel
 │       └── fiscal/               # facturación electrónica AFIP, enchufable
@@ -211,7 +212,15 @@ terminaba en cifras enormes): los campos numéricos aceptan `14500`, `14.500`, `
 `14.500,50`. El cambio de pestañas es más ágil (menos tráfico al montar las listas y una
 transición más corta).
 
-**Tests.** Suite de **142 tests** en `mobile/tests/` (`cd mobile && python -m pytest`): e2e
+**Paridad escritorio ↔ mobile.** El escritorio aplica las mismas reglas que mobile, tomadas del
+core (`vexa_core/utils/facturas.py`): no se guarda una factura con una línea en **precio 0** (el
+negativo sí, es "A favor"), la **bonificación** se toma siempre del cliente elegido (también 0) y
+el cliente nuevo se crea recién al guardar una factura válida. **CUIT/CUIL** de clientes con
+formateo en vivo; **borrar un cliente con facturas** avisa que se oculta y las facturas conservan
+el nombre; talles separados por coma o `;`; la cola de etiquetas muestra **"En la última hoja"**
+y el listado de facturas el **total emitido**.
+
+**Tests.** Suite de **148 tests** en `mobile/tests/` (`cd mobile && python -m pytest`): e2e
 headless de lógica de vista + **35 escenarios BDD (Gherkin, `pytest-bdd`)** en
 `tests/features/*.feature` que cubren cada feature (clientes, productos, facturación,
 etiquetas, importación, onboarding, empresa y AFIP). Además hay un **E2E visual tipo Cypress**
