@@ -218,7 +218,14 @@ negativo sí, es "A favor"), la **bonificación** se toma siempre del cliente el
 el cliente nuevo se crea recién al guardar una factura válida. **CUIT/CUIL** de clientes con
 formateo en vivo; **borrar un cliente con facturas** avisa que se oculta y las facturas conservan
 el nombre; talles separados por coma o `;`; la cola de etiquetas muestra **"En la última hoja"**
-y el listado de facturas el **total emitido**.
+y el listado de facturas el **total emitido**. Como en mobile, la factura ya no pide **forma de
+pago** y clientes no muestra **saldo** (no hay cobros); los números se escriben igual que en el
+celular (`14500`, `14.500`, `14500,50`).
+
+**Escritorio: visual.** Estilo **Fusion** de Qt con selección por stylesheet (sin barritas
+violetas ni filas que quedaban pintadas al cambiar rápido), nombres largos completos en 2 líneas
+(lista y cola de etiquetas) y mejor contraste en **modo oscuro** (botones deshabilitados,
+placeholders, chip de código en la cola).
 
 **Tests.** Suite de **148 tests** en `mobile/tests/` (`cd mobile && python -m pytest`): e2e
 headless de lógica de vista + **35 escenarios BDD (Gherkin, `pytest-bdd`)** en

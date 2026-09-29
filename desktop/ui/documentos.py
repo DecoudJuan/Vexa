@@ -12,7 +12,7 @@ from ui.base_page import ListPage
 from ui.modal import BaseModal, modal_colors
 from ui.widgets import NoScrollComboBox, num_validator
 from vexa_core.utils.helpers import (
-    fmt_ar, parse_float, leer_zoom, leer_tema, etiqueta_concepto, abrir_archivo,
+    fmt_ar, fmt_num_input, parse_float, leer_zoom, leer_tema, etiqueta_concepto, abrir_archivo,
 )
 from vexa_core.utils.pdf_generator import generar_pdf_documento
 from vexa_core.utils.facturas import calcular_totales, lineas_con_precio_cero
@@ -322,15 +322,9 @@ class DocumentoDialog(BaseModal):
         fields.addWidget(self._fecha)
         v.addLayout(fields)
 
-        # ---- FORMA DE PAGO
-        v.addWidget(self.section_label("FORMA DE PAGO", "credit-card"))
-        self._forma_pago = NoScrollComboBox()
-        self._forma_pago.setObjectName("field")
-        self._forma_pago.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
-        self._forma_pago.addItem("Sin definir", None)
-        for fp in self.db.get_all_forma_pago():
-            self._forma_pago.addItem(fp["tipo"], fp["id"])
-        v.addWidget(self._forma_pago)
+        # Forma de pago: ya no se elige (como en mobile; no va al PDF ni a AFIP).
+        # Una factura existente conserva la que tenía (ver _cargar_existente).
+        self._forma_pago_id = None
 
         # ---- LÍNEAS DE PRODUCTO (parte elástica: se lleva el alto sobrante)
         v.addWidget(self.section_label("LÍNEAS DE PRODUCTO", "package"))
@@ -500,13 +494,13 @@ class DocumentoDialog(BaseModal):
         comp.setFilterMode(Qt.MatchContains)
         combo.setCompleter(comp)
 
-        cant = QLineEdit(f"{cantidad:g}")
+        cant = QLineEdit(fmt_num_input(cantidad))
         cant.setObjectName("cell_input")
         cant.setFixedWidth(self._S(_COL_W["cant"]))
         cant.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         cant.setValidator(num_validator(0.0, 1e9, 3))
 
-        pvp_w = QLineEdit(f"{pvp:.2f}")
+        pvp_w = QLineEdit(fmt_num_input(pvp))
         pvp_w.setObjectName("cell_input")
         pvp_w.setFixedWidth(self._S(_COL_W["pvp"]))
         pvp_w.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
@@ -567,7 +561,7 @@ class DocumentoDialog(BaseModal):
             combo.setEditText(concepto_libre)
             combo.blockSignals(False)
         # El precio de la línea es el guardado (puede diferir del actual).
-        pvp_w.setText(f"{pvp:.2f}")
+        pvp_w.setText(fmt_num_input(pvp))
 
     def _quitar_fila(self, entry) -> None:
         if entry in self._lineas:
@@ -587,7 +581,7 @@ class DocumentoDialog(BaseModal):
         # producto (el máximo entre sus variantes, que casi siempre coinciden).
         p = self._producto_de(entry)
         if p is not None:
-            entry["pvp"].setText(f"{float(p.get('pvp') or 0):.2f}")
+            entry["pvp"].setText(fmt_num_input(p.get("pvp")))
 
     def _on_producto_changed(self, entry) -> None:
         self._aplicar_pvp(entry)
@@ -660,12 +654,7 @@ class DocumentoDialog(BaseModal):
         # si no, al pasar de un cliente con 10 % a uno sin bonificación quedaba
         # el 10 % del anterior (en mobile ya era así).
         bonificacion_cliente = float(cliente.get("bonificacion") or 0)
-        self._bonif_input.setText(f"{bonificacion_cliente:g}")
-        fp_id = cliente.get("forma_pago_id")
-        if fp_id:
-            idx = self._forma_pago.findData(fp_id)
-            if idx >= 0:
-                self._forma_pago.setCurrentIndex(idx)
+        self._bonif_input.setText(fmt_num_input(bonificacion_cliente))
 
     def _cargar_existente(self, factura_id: int) -> None:
         d = self.db.get_factura(factura_id)
@@ -678,11 +667,10 @@ class DocumentoDialog(BaseModal):
         fecha = QDate.fromString((d.get("fecha") or "")[:10], "yyyy-MM-dd")
         if fecha.isValid():
             self._fecha.setDate(fecha)
-        fp_idx = self._forma_pago.findData(d.get("forma_pago_id"))
-        self._forma_pago.setCurrentIndex(max(fp_idx, 0))
+        self._forma_pago_id = d.get("forma_pago_id")
         self._comentarios.setPlainText(d.get("comentarios") or "")
         self._bonif_input.setText(
-            f"{float(d.get('bonificacion') or 0):g}" if d.get("aplica_bonificacion") else "0"
+            fmt_num_input(d.get("bonificacion")) if d.get("aplica_bonificacion") else "0"
         )
         self._legacy_iva = d.get("iva") or 0
         self._legacy_retencion = d.get("retencion") or 0
@@ -762,7 +750,7 @@ class DocumentoDialog(BaseModal):
             "total": self._ultimo_total,
             "bonificacion": pct,
             "aplica_bonificacion": 1 if pct > 0 else 0,
-            "forma_pago_id": self._forma_pago.currentData(),
+            "forma_pago_id": self._forma_pago_id,
             "comentarios": self._comentarios.toPlainText().strip() or None,
             "origen_tipo": None,
             "origen_numero": None,

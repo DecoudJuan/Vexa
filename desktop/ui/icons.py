@@ -151,10 +151,7 @@ _SVG_WRAP = (
 )
 
 
-def svg_icon(name: str, size: int = 18, color: str = "#a6adc8") -> QIcon:
-    paths = _PATHS.get(name, "")
-    if not paths:
-        return QIcon()
+def _render(paths: str, size: int, color: str) -> QPixmap:
     svg = _SVG_WRAP.format(color=color, paths=paths)
     renderer = QSvgRenderer(QByteArray(svg.encode("utf-8")))
     pixmap = QPixmap(size, size)
@@ -162,7 +159,21 @@ def svg_icon(name: str, size: int = 18, color: str = "#a6adc8") -> QIcon:
     painter = QPainter(pixmap)
     renderer.render(painter)
     painter.end()
-    return QIcon(pixmap)
+    return pixmap
+
+
+def svg_icon(name: str, size: int = 18, color: str = "#a6adc8",
+             disabled_color: str | None = None) -> QIcon:
+    """Ícono SVG coloreado. Con `disabled_color` registra además el pixmap del
+    modo QIcon.Disabled (si no, Qt lo genera oscureciendo el normal y en el tema
+    oscuro el ícono del botón deshabilitado casi no se veía)."""
+    paths = _PATHS.get(name, "")
+    if not paths:
+        return QIcon()
+    icon = QIcon(_render(paths, size, color))
+    if disabled_color:
+        icon.addPixmap(_render(paths, size, disabled_color), QIcon.Disabled)
+    return icon
 
 
 def svg_pixmap(name: str, size: int = 18, color: str = "#a6adc8") -> QPixmap:

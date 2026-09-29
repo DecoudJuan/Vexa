@@ -28,7 +28,7 @@ from PySide6.QtGui import QColor
 
 from ui.icons import svg_icon
 from ui.styles import get_palette
-from ui.anim import AnimatedTable
+from ui.anim import ListTable
 from vexa_core.utils.helpers import leer_zoom, leer_tema
 
 
@@ -97,14 +97,13 @@ class ListPage(QWidget):
         self._search.setPlaceholderText(self.SEARCH_PLACEHOLDER)
         # Ícono de lupa dentro del campo, a la izquierda (look moderno).
         self._search_action = self._search.addAction(
-            svg_icon("search", 16, self._pal["muted2"]), QLineEdit.LeadingPosition)
+            svg_icon("search", 16, self._pal["faint_tx"]), QLineEdit.LeadingPosition)
         self._search.textChanged.connect(lambda _: self.refresh())
         row.addWidget(self._search)
         return row
 
     def _build_table(self) -> QTableWidget:
-        table = AnimatedTable()
-        table.set_highlight_color(self._pal["row_sel_bar"])
+        table = ListTable()
         # Asignado ya acá (además de en _build_ui) para que _configure_columns
         # pueda tocar self._table (ej. alinear un header) durante el armado.
         self._table = table
@@ -113,9 +112,7 @@ class ListPage(QWidget):
         table.setSelectionBehavior(QAbstractItemView.SelectRows)
         table.setSelectionMode(QAbstractItemView.SingleSelection)
         table.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        # Sin filas alternadas (zebra): su fondo opaco taparía el resaltado que
-        # AnimatedTable dibuja por detrás; además el mock usa filas limpias.
-        table.setAlternatingRowColors(False)
+        table.setAlternatingRowColors(False)   # filas limpias (sin zebra), como el mock
         table.setWordWrap(False)
         table.verticalHeader().setVisible(False)
         table.setShowGrid(False)
@@ -141,7 +138,7 @@ class ListPage(QWidget):
         """Crea un botón de acción con su ícono registrado para repintarse al
         cambiar tema. `needs_selection` lo deshabilita si no hay fila elegida."""
         btn = QPushButton(text)
-        btn.setIcon(svg_icon(icon, size, self._pal[color_key]))
+        btn.setIcon(svg_icon(icon, size, self._pal[color_key], self._pal["faint_tx"]))
         btn.setIconSize(QSize(size, size))
         if obj_name:
             btn.setObjectName(obj_name)
@@ -198,11 +195,10 @@ class ListPage(QWidget):
     def set_theme_zoom(self, theme: str, zoom: float) -> None:
         self._zoom = zoom
         self._pal = get_palette(theme)
-        self._search_action.setIcon(svg_icon("search", 16, self._pal["muted2"]))
+        self._search_action.setIcon(svg_icon("search", 16, self._pal["faint_tx"]))
         for btn, icon, size, color_key in self._theme_icons:
-            btn.setIcon(svg_icon(icon, size, self._pal[color_key]))
+            btn.setIcon(svg_icon(icon, size, self._pal[color_key], self._pal["faint_tx"]))
         self._resize_columns(self._table.horizontalHeader())
-        self._table.set_highlight_color(self._pal["row_sel_bar"])
 
     # -------------------------------------------- ganchos por defecto
     def _header_buttons(self) -> list:

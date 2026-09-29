@@ -10,15 +10,15 @@ con el futuro cliente mobile; acá sólo se arma la cola y se abre el archivo.""
 
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGridLayout, QLabel, QFrame,
-    QLineEdit, QListWidget, QListWidgetItem, QTableWidgetItem,
+    QLineEdit, QTableWidgetItem,
     QHeaderView, QAbstractItemView, QSpinBox, QPushButton, QMessageBox,
     QScrollArea, QSizePolicy,
 )
 from PySide6.QtGui import QColor
-from PySide6.QtCore import Qt, QSize
+from PySide6.QtCore import Qt
 
 from ui.icons import svg_icon
-from ui.anim import AnimatedTable, fade_in
+from ui.anim import ListTable, fade_in
 from ui.styles import get_palette
 from ui.widgets import NoScrollComboBox
 from vexa_core.utils.helpers import (
@@ -98,15 +98,16 @@ class EtiquetasWidget(QWidget):
         self._search.textChanged.connect(lambda t: self._load_products(t))
         lay.addWidget(self._search)
 
-        # AnimatedTable (mismo componente que el resto de las listas): comparte
-        # el color de selección celeste y el deslizamiento detrás del texto.
-        self._prod_table = AnimatedTable(0, 2)
-        self._prod_table.set_highlight_color(get_palette(self._theme)["row_sel_bar"])
+        # Mismo componente que el resto de las listas (selección por stylesheet).
+        self._prod_table = ListTable(0, 2)
         self._prod_table.setObjectName("prod_table")
         self._prod_table.horizontalHeader().hide()
         self._prod_table.verticalHeader().hide()
         self._prod_table.setShowGrid(False)
         self._prod_table.setWordWrap(True)
+        # Alto de fila automático (Qt): el nombre largo baja a la 2ª línea en vez
+        # de cortarse con "…", también al cambiar el ancho (resize/zoom).
+        self._prod_table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
         self._prod_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self._prod_table.setSelectionMode(QAbstractItemView.SingleSelection)
         self._prod_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
@@ -160,7 +161,7 @@ class EtiquetasWidget(QWidget):
         self._rows_holder.setObjectName("plain_box")
         self._rows_lay = QVBoxLayout(self._rows_holder)
         self._rows_lay.setContentsMargins(0, 0, 0, 0)
-        self._rows_lay.setSpacing(self._S(8))
+        self._rows_lay.setSpacing(self._S(6))
         self._rows_lay.addStretch()  # mantiene las filas arriba cuando hay pocas
 
         rows_scroll = QScrollArea()
@@ -181,7 +182,7 @@ class EtiquetasWidget(QWidget):
         body.addWidget(self._btn_add_row)
 
         self._btn_add_queue = QPushButton("  Agregar a la cola  →")
-        self._btn_add_queue.setIcon(svg_icon("plus", 15, get_palette(self._theme)["accent_text"]))
+        self._btn_add_queue.setIcon(svg_icon("plus", 15, get_palette(self._theme)["accent_text"], get_palette(self._theme)["faint_tx"]))
         self._btn_add_queue.setCursor(Qt.PointingHandCursor)
         self._btn_add_queue.clicked.connect(self._on_add_to_queue)
         body.addWidget(self._btn_add_queue)
@@ -194,13 +195,21 @@ class EtiquetasWidget(QWidget):
     def _card_cola(self) -> QFrame:
         card, lay = self._panel("3 — COLA DE IMPRESIÓN")
 
-        self._queue_list = QListWidget()
+        # Cola = QScrollArea + QVBoxLayout de tarjetas (patrón estándar de Qt): el
+        # layout da el ancho del panel y el alto según el contenido (nombres
+        # largos en 2+ líneas), también al redimensionar. Con QListWidget +
+        # setItemWidget había que fijar el tamaño a mano y quedaba cortado.
+        self._queue_holder = QWidget()
+        self._queue_holder.setObjectName("queue_holder")
+        self._queue_lay = QVBoxLayout(self._queue_holder)
+        self._queue_lay.setContentsMargins(self._S(4), self._S(4), self._S(4), self._S(4))
+        self._queue_lay.setSpacing(self._S(6))
+        self._queue_lay.addStretch()
+        self._queue_list = QScrollArea()
         self._queue_list.setObjectName("queue_list")
-        self._queue_list.setSelectionMode(QListWidget.NoSelection)
-        self._queue_list.setFocusPolicy(Qt.NoFocus)
-        # Sin scroll horizontal: las filas se ajustan al ancho del panel (si no,
-        # un nombre largo empujaba el ×cantidad fuera de la vista).
+        self._queue_list.setWidgetResizable(True)
         self._queue_list.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self._queue_list.setWidget(self._queue_holder)
         lay.addWidget(self._queue_list, 1)
 
         self._queue_empty = QLabel("No hay etiquetas en la cola todavía.")
@@ -243,11 +252,11 @@ class EtiquetasWidget(QWidget):
         btns.setSpacing(self._S(8))
         self._btn_clear = QPushButton("  Limpiar")
         self._btn_clear.setObjectName("btn_danger")
-        self._btn_clear.setIcon(svg_icon("trash", 15, get_palette(self._theme)["danger"]))
+        self._btn_clear.setIcon(svg_icon("trash", 15, get_palette(self._theme)["danger"], get_palette(self._theme)["faint_tx"]))
         self._btn_clear.setCursor(Qt.PointingHandCursor)
         self._btn_clear.clicked.connect(self._on_clear)
         self._btn_generate = QPushButton("  Generar e imprimir")
-        self._btn_generate.setIcon(svg_icon("file-text", 15, get_palette(self._theme)["accent_text"]))
+        self._btn_generate.setIcon(svg_icon("file-text", 15, get_palette(self._theme)["accent_text"], get_palette(self._theme)["faint_tx"]))
         self._btn_generate.setCursor(Qt.PointingHandCursor)
         self._btn_generate.clicked.connect(self._on_generate)
         btns.addWidget(self._btn_clear)
@@ -273,7 +282,6 @@ class EtiquetasWidget(QWidget):
             nom_item = QTableWidgetItem(nom)
             self._prod_table.setItem(row, 0, cod_item)
             self._prod_table.setItem(row, 1, nom_item)
-        self._prod_table.resizeRowsToContents()
         self._prod_table.blockSignals(False)
 
     def _talles_de(self, p: dict) -> list[str]:
@@ -323,7 +331,7 @@ class EtiquetasWidget(QWidget):
         frame = QFrame()
         frame.setObjectName("etq_row")
         row = QHBoxLayout(frame)
-        row.setContentsMargins(self._S(10), self._S(8), self._S(10), self._S(8))
+        row.setContentsMargins(self._S(8), self._S(4), self._S(6), self._S(6))
         row.setSpacing(self._S(8))
 
         combo = None
@@ -415,7 +423,10 @@ class EtiquetasWidget(QWidget):
             self._render_queue()
 
     def _render_queue(self) -> None:
-        self._queue_list.clear()
+        while self._queue_lay.count() > 1:   # deja el stretch final
+            w = self._queue_lay.takeAt(0).widget()
+            if w is not None:
+                w.deleteLater()
         pal = get_palette(self._theme)
         for it in self._queue:
             row = QFrame()
@@ -435,11 +446,10 @@ class EtiquetasWidget(QWidget):
             paren = talle_parentesis(it["talle"])
             lbl = QLabel(it["nombre"])
             lbl.setProperty("role", "qi-label")
-            lbl.setToolTip(it["nombre"])
-            # Nombre en una línea: policy Ignored en el ancho → no empuja la fila
-            # (recorta si es muy largo) y así el ×cantidad y el talle quedan
-            # siempre visibles. El talle va debajo, a la izquierda del código
-            # (como en mobile).
+            # Nombre COMPLETO: si no entra, sigue en la línea de abajo (word wrap).
+            # Ignored en el ancho → no empuja la fila, así el ×cantidad queda
+            # siempre visible. El talle va debajo, a la izquierda del código.
+            lbl.setWordWrap(True)
             lbl.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Preferred)
             cod = it["codigo"] or "—"
             if paren:
@@ -466,13 +476,7 @@ class EtiquetasWidget(QWidget):
             btn.clicked.connect(lambda _, i=it: self._remove_from_queue(i))
             h.addWidget(btn, 0, Qt.AlignVCenter)
 
-            item = QListWidgetItem()
-            # Ancho = viewport (no el sizeHint de la fila, que con nombres largos
-            # se iba de ancho y metía scroll horizontal ocultando el ×cantidad).
-            vw = self._queue_list.viewport().width() or self._S(340)
-            item.setSizeHint(QSize(vw, row.sizeHint().height()))
-            self._queue_list.addItem(item)
-            self._queue_list.setItemWidget(item, row)
+            self._queue_lay.insertWidget(self._queue_lay.count() - 1, row)
 
         self._update_summary()
 
@@ -521,10 +525,9 @@ class EtiquetasWidget(QWidget):
         self._search.actions()[0].setIcon(svg_icon("search", 16, pal["muted1"])) \
             if self._search.actions() else None
         self._btn_add_row.setIcon(svg_icon("plus", 14, pal["text"]))
-        self._btn_add_queue.setIcon(svg_icon("plus", 15, pal["accent_text"]))
-        self._btn_clear.setIcon(svg_icon("trash", 15, pal["danger"]))
-        self._btn_generate.setIcon(svg_icon("file-text", 15, pal["accent_text"]))
-        self._prod_table.set_highlight_color(pal["row_sel_bar"])
+        self._btn_add_queue.setIcon(svg_icon("plus", 15, pal["accent_text"], pal["faint_tx"]))
+        self._btn_clear.setIcon(svg_icon("trash", 15, pal["danger"], pal["faint_tx"]))
+        self._btn_generate.setIcon(svg_icon("file-text", 15, pal["accent_text"], pal["faint_tx"]))
         self._prod_table.setColumnWidth(0, self._S(52))
         # Recargar productos recolorea el código con el acento del tema nuevo.
         self._load_products(self._search.text())

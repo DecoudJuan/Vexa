@@ -5,15 +5,14 @@ from PySide6.QtWidgets import (
     QSizePolicy,
 )
 from PySide6.QtCore import Qt, QSize
-from PySide6.QtGui import QDoubleValidator, QColor, QBrush
 
 from ui.icons import svg_icon
 from ui.styles import get_palette
 from ui.base_page import ListPage
 from ui.modal import BaseModal, modal_colors
-from ui.widgets import avatar, NoScrollComboBox, provincia_combo
+from ui.widgets import avatar, NoScrollComboBox, provincia_combo, num_validator
 from vexa_core.utils.helpers import (
-    leer_zoom, leer_tema, valor_valido, fmt_ar, parse_float,
+    leer_zoom, leer_tema, valor_valido, fmt_num_input, parse_float,
     CONDICIONES_IVA, TELEFONO_EJEMPLO, formatear_cuit,
 )
 
@@ -150,7 +149,7 @@ class ClientesWidget(ListPage):
     SUBTITULO = "Alta, edición y datos fiscales de clientes"
     SEARCH_PLACEHOLDER = "Buscar por nombre, CUIT o email..."
     SEARCH_MAXW = _SEARCH_MAXW
-    COLUMNS = ["Cliente", "CUIT", "Localidad", "Teléfono", "Bonif.", "Saldo"]
+    COLUMNS = ["Cliente", "CUIT", "Localidad", "Teléfono", "Bonif."]
     ROW_H = _ROW_H
 
     def _header_buttons(self) -> list:
@@ -167,7 +166,7 @@ class ClientesWidget(ListPage):
 
     def _configure_columns(self, hh) -> None:
         hh.setSectionResizeMode(0, QHeaderView.Stretch)
-        for col in range(1, 6):
+        for col in range(1, len(self.COLUMNS)):
             hh.setSectionResizeMode(col, QHeaderView.Interactive)
         self._resize_columns(hh)
 
@@ -177,10 +176,6 @@ class ClientesWidget(ListPage):
 
     def _query(self, search):
         return self.db.get_all_clientes(search)
-
-    def _pre_render(self, items) -> None:
-        self._saldos = self.db.get_saldos_clientes()
-        self._con_saldo = 0
 
     @staticmethod
     def _initials(nombre: str) -> str:
@@ -225,19 +220,10 @@ class ClientesWidget(ListPage):
         self._table.setItem(row, 4, self._cell(
             f"{bonificacion:.1f} %" if bonificacion else "—", Qt.AlignRight | Qt.AlignVCenter
         ))
-        saldo = self._saldos.get(c.get("id"), 0) or 0
-        if saldo > 0.005:
-            item = self._cell(fmt_ar(saldo), Qt.AlignRight | Qt.AlignVCenter)
-            item.setForeground(QBrush(QColor(self._pal["warn"])))
-            self._table.setItem(row, 5, item)
-            self._con_saldo += 1
-        else:
-            self._table.setItem(row, 5, self._cell("—", Qt.AlignRight | Qt.AlignVCenter))
 
     def _count_text(self, total: int) -> str:
         pl = "s" if total != 1 else ""
-        extra = f" · {self._con_saldo} con saldo" if self._con_saldo else ""
-        return f"{total} cliente{pl}{extra}"
+        return f"{total} cliente{pl}"
 
     def _on_nuevo(self) -> None:
         dlg = ClienteDialog(self.db, parent=self)
@@ -359,7 +345,7 @@ class ClienteDialog(BaseModal):
         self._bonificacion = QLineEdit()
         self._bonificacion.setObjectName("field")
         self._bonificacion.setPlaceholderText("0,00")
-        self._bonificacion.setValidator(QDoubleValidator(0.0, 100.0, 2))
+        self._bonificacion.setValidator(num_validator(0.0, 100.0, 2))
         bon_box = QWidget()
         bh = QHBoxLayout(bon_box)
         bh.setContentsMargins(0, 0, 0, 0)
@@ -398,7 +384,7 @@ class ClienteDialog(BaseModal):
         self._condicion_iva.setCurrentText(c.get("condicion_iva") or "")
         self._banco.setText(c.get("banco") or "")
         bonif = float(c.get("bonificacion") or 0)
-        self._bonificacion.setText(f"{bonif:g}" if bonif else "")
+        self._bonificacion.setText(fmt_num_input(bonif) if bonif else "")
         self._comentarios.setPlainText(c.get("comentarios") or "")
 
     def _accept(self) -> None:

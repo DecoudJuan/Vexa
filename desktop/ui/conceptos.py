@@ -11,7 +11,7 @@ from ui.base_page import ListPage
 from ui.modal import BaseModal
 from ui.import_dialog import ImportDialog
 from ui.widgets import num_validator
-from vexa_core.utils.helpers import leer_tema, fmt_ar, parse_float
+from vexa_core.utils.helpers import leer_tema, fmt_ar, fmt_num_input, parse_float
 
 _SEARCH_MAXW, _ROW_H = 400, 40
 _COD_W = 110
@@ -224,7 +224,7 @@ class ProductoDialog(BaseModal):
             self._nombre.setText(producto.get("nombre", ""))
             self._codigo.setText((producto.get("codigo") or "").strip())
             self._talles.setText(", ".join(producto.get("talles") or []))
-            self._pvp.setText(f"{float(producto.get('pvp') or 0):.2f}")
+            self._pvp.setText(fmt_num_input(producto.get("pvp")))
 
         self.enable_unsaved_guard()
 
