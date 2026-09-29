@@ -29,7 +29,9 @@ $env:PYTHONIOENCODING = "utf-8"
 Push-Location $mobile
 try {
     python scripts/vendor_core.py     # regenera src/vexa_core desde el core raiz
-    $abi = if ($args.Count -gt 0) { $args } else { @("--split-per-abi") }
+    # @(...) fuerza array: un if-expression de 1 elemento se desenrolla a string y
+    # el splat lo pasaba letra por letra ("- s p l i t ...").
+    $abi = @(if ($args.Count -gt 0) { $args } else { "--split-per-abi" })
     flet build apk @abi `
         --android-signing-key-store            $keystore `
         --android-signing-key-store-password   android `
