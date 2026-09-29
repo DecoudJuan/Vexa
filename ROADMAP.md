@@ -21,7 +21,8 @@ Estado del rework de escritorio: **completo** (6.0b solo Facturas, 6.1b Etiqueta
   **6.2g** (fix pantalla negra al borrar, optimización de arranque, base pre-cargada, tests BDD +
   **E2E visual con Appium**, v2.9.7) · **6.2h** (talle visible en la cola de etiquetas + fusión de
   ítems, "A favor" por precio negativo, "Universal"→talle U, **121 tests**) → **hechos, release
-  v2.9.8**. Luego 6.3 (conexión AFIP en mobile).
+  v2.9.8** · **6.2j** (fix precio que se multiplicaba al editarlo + tabs más ágiles, v2.9.9).
+  Luego 6.3 (conexión AFIP en mobile).
 
 ## Base (hecho)
 - [x] Sin dependencia de Access en runtime: arranca con base vacía y permite
@@ -233,6 +234,13 @@ Qt-free y reutilizable. Repo pasa a monorepo y se renombra a **`Vexa`**.
         en el ítem que se mantiene apretado. Pendiente/futuro: evitar el rebuild completo del árbol
         en `render()` al cambiar de tab (cachear/alternar vistas) — diferido por el fix delicado de
         pantalla negra; medir antes.
+  - [x] **6.2j — Fix precio ×10ⁿ + cambio de pestañas más ágil** (release **v2.9.9**): el form
+        precargaba `14000.0` y al guardar borraba todos los puntos (como miles) → cada edición
+        sumaba ceros. Ahora los números se precargan en es-AR (`fmt_num_input`: `14000`,
+        `14000,5`) y se leen con `parse_float`, que además toma `14.500` / `1.234.567` como miles.
+        Perf: el marquee ya no manda un evento de tamaño por fila al montarse (trababa el puente
+        Flutter↔Python al entrar a cada lista) y la transición de tab es más corta y arranca
+        semi-visible. Suite a **142 tests** (regresión del precio vía form real).
   - [ ] **Menores**: líneas de texto libre "sueltas" en factura (ya cubierto por "Otro"),
         Guardado (logo/pie de PDF), share nativo del PDF a afinar en device real (hoy cae a guardar).
         Detalle en `mobile-roadmap.local.md`.
