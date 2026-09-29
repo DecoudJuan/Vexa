@@ -7,11 +7,12 @@ Este documento se mantiene al día a medida que se avanza.
 Llevar la app (hoy funcional para uso interno, **licencia de escritorio**) a un
 **facturador vendible a cualquier negocio**.
 
-## Lo que queda (resumen 2026-07-17)
+## Lo que queda (resumen 2026-09-29)
 Estado del rework de escritorio: **completo** (6.0b solo Facturas, 6.1b Etiquetas,
 6.1c rework visual). Lo pendiente:
 - **Escritorio — Fase 5 (pulido, en curso)**: corrección de bugs de uso real y ajustes
-  finos de UX/UI (colores, selección de fila, etc.).
+  finos de UX/UI. Hecho en **v2.9.10**: paridad con mobile, estilo Fusion + selección por QSS,
+  contraste en modo oscuro, cola de etiquetas con nombres completos (ver 6.2k).
 - **Escritorio — Transversal**: licenciamiento/activación + empaquetado por marca
   (nombre/ícono/publisher configurables) para vender white-label.
 - **Gated por AFIP (Fase 4)**: test en vivo contra homologación/producción (necesita
@@ -21,7 +22,8 @@ Estado del rework de escritorio: **completo** (6.0b solo Facturas, 6.1b Etiqueta
   **6.2g** (fix pantalla negra al borrar, optimización de arranque, base pre-cargada, tests BDD +
   **E2E visual con Appium**, v2.9.7) · **6.2h** (talle visible en la cola de etiquetas + fusión de
   ítems, "A favor" por precio negativo, "Universal"→talle U, **121 tests**) → **hechos, release
-  v2.9.8** · **6.2j** (fix precio que se multiplicaba al editarlo + tabs más ágiles, v2.9.9).
+  v2.9.8** · **6.2j** (fix precio que se multiplicaba al editarlo + tabs más ágiles, v2.9.9) ·
+  **6.2k** (escritorio acoplado a mobile + pulido visual, v2.9.10).
   Luego 6.3 (conexión AFIP en mobile).
 
 ## Base (hecho)
@@ -128,8 +130,9 @@ sin guardar + barra de selección deslizante (v2.6.0).
       `TIPOS_DOCUMENTO`; README al día con el código.
 - [x] **Cambios sin guardar**: al cerrar un diálogo de edición (cliente/producto/
       factura) con cambios, confirma antes de descartar (Escape/Cancelar/X).
-- [x] **Selección de fila deslizante**: la barra de selección se desliza de una
-      fila a otra en los listados (`ui/anim.RowHighlight`).
+- [x] ~~**Selección de fila deslizante**~~: la barra animada casera se **quitó en v2.9.10** (dejaba
+      filas pintadas al cambiar rápido). Hoy la selección la pinta Qt por QSS (`ui/anim.ListTable`,
+      estilo Fusion).
 - [x] **Paridad con mobile** (rama `feat/desktop-paridad-mobile`): reglas de factura en el core
       (`vexa_core/utils/facturas.py`: totales, "a favor", **bloqueo de precio 0**); bonificación
       siempre del cliente; cliente nuevo creado solo al guardar una factura válida; CUIT de
@@ -251,8 +254,9 @@ Qt-free y reutilizable. Repo pasa a monorepo y se renombra a **`Vexa`**.
         etiquetas (core `utils/facturas.py`); sin forma de pago ni columna saldo; números es-AR
         (`parse_float`/`fmt_num_input`). Visual: estilo **Fusion** + selección por QSS (reemplaza el
         delegate/banda animada casera que dejaba filas pintadas), combo sin borde cortado, cola de
-        etiquetas en `QScrollArea` con nombres en 2+ líneas, contraste en oscuro (`faint_tx`).
-        Suite a **148 tests**. Release **v2.9.10**.
+        etiquetas en `QScrollArea` con nombres en 2+ líneas, contraste en oscuro (`faint_tx`),
+        filas de talle más compactas e Inicio sin el botón "Nueva factura" de arriba (queda en
+        accesos rápidos). Suite a **148 tests**. Release **v2.9.10**.
   - [ ] **Menores**: líneas de texto libre "sueltas" en factura (ya cubierto por "Otro"),
         Guardado (logo/pie de PDF), share nativo del PDF a afinar en device real (hoy cae a guardar).
         Detalle en `mobile-roadmap.local.md`.

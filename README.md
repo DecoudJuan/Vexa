@@ -118,9 +118,10 @@ La app está organizada en **tres capas** con dependencias en una sola direcció
   extracción del código y talle embebidos en el nombre del producto, generación
   de PDF, importación de Excel). Reutilizables desde cualquier capa.
 
-**Tema y zoom** son preferencias persistidas en la tabla `configuracion`. El
-stylesheet (`styles.py`) se genera a partir de una paleta + nivel de zoom y se
-reaplica en caliente; los tamaños fijos en píxeles que Qt no recalcula solo
+**Tema y zoom** son preferencias persistidas en la tabla `configuracion`. La app
+usa el estilo **Fusion** de Qt (no el nativo de Windows, que mete el color de
+acento del sistema) y el stylesheet (`styles.py`) se genera a partir de una
+paleta + nivel de zoom y se reaplica en caliente; los tamaños fijos en píxeles que Qt no recalcula solo
 (anchos de sidebar, alto de fila) se ajustan por código.
 
 ### Base de datos
@@ -212,7 +213,7 @@ terminaba en cifras enormes): los campos numéricos aceptan `14500`, `14.500`, `
 `14.500,50`. El cambio de pestañas es más ágil (menos tráfico al montar las listas y una
 transición más corta).
 
-**Paridad escritorio ↔ mobile.** El escritorio aplica las mismas reglas que mobile, tomadas del
+**Paridad escritorio ↔ mobile (v2.9.10).** El escritorio aplica las mismas reglas que mobile, tomadas del
 core (`vexa_core/utils/facturas.py`): no se guarda una factura con una línea en **precio 0** (el
 negativo sí, es "A favor"), la **bonificación** se toma siempre del cliente elegido (también 0) y
 el cliente nuevo se crea recién al guardar una factura válida. **CUIT/CUIL** de clientes con
@@ -222,10 +223,11 @@ y el listado de facturas el **total emitido**. Como en mobile, la factura ya no 
 pago** y clientes no muestra **saldo** (no hay cobros); los números se escriben igual que en el
 celular (`14500`, `14.500`, `14500,50`).
 
-**Escritorio: visual.** Estilo **Fusion** de Qt con selección por stylesheet (sin barritas
-violetas ni filas que quedaban pintadas al cambiar rápido), nombres largos completos en 2 líneas
-(lista y cola de etiquetas) y mejor contraste en **modo oscuro** (botones deshabilitados,
-placeholders, chip de código en la cola).
+**Escritorio: visual (v2.9.10).** Estilo **Fusion** de Qt con selección por stylesheet (sin
+barritas violetas ni filas que quedaban pintadas al cambiar rápido), nombres largos completos en
+2 líneas (lista y cola de etiquetas), filas de talle más compactas y mejor contraste en **modo
+oscuro** (botones deshabilitados, placeholders, chip de código en la cola). Inicio ya no tiene el
+botón "Nueva factura" arriba a la derecha: está en los accesos rápidos.
 
 **Tests.** Suite de **148 tests** en `mobile/tests/` (`cd mobile && python -m pytest`): e2e
 headless de lógica de vista + **35 escenarios BDD (Gherkin, `pytest-bdd`)** en
