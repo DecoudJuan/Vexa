@@ -3,25 +3,23 @@
 from PySide6.QtWidgets import (
     QWidget, QHBoxLayout, QLabel, QComboBox, QSizePolicy, QCompleter,
 )
-from PySide6.QtGui import QDoubleValidator
-from PySide6.QtCore import Qt, QLocale
+from PySide6.QtGui import QRegularExpressionValidator
+from PySide6.QtCore import Qt, QRegularExpression
 
 from vexa_core.utils.helpers import PROVINCIAS_AR
 
 
-def num_validator(bottom: float, top: float, decimals: int) -> QDoubleValidator:
-    """QDoubleValidator para campos de números (precios, cantidades) que se
-    muestran con punto decimal (`f"{x:.2f}"`).
+def num_validator(bottom: float, top: float, decimals: int) -> QRegularExpressionValidator:
+    """Validador para campos de números (precios, cantidades, %) en formato es-AR,
+    igual que mobile: acepta '14500', '14.500', '14500,50' y '14.500,50'. Se leen
+    SIEMPRE con `parse_float` y se precargan con `fmt_num_input` ('14000,5').
 
-    Sin esto, el validador toma la locale del sistema (en Argentina el '.' es
-    separador de miles): al perder el foco, "488438.00" se "arreglaba" a
-    48.843.800 y encima se mostraba en notación científica ("4,88E+07"). Con
-    locale C (punto = decimal, sin miles) y notación estándar, el texto queda
-    tal cual."""
-    v = QDoubleValidator(bottom, top, decimals)
-    v.setNotation(QDoubleValidator.StandardNotation)
-    v.setLocale(QLocale.c())
-    return v
+    Solo filtra caracteres (dígitos, '.', ',' y '-' si se admiten negativos): no
+    "arregla" el texto al perder el foco. El QDoubleValidator sí lo hacía con la
+    locale del sistema ("488438.00" → 48.843.800, o "4,88E+07"). El rango lo
+    valida el guardado (`top`/`decimals` quedan por compatibilidad)."""
+    signo = "-?" if bottom < 0 else ""
+    return QRegularExpressionValidator(QRegularExpression(rf"^{signo}[0-9.,]*$"))
 
 
 class NoScrollComboBox(QComboBox):
