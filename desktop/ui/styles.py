@@ -518,6 +518,11 @@ QFrame#etq_row {{
     border-radius: 8px;
 }}
 QFrame#etq_row QLabel {{ background: transparent; }}
+/* Campos más compactos dentro de la fila (el alto general de 34px sobraba acá). */
+QFrame#etq_row QComboBox, QFrame#etq_row QSpinBox {{
+    min-height: 24px;
+    padding: 4px 10px;
+}}
 
 /* Ítem de la cola: chip de código + nombre/talle + cantidad. */
 QFrame#queue_item {{

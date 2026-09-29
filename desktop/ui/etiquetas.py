@@ -161,7 +161,7 @@ class EtiquetasWidget(QWidget):
         self._rows_holder.setObjectName("plain_box")
         self._rows_lay = QVBoxLayout(self._rows_holder)
         self._rows_lay.setContentsMargins(0, 0, 0, 0)
-        self._rows_lay.setSpacing(self._S(8))
+        self._rows_lay.setSpacing(self._S(6))
         self._rows_lay.addStretch()  # mantiene las filas arriba cuando hay pocas
 
         rows_scroll = QScrollArea()
@@ -331,7 +331,7 @@ class EtiquetasWidget(QWidget):
         frame = QFrame()
         frame.setObjectName("etq_row")
         row = QHBoxLayout(frame)
-        row.setContentsMargins(self._S(10), self._S(8), self._S(10), self._S(8))
+        row.setContentsMargins(self._S(8), self._S(4), self._S(6), self._S(6))
         row.setSpacing(self._S(8))
 
         combo = None
