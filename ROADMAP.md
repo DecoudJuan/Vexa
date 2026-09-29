@@ -252,7 +252,7 @@ Qt-free y reutilizable. Repo pasa a monorepo y se renombra a **`Vexa`**.
         (`parse_float`/`fmt_num_input`). Visual: estilo **Fusion** + selección por QSS (reemplaza el
         delegate/banda animada casera que dejaba filas pintadas), combo sin borde cortado, cola de
         etiquetas en `QScrollArea` con nombres en 2+ líneas, contraste en oscuro (`faint_tx`).
-        Suite a **148 tests**.
+        Suite a **148 tests**. Release **v2.9.10**.
   - [ ] **Menores**: líneas de texto libre "sueltas" en factura (ya cubierto por "Otro"),
         Guardado (logo/pie de PDF), share nativo del PDF a afinar en device real (hoy cae a guardar).
         Detalle en `mobile-roadmap.local.md`.
