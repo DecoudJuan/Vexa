@@ -206,7 +206,12 @@ agregar el mismo producto+talle varias veces **fusiona** en una sola línea suma
 del total, se marca en pantalla y en el PDF). La palabra **"Universal"** del catálogo se toma como
 **talle "U"** al importar y en bases ya cargadas.
 
-**Tests.** Suite de **121 tests** en `mobile/tests/` (`cd mobile && python -m pytest`): e2e
+**Precios y fluidez (v2.9.9).** Editar un precio ya no le agrega ceros (antes `14000` → `14500`
+terminaba en cifras enormes): los campos numéricos aceptan `14500`, `14.500`, `14500,50` o
+`14.500,50`. El cambio de pestañas es más ágil (menos tráfico al montar las listas y una
+transición más corta).
+
+**Tests.** Suite de **142 tests** en `mobile/tests/` (`cd mobile && python -m pytest`): e2e
 headless de lógica de vista + **35 escenarios BDD (Gherkin, `pytest-bdd`)** en
 `tests/features/*.feature` que cubren cada feature (clientes, productos, facturación,
 etiquetas, importación, onboarding, empresa y AFIP). Además hay un **E2E visual tipo Cypress**

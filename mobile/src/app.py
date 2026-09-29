@@ -8,7 +8,7 @@ from theme import tokens, soft, PAD, PADS, MAR, BALL, BEDGE
 from logo import v_logo
 from vexa_core.database.db import DatabaseManager
 from vexa_core.utils.helpers import (set_moneda, PROVINCIAS_AR, formatear_cuit, CONDICIONES_IVA,
-                                      MONEDAS, TELEFONO_EJEMPLO, partir_direccion, unir_direccion)
+                                      fmt_num_input, parse_float, MONEDAS, TELEFONO_EJEMPLO, partir_direccion, unir_direccion)
 from vexa_core.version import VERSION
 from views.inicio import InicioView
 from views.clientes import ClientesView
@@ -112,19 +112,20 @@ class VexaApp:
         hijo = ft.Container(
             left=0, top=0, content=txt_plano,
             animate_position=ft.Animation(1900, ft.AnimationCurve.EASE_IN_OUT))
-        st = {"anim": False, "w": None}
-
-        def on_size(e):   # ancho renderizado de la columna (LayoutSizeChangeEvent.width)
-            st["w"] = getattr(e, "width", None)
-
+        st = {"anim": False}
+        # SIN on_size_change: cada fila mandaba un evento de tamaño por el puente
+        # Flutter→Python al montarse (decenas por lista) y eso trababa el cambio de
+        # pestaña en el celular. El ancho visible se estima recién al revelar.
         stack = ft.Stack([hijo], clip_behavior=ft.ClipBehavior.HARD_EDGE,
-                         height=size * 1.35 + 2, expand=True, on_size_change=on_size)
+                         height=size * 1.35 + 2, expand=True)
 
         async def _reveal():
             import asyncio
             if st["anim"]:
                 return
-            vis = st["w"] or 150
+            # Ancho de la columna ≈ pantalla − márgenes/chip/precio. Se estima a la baja
+            # (desliza de más, nunca de menos) → siempre se ve el último carácter.
+            vis = max(90, (getattr(self.page, "width", None) or 360) - 210)
             overflow = tw - vis
             if overflow <= 1:   # entra completo → no hace falta deslizar
                 return
@@ -203,16 +204,18 @@ class VexaApp:
         # de izq→der (delta>0) el contenido entra desde la derecha y se mueve a la izq;
         # de der→izq entra desde la izquierda. SIN animate_offset al montar (si no, Flutter
         # anima 0→dx en el montaje = dirección al revés no determinística); se activa en el task.
-        dx = 0.6 if delta > 0 else -0.6 if delta < 0 else 0.0
+        # Desplazamiento corto y contenido ya semi-visible: en el celular el frame de
+        # arranque llega tarde y con opacity 0 / offset 0.6 la pestaña parecía "tardar".
+        dx = 0.12 if delta > 0 else -0.12 if delta < 0 else 0.0
         contenido = self.subpage.build() if self.subpage is not None else self.views[self.tab].build()
         # animate_offset EN EL BUILD (si se setea post-montaje Flet no envuelve el widget →
         # el offset salta). `key` único por render = widget nuevo (evita reuse/jitter 0→dx).
         self._rk = getattr(self, "_rk", 0) + 1
         self._screen = ft.Container(
             key=f"scr{self._rk}", expand=True, padding=PAD(16, 12, 16, 8), content=contenido,
-            offset=ft.Offset(dx, 0), opacity=0.0,
-            animate_offset=ft.Animation(250, ft.AnimationCurve.EASE_OUT),
-            animate_opacity=ft.Animation(180))
+            offset=ft.Offset(dx, 0), opacity=0.35,
+            animate_offset=ft.Animation(170, ft.AnimationCurve.EASE_OUT),
+            animate_opacity=ft.Animation(140))
         gestos = ft.GestureDetector(content=self._screen, on_horizontal_drag_end=self._on_swipe,
                                     expand=True)
         self._build_nav()
@@ -237,7 +240,7 @@ class VexaApp:
 
     async def _animar_entrada(self, screen, pill):
         import asyncio
-        await asyncio.sleep(0.05)   # que se pinte el frame inicial (offset de partida)
+        await asyncio.sleep(0.02)   # que se pinte el frame inicial (offset de partida)
         # animate_offset ya viene del build → cambiar el offset acá dispara la animación.
         screen.offset = ft.Offset(0, 0)
         screen.opacity = 1.0
@@ -731,8 +734,14 @@ class VexaApp:
                 ctrls[key] = ("dropdown", dd, pairs)
             else:
                 on_ch = (lambda e, k=key: _fmt_text_cuit(k)) if c.get("format") == "cuit" else mark_dirty
+                if val is None:
+                    txt_val = ""
+                elif tipo == "number":
+                    txt_val = fmt_num_input(val)   # '14000', no '14000.0' (ver collect)
+                else:
+                    txt_val = str(val)
                 tf = ft.TextField(
-                    value=("" if val is None else str(val)), border_radius=12,
+                    value=txt_val, border_radius=12,
                     keyboard_type=ft.KeyboardType.NUMBER if tipo == "number" else ft.KeyboardType.TEXT,
                     multiline=(tipo == "multiline"), min_lines=2 if tipo == "multiline" else 1,
                     max_lines=4 if tipo == "multiline" else 1, on_change=on_ch,
@@ -860,10 +869,10 @@ class VexaApp:
                 else:
                     v = meta[1].value
                     if tipo == "number":
-                        try:
-                            v = float(str(v).replace(".", "").replace(",", ".")) if v not in (None, "") else 0
-                        except ValueError:
-                            v = 0
+                        # Antes se borraban TODOS los puntos: '14000.0' → 140000 (y cada
+                        # edición sumaba otro cero). parse_float entiende coma decimal y
+                        # punto de miles ('14.500') sin romper el punto decimal.
+                        v = parse_float(v)
                     data[key] = v
             return data
 

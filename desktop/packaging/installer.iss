@@ -1,6 +1,6 @@
 [Setup]
 AppName=Vexa
-AppVersion=2.9.8
+AppVersion=2.9.9
 AppPublisher=Vexa
 DefaultDirName={autopf}\Facturacion
 DefaultGroupName=Vexa

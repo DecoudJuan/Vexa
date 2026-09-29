@@ -318,20 +318,37 @@ def fmt_cantidad_corta(n) -> str:
 
 def parse_float(text, default: float = 0.0) -> float:
     """Convierte texto a float aceptando la coma decimal es-AR: '1234,56',
-    '1.234,56' y '1234.56' se leen todos correctamente. Devuelve `default`
-    (0.0) si el texto está vacío o no es un número."""
+    '1.234,56' y '1234.56' se leen todos correctamente. Sin coma, el punto es
+    separador de miles si hay varios ('1.234.567') o si le siguen exactamente 3
+    dígitos ('14.500' → 14500); si no, es punto decimal ('14000.0' → 14000).
+    Devuelve `default` (0.0) si el texto está vacío o no es un número."""
     if text is None:
         return default
-    s = str(text).strip()
+    s = str(text).strip().replace(" ", "").replace("$", "")
     if not s:
         return default
     if "," in s:
         # Coma decimal: los puntos son separadores de miles.
         s = s.replace(".", "").replace(",", ".")
+    elif s.count(".") > 1 or re.fullmatch(r"-?\d{1,3}\.\d{3}", s):
+        s = s.replace(".", "")
     try:
         return float(s)
     except ValueError:
         return default
+
+
+def fmt_num_input(value) -> str:
+    """Número para precargar un campo editable, en es-AR y sin separador de miles:
+    14000.0 → '14000', 14000.5 → '14000,5', 1.125 → '1,125'. Nunca usa punto, así
+    `parse_float` lo relee igual (evita que '14000.0' se lea como 140000)."""
+    try:
+        v = float(value or 0)
+    except (TypeError, ValueError):
+        return ""
+    if v == int(v):
+        return str(int(v))
+    return f"{v:.6f}".rstrip("0").rstrip(".").replace(".", ",")
 
 
 def fmt_fecha(iso_date: str | None) -> str:
