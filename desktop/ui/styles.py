@@ -90,7 +90,7 @@ QFrame#sidebar_sep {{
 }}
 
 QLabel#version_label {{
-    color: {muted2};
+    color: {faint_tx};
     font-size: 11px;
     background: transparent;
 }}
@@ -449,13 +449,12 @@ QLabel[role="step-title"] {{
     border-bottom: 1px solid {line};
 }}
 
-QListWidget#queue_list {{
+QScrollArea#queue_list {{
     background-color: {surface};
     border: 1px solid {line};
     border-radius: 10px;
-    outline: none;
-    padding: 4px;
 }}
+QWidget#queue_holder {{ background: transparent; }}
 
 /* La lista de productos es una QTableWidget (como Clientes/Productos/Facturas)
    para compartir el mismo color de selección y la barra deslizante. */
@@ -467,15 +466,16 @@ QTableWidget#prod_table {{
     outline: none;
     selection-background-color: transparent;
 }}
+/* Padding chico: el alto de fila (ResizeToContents / mínimo 39px) se calcula
+   sin el padding del QSS; con 4px arriba/abajo un nombre que Qt parte en 2
+   líneas no entraba y salía con "…". Con 2px las 2 líneas entran siempre. */
 QTableWidget#prod_table::item {{
-    padding: 4px 8px;
+    padding: 2px 4px;
     border: none;
-    color: {text};
     border-bottom: 1px solid {base};
 }}
 QTableWidget#prod_table::item:selected {{
-    background-color: transparent;
-    color: {text};
+    background-color: {row_sel_bar};
 }}
 
 /* Botón sólo-ícono (ej. la X para quitar), sin borde ni caja. */
@@ -526,7 +526,9 @@ QFrame#queue_item {{
     border-radius: 9px;
 }}
 QFrame#queue_item QLabel {{ background: transparent; }}
-QLabel#etq_chip {{
+/* Con el prefijo #queue_item: si no, "QFrame#queue_item QLabel" (más
+   específica) le ponía fondo transparente y en oscuro el código no se leía. */
+QFrame#queue_item QLabel#etq_chip, QLabel#etq_chip {{
     background-color: {accent};
     color: {accent_text};
     border-radius: 6px;
@@ -599,13 +601,16 @@ QTableWidget {{
     border-radius: 10px;
     gridline-color: transparent;
     outline: none;
-    selection-background-color: transparent;
+    color: {text};
+    selection-background-color: {row_sel_bar};
+    selection-color: {text};
 }}
 
+/* Sin `color` en ::item: si no, pisa el color propio de cada celda
+   (ForegroundRole, ej. el código en acento). El default viene de QTableWidget. */
 QTableWidget::item {{
     padding: 0px 12px;
     border: none;
-    color: {text};
 }}
 
 QTableWidget::item:alternate {{
@@ -616,14 +621,10 @@ QTableWidget::item:alternate {{
    además está seleccionada, gana la regla declarada más abajo. Si :selected
    fuera la primera, la selección quedaba invisible en las filas alternadas
    (parecía que el click "no hacía nada" en esas filas). */
-/* Selección: el fondo celeste lo dibuja AnimatedTable DETRÁS del texto (mismo
-   tono suave al deslizar y en reposo, sin tapar el texto). Por eso acá el fondo
-   del item seleccionado es TRANSPARENTE: si lo pintáramos, taparía ese celeste
-   de atrás. Sólo se conserva el color del texto. */
+/* Selección: celeste suave pintado por Qt (estilo Fusion + este QSS). */
 QTableWidget::item:selected,
 QTableWidget::item:alternate:selected {{
-    background-color: transparent;
-    color: {text};
+    background-color: {row_sel_bar};
 }}
 
 QHeaderView {{
@@ -704,7 +705,7 @@ QPushButton:pressed {{
 
 QPushButton:disabled {{
     background-color: {disabled_bg};
-    color: {muted2};
+    color: {faint_tx};
 }}
 
 QPushButton#btn_secondary {{
@@ -724,7 +725,7 @@ QPushButton#btn_secondary:pressed {{
 
 QPushButton#btn_secondary:disabled {{
     background-color: {base};
-    color: {muted2};
+    color: {faint_tx};
     border-color: {line};
 }}
 
@@ -744,7 +745,7 @@ QPushButton#btn_danger:pressed {{
 }}
 
 QPushButton#btn_danger:disabled {{
-    color: {muted2};
+    color: {faint_tx};
     border-color: {line};
     background-color: transparent;
 }}
@@ -768,11 +769,11 @@ QLineEdit:focus {{
 
 QLineEdit:disabled {{
     background-color: {base};
-    color: {muted2};
+    color: {faint_tx};
 }}
 
 QLineEdit::placeholder {{
-    color: {muted2};
+    color: {faint_tx};
 }}
 
 /* =====================================================================
@@ -839,9 +840,13 @@ QComboBox:focus {{
     border-color: {accent};
 }}
 
+/* Flechita DENTRO del padding y sin fondo propio: con fondo opaco tapaba el
+   borde derecho del combo (se veía "cortado", sobre todo con foco). */
 QComboBox::drop-down {{
+    subcontrol-origin: padding;
+    subcontrol-position: center right;
     border: none;
-    background-color: {surface};
+    background: transparent;
     width: 28px;
 }}
 
@@ -1031,14 +1036,14 @@ QMessageBox QPushButton {{
    ===================================================================== */
 QStatusBar {{
     background-color: {crust};
-    color: {muted2};
+    color: {faint_tx};
     border-top: 1px solid {line};
     font-size: 11px;
 }}
 
 QStatusBar QLabel {{
     background: transparent;
-    color: {muted2};
+    color: {faint_tx};
     padding: 0 8px;
 }}
 
@@ -1073,7 +1078,8 @@ _PALETTES = {
         "crust": "#1e2029",
         "surface": "#20222e",
         "line": "#2b2f3d",
-        "muted2": "#3b4052",
+        "muted2": "#3b4052",      # bordes/fondos; NO para texto (no se lee)
+        "faint_tx": "#848ba0",    # texto tenue legible: deshabilitado, placeholder, versión
         "muted1": "#6b7191",
         "subtext": "#9aa2b1",
         "text": "#e5e8ee",
@@ -1097,7 +1103,8 @@ _PALETTES = {
         "crust": "#ffffff",
         "surface": "#ffffff",
         "line": "#e5e8ee",
-        "muted2": "#c3c9d3",
+        "muted2": "#c3c9d3",      # bordes/fondos; NO para texto (no se lee)
+        "faint_tx": "#8b93a1",    # texto tenue legible: deshabilitado, placeholder, versión
         "muted1": "#8a92a2",
         "subtext": "#6b7280",
         "text": "#1f2430",
@@ -1189,12 +1196,14 @@ def build_qpalette(theme: str = "dark"):
     pal.setColor(QPalette.ButtonText, c(p["text"]))
     pal.setColor(QPalette.ToolTipBase, c(p["line"]))
     pal.setColor(QPalette.ToolTipText, c(p["text"]))
-    pal.setColor(QPalette.PlaceholderText, c(p["muted2"]))
+    pal.setColor(QPalette.PlaceholderText, c(p["faint_tx"]))
     pal.setColor(QPalette.BrightText, c(p["danger"]))
     # Selección tenue (no el accent pleno): el azul saturado en filas/listas
     # resultaba agresivo al clickear clientes/productos.
     pal.setColor(QPalette.Highlight, c(p["select_bg"]))
     pal.setColor(QPalette.HighlightedText, c(p["select_tx"]))
+    if hasattr(QPalette, "Accent"):   # Qt ≥ 6.6: si no, toma el acento de Windows
+        pal.setColor(QPalette.Accent, c(p["accent"]))
     for role in (QPalette.Text, QPalette.WindowText, QPalette.ButtonText):
-        pal.setColor(QPalette.Disabled, role, c(p["muted2"]))
+        pal.setColor(QPalette.Disabled, role, c(p["faint_tx"]))
     return pal

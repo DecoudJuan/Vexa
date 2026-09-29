@@ -31,6 +31,10 @@ def main() -> None:
             pass
 
     app = QApplication(sys.argv)
+    # Fusion: el estilo multiplataforma de Qt, el recomendado para apps con QSS.
+    # El nativo "windows11" pinta la selección y el foco con el acento del SISTEMA
+    # (violeta en algunas PCs: barritas en las filas) y recorta bordes con QSS.
+    app.setStyle("Fusion")
     app.setApplicationName(APP_NAME)
     app.setOrganizationName("Facturacion")
     app.setApplicationVersion(VERSION)
