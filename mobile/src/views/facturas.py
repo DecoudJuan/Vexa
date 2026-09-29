@@ -17,7 +17,7 @@ import flet as ft
 
 from theme import PAD, PADS, MAR, BALL, BEDGE, soft
 from widgets import titulo, search, row_card, empty, add_button, clabel
-from vexa_core.utils.helpers import fmt_ar, fmt_cantidad_corta, parse_float, etiqueta_concepto
+from vexa_core.utils.helpers import fmt_ar, fmt_cantidad_corta, fmt_num_input, parse_float, etiqueta_concepto
 import plataforma
 # NOTA: `pdf_generator` (reportlab) NO se importa acá arriba a propósito: arrastra
 # reportlab al cold start aunque el usuario nunca genere un PDF. Se importa perezoso
@@ -111,13 +111,13 @@ class FacturasView:
                                 self._prod_label(r), 13, None, t["ink"] if tiene else t["faint"])),
                             ft.Icon(ft.Icons.ARROW_DROP_DOWN, size=18, color=t["faint"])],
                            vertical_alignment=ft.CrossAxisAlignment.CENTER))
-        cant_tf = ft.TextField(value=f'{r["cant"]:g}', keyboard_type=ft.KeyboardType.NUMBER,
+        cant_tf = ft.TextField(value=fmt_num_input(r["cant"]), keyboard_type=ft.KeyboardType.NUMBER,
                                border_color=t["line2"], filled=True, border_radius=10,
                                bgcolor=t["surface2"], color=t["ink"], text_size=13,
                                content_padding=PADS(8, 8), width=54, text_align=ft.TextAlign.CENTER,
                                on_change=lambda e: self._recalc_total())
         neg = (r["pvp"] or 0) < 0   # precio negativo = línea "a favor" (crédito)
-        pvp_tf = ft.TextField(value=f'{r["pvp"]:.2f}', keyboard_type=ft.KeyboardType.NUMBER,
+        pvp_tf = ft.TextField(value=fmt_num_input(r["pvp"]), keyboard_type=ft.KeyboardType.NUMBER,
                               border_color=t["line2"], filled=True, border_radius=10,
                               bgcolor=t["surface2"], color=t["danger"] if neg else t["ink"],
                               text_size=13, content_padding=PADS(8, 8), width=84,
