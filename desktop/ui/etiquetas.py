@@ -218,8 +218,11 @@ class EtiquetasWidget(QWidget):
         self._sum_total.setProperty("role", "sum-strong")
         self._sum_pages = QLabel("0")
         self._sum_pages.setProperty("role", "sum-strong")
+        self._sum_last = QLabel("0")
+        self._sum_last.setProperty("role", "sum-strong")
         for r, (txt, val) in enumerate([("Total de etiquetas", self._sum_total),
-                                        ("Hojas A4", self._sum_pages)]):
+                                        ("Hojas A4 (14 por hoja)", self._sum_pages),
+                                        ("En la última hoja", self._sum_last)]):
             sg.addWidget(QLabel(txt), r, 0)
             val.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
             sg.addWidget(val, r, 1)
@@ -485,6 +488,7 @@ class EtiquetasWidget(QWidget):
 
         self._sum_total.setText(str(r["total"]))
         self._sum_pages.setText(str(r["paginas"]))
+        self._sum_last.setText(str(r["ultima"]))
         if not vacio and r["faltan"] > 0:
             self._warn_lbl.setText(
                 f"Podés agregar {r['faltan']} etiqueta(s) más para completar la última hoja, "
