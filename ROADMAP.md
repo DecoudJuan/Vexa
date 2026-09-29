@@ -247,6 +247,12 @@ Qt-free y reutilizable. Repo pasa a monorepo y se renombra a **`Vexa`**.
         Perf: el marquee ya no manda un evento de tamaño por fila al montarse (trababa el puente
         Flutter↔Python al entrar a cada lista) y la transición de tab es más corta y arranca
         semi-visible. Suite a **142 tests** (regresión del precio vía form real).
+  - [x] **6.2k — Escritorio acoplado a mobile + pulido visual**: paridad de reglas de factura/clientes/
+        etiquetas (core `utils/facturas.py`); sin forma de pago ni columna saldo; números es-AR
+        (`parse_float`/`fmt_num_input`). Visual: estilo **Fusion** + selección por QSS (reemplaza el
+        delegate/banda animada casera que dejaba filas pintadas), combo sin borde cortado, cola de
+        etiquetas en `QScrollArea` con nombres en 2+ líneas, contraste en oscuro (`faint_tx`).
+        Suite a **148 tests**.
   - [ ] **Menores**: líneas de texto libre "sueltas" en factura (ya cubierto por "Otro"),
         Guardado (logo/pie de PDF), share nativo del PDF a afinar en device real (hoy cae a guardar).
         Detalle en `mobile-roadmap.local.md`.
