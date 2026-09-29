@@ -15,6 +15,7 @@ from vexa_core.utils.helpers import (
     fmt_ar, parse_float, leer_zoom, leer_tema, etiqueta_concepto, abrir_archivo,
 )
 from vexa_core.utils.pdf_generator import generar_pdf_documento
+from vexa_core.utils.facturas import calcular_totales, lineas_con_precio_cero
 
 # La app es SÓLO para facturar: no hay presupuestos, pedidos, albaranes ni
 # abonos. Queda un único tipo de documento (la factura).
@@ -96,9 +97,16 @@ class DocumentListWidget(ListPage):
         self._table.setItem(row, 2, self._cell(d.get("cliente_nombre") or ""))
         self._table.setItem(row, 3, self._cell(fmt_ar(d.get("total") or 0), Qt.AlignRight | Qt.AlignVCenter))
 
+    def _pre_render(self, items) -> None:
+        # "Total emitido" de lo listado (mismo dato que el KPI de mobile).
+        self._total_emitido = sum(float(d.get("total") or 0) for d in items)
+
     def _count_text(self, total: int) -> str:
         pl = "s" if total != 1 else ""
-        return f"{total} factura{pl}"
+        if not total:
+            return "0 facturas"
+        emitido = getattr(self, "_total_emitido", 0.0)
+        return f"{total} factura{pl} · Total emitido {fmt_ar(emitido)}"
 
     def _on_nuevo(self) -> None:
         dlg = DocumentoDialog(self.db, self.tipo, parent=self)
@@ -606,11 +614,21 @@ class DocumentoDialog(BaseModal):
             })
         return out
 
+    def _nombre_concepto(self, concepto_id) -> str:
+        """Etiqueta del producto de una variante (para los avisos)."""
+        pi, _talle = self._variante_por_id.get(concepto_id, (None, None))
+        if pi is None:
+            return "Una línea"
+        p = self._productos[pi]
+        return etiqueta_concepto(p["nombre"], p.get("codigo"))
+
     def _recalcular(self, *_args) -> None:
-        subtotal = 0.0
+        valores = []
         for e in self._lineas:
-            importe = parse_float(e["cant"].text()) * parse_float(e["pvp"].text())
-            subtotal += importe
+            cant = parse_float(e["cant"].text())
+            pvp = parse_float(e["pvp"].text())
+            valores.append({"cantidad": cant, "pvp": pvp})
+            importe = cant * pvp
             e["importe"].setText(fmt_ar(importe))
             # Línea "a favor": precio/importe negativo → badge + importe en rojo.
             neg = importe < 0
@@ -618,14 +636,12 @@ class DocumentoDialog(BaseModal):
             e["importe"].setStyleSheet("color: #e5484d; font-weight: 700;" if neg else "")
 
         pct = parse_float(self._bonif_input.text())
-        aplica = pct > 0
-        bonificacion = subtotal * (pct / 100.0) if aplica else 0.0
-        total = subtotal - bonificacion
+        tot = calcular_totales(valores, pct)   # misma regla que mobile (vexa_core)
 
-        self._lbl_subtotal.setText(fmt_ar(subtotal))
-        self._lbl_bonif_val.setText(f"−{fmt_ar(bonificacion)}" if aplica else "—")
-        self._lbl_total.setText(fmt_ar(total))
-        self._ultimo_total = total
+        self._lbl_subtotal.setText(fmt_ar(tot["subtotal"]))
+        self._lbl_bonif_val.setText(f"−{fmt_ar(tot['bonificacion'])}" if pct > 0 else "—")
+        self._lbl_total.setText(fmt_ar(tot["total"]))
+        self._ultimo_total = tot["total"]
 
     # ------------------------------------------------------------- carga
 
@@ -640,9 +656,11 @@ class DocumentoDialog(BaseModal):
         cliente = self.db.get_cliente(cliente_id)
         if not cliente:
             return
+        # La bonificación de la factura toma SIEMPRE la del cliente (también 0):
+        # si no, al pasar de un cliente con 10 % a uno sin bonificación quedaba
+        # el 10 % del anterior (en mobile ya era así).
         bonificacion_cliente = float(cliente.get("bonificacion") or 0)
-        if bonificacion_cliente:
-            self._bonif_input.setText(f"{bonificacion_cliente:g}")
+        self._bonif_input.setText(f"{bonificacion_cliente:g}")
         fp_id = cliente.get("forma_pago_id")
         if fp_id:
             idx = self._forma_pago.findData(fp_id)
@@ -706,19 +724,28 @@ class DocumentoDialog(BaseModal):
             self._snap_a_item(e["prod"])
 
         cliente_id = self._cliente.currentData()
-        if cliente_id is None:
-            # No coincide con ningún cliente: se crea al vuelo con lo escrito,
-            # así se puede facturar a un cliente nuevo sin cargarlo aparte antes.
-            txt = self._cliente.currentText().strip()
-            if txt:
-                cliente_id = self.db.create_cliente({"nombre": txt})
-        if cliente_id is None:
+        cliente_nuevo = self._cliente.currentText().strip() if cliente_id is None else ""
+        if cliente_id is None and not cliente_nuevo:
             self._warn("Campo requerido", "Escribí o elegí un cliente.")
             return
         lineas = self._leer_lineas()
         if not lineas:
             self._warn("Documento vacío", "Agregá al menos una línea.")
             return
+        # Precio 0 = precio sin cargar → no se guarda (el negativo sí: "a favor").
+        ceros = lineas_con_precio_cero(lineas)
+        if ceros:
+            ln = lineas[ceros[0]]
+            nombre = ln["concepto_libre"] or self._nombre_concepto(ln["concepto_id"])
+            self._warn("Falta el precio",
+                       f"«{nombre}» tiene precio en 0. Cargale el precio (o un valor "
+                       "negativo si es un monto a favor) antes de guardar.")
+            return
+        if cliente_id is None:
+            # No coincide con ningún cliente: se crea al vuelo con lo escrito
+            # (recién ahora, validada la factura, para no dejar clientes sueltos),
+            # así se puede facturar a un cliente nuevo sin cargarlo aparte antes.
+            cliente_id = self.db.create_cliente({"nombre": cliente_nuevo})
 
         try:
             ejercicio = int(self._ejercicio.text())

@@ -1,9 +1,7 @@
-import sqlite3
-
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QTableWidget, QTableWidgetItem,
     QLineEdit, QPushButton, QLabel, QDialog, QTextEdit,
-    QMessageBox, QHeaderView, QAbstractItemView,
+    QHeaderView, QAbstractItemView,
     QSizePolicy,
 )
 from PySide6.QtCore import Qt, QSize
@@ -16,7 +14,7 @@ from ui.modal import BaseModal, modal_colors
 from ui.widgets import avatar, NoScrollComboBox, provincia_combo
 from vexa_core.utils.helpers import (
     leer_zoom, leer_tema, valor_valido, fmt_ar, parse_float,
-    CONDICIONES_IVA, TELEFONO_EJEMPLO,
+    CONDICIONES_IVA, TELEFONO_EJEMPLO, formatear_cuit,
 )
 
 _SEARCH_MAXW, _ROW_H = 400, 44
@@ -43,6 +41,8 @@ class CuitListEditor(QWidget):
         self._input.setObjectName("field")
         self._input.setPlaceholderText("Agregá un CUIT/CUIL y Enter…")
         self._input.returnPressed.connect(self._on_add)
+        # Formateo en vivo a XX-XXXXXXXX-X (igual que mobile y el CUIT de la empresa).
+        self._input.textEdited.connect(self._on_edit)
         btn_add = QPushButton()
         btn_add.setObjectName("btn_secondary")
         btn_add.setIcon(svg_icon("plus", 14, self._c["focus"]))
@@ -69,9 +69,19 @@ class CuitListEditor(QWidget):
         layout.addWidget(self._table)
         self._update_height()
 
+    def _on_edit(self, _text: str = "") -> None:
+        nuevo = formatear_cuit(self._input.text())
+        if nuevo != self._input.text():
+            self._input.setText(nuevo)
+            self._input.setCursorPosition(len(nuevo))
+
     def _on_add(self) -> None:
-        text = self._input.text().strip()
+        text = formatear_cuit(self._input.text())
         if not text:
+            self._input.clear()
+            return
+        if text in self.get_cuits():   # no duplicar el mismo CUIT
+            self._input.clear()
             return
         self._add_row(text)
         self._input.clear()
@@ -138,7 +148,7 @@ class CuitListEditor(QWidget):
 class ClientesWidget(ListPage):
     TITULO = "Clientes"
     SUBTITULO = "Alta, edición y datos fiscales de clientes"
-    SEARCH_PLACEHOLDER = "Buscar por nombre, NIF o email..."
+    SEARCH_PLACEHOLDER = "Buscar por nombre, CUIT o email..."
     SEARCH_MAXW = _SEARCH_MAXW
     COLUMNS = ["Cliente", "CUIT", "Localidad", "Teléfono", "Bonif.", "Saldo"]
     ROW_H = _ROW_H
@@ -250,18 +260,18 @@ class ClientesWidget(ListPage):
         c = self._selected()
         if not c:
             return
-        if self._confirmar(
-            f"¿Eliminar al cliente <b>{c['nombre']}</b>?<br><br>Esta acción no se puede deshacer."
-        ):
-            try:
-                self.db.delete_cliente(c["id"])
-                self.refresh()
-            except sqlite3.IntegrityError:
-                QMessageBox.critical(
-                    self, "No se puede eliminar",
-                    f"El cliente <b>{c['nombre']}</b> tiene documentos asociados.<br>"
-                    "Eliminá o reasigná esos documentos primero.",
-                )
+        # Con facturas, el core hace soft-delete: el cliente sale de la cartera
+        # pero sus facturas conservan el nombre (igual que en mobile).
+        n_fact = len(self.db.get_facturas(cliente_id=c["id"]))
+        if n_fact:
+            pl = "s" if n_fact != 1 else ""
+            detalle = (f"Tiene {n_fact} factura{pl}: se quita de la cartera, pero "
+                       f"la{pl} factura{pl} conserva{'n' if n_fact != 1 else ''} su nombre.")
+        else:
+            detalle = "Esta acción no se puede deshacer."
+        if self._confirmar(f"¿Eliminar al cliente <b>{c['nombre']}</b>?<br><br>{detalle}"):
+            self.db.delete_cliente(c["id"])
+            self.refresh()
 
 
 class ClienteDialog(BaseModal):

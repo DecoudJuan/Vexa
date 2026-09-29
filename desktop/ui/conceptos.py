@@ -239,7 +239,9 @@ class ProductoDialog(BaseModal):
                        "El precio debe ser mayor que 0. Un producto no puede quedar sin precio.")
             self._pvp.setFocus()
             return
-        talles = [t.strip() for t in self._talles.text().split(",") if t.strip()]
+        # Separados por coma o punto y coma (como en mobile).
+        talles = [t.strip() for t in self._talles.text().replace(";", ",").split(",")
+                  if t.strip()]
         self._data = {"nombre": nombre, "codigo": self._codigo.text().strip(),
                       "talles": talles, "pvp": pvp}
         self.accept()

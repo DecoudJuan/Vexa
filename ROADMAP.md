@@ -130,6 +130,12 @@ sin guardar + barra de selección deslizante (v2.6.0).
       factura) con cambios, confirma antes de descartar (Escape/Cancelar/X).
 - [x] **Selección de fila deslizante**: la barra de selección se desliza de una
       fila a otra en los listados (`ui/anim.RowHighlight`).
+- [x] **Paridad con mobile** (rama `feat/desktop-paridad-mobile`): reglas de factura en el core
+      (`vexa_core/utils/facturas.py`: totales, "a favor", **bloqueo de precio 0**); bonificación
+      siempre del cliente; cliente nuevo creado solo al guardar una factura válida; CUIT de
+      clientes con formateo en vivo (sin duplicados); aviso de soft-delete al borrar un cliente
+      con facturas; talles con `,` o `;`; "En la última hoja" en etiquetas; total emitido en el
+      listado de facturas. Suite a **148 tests**.
 - [ ] Corrección de bugs reportados en el uso real.
 - [ ] Más mejoras de UI/UX (accesibilidad, flujos).
 - Ya adelantado en v2.4.0 (entra con Fase 4): teléfono libre con código de país/área
