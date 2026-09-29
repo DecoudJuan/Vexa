@@ -146,19 +146,8 @@ class HomeWidget(QWidget):
         left.addWidget(greet)
         row.addLayout(left)
         row.addStretch()
-
-        # Sólo "Nueva factura": Etiquetas ya está en el sidebar, en los accesos
-        # rápidos y en la tarjeta promo, así que acá sería un botón duplicado.
-        btn_fa = self._cta("  Nueva factura", "plus", pal, z, lambda: self.navigate.emit("documentos"))
-        row.addWidget(btn_fa, alignment=Qt.AlignBottom)
+        # Sin botón "Nueva factura" acá: ya está en los accesos rápidos.
         return row
-
-    def _cta(self, text, icon, pal, z, slot) -> QPushButton:
-        b = QPushButton(text)
-        b.setIcon(svg_icon(icon, round(16 * z), pal["accent_text"]))
-        b.setCursor(Qt.PointingHandCursor)
-        b.clicked.connect(slot)
-        return b
 
     def _kpis(self, pal, z, m) -> QHBoxLayout:
         row = QHBoxLayout()
