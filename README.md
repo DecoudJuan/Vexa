@@ -1,3 +1,4 @@
+<!-- repo-check: sin-deploy -->
 # Vexa
 
 **Desktop invoicing for a real Argentine business — Python + PySide6 over SQLite, replacing a legacy Microsoft Access system in production.**
@@ -388,6 +389,23 @@ es gratis y se hace una sola vez.
 El plan de evolución hacia un facturador vendible (white-label, import flexible,
 talles, facturación electrónica AFIP) vive en [`ROADMAP.md`](ROADMAP.md), con el
 estado de cada ítem (hecho / pendiente).
+
+## Deploy
+
+Vexa no tiene un sitio ni un servicio desplegado: es una **aplicación de escritorio** (Windows) más una **app
+mobile** (Android) que trabajan offline sobre una base SQLite local, sin servidor propio. Lo que se publica son los
+instaladores, en [GitHub Releases](https://github.com/DecoudJuan/Vexa/releases/latest): el `.zip` de escritorio
+(`desktop/packaging`, PyInstaller + Inno Setup) y los APK firmados de mobile (`arm64-v8a`, `armeabi-v7a`, `x86_64`).
+Los pasos para generarlos están en [Build del ejecutable](#build-del-ejecutable-windows) y en
+[Buildear el APK vos mismo](#buildear-el-apk-vos-mismo). La CI (`.github/workflows/ci.yml`) corre los tests de
+`mobile/` en cada push y pull request; no compila los instaladores.
+
+## Documentos
+
+- [docs/arquitectura.md](docs/arquitectura.md) — capas, `vexa_core` compartido, datos y flujo de las apps
+- [ROADMAP.md](ROADMAP.md) — plan de evolución y estado de cada ítem
+- [CLAUDE.md](CLAUDE.md) — guía para trabajar el repo: comandos, convenciones y trampas conocidas
+- [LICENSE](LICENSE) — licencia propietaria
 
 ---
 
